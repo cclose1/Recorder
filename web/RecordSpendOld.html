@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/frameworkold.css" rel="stylesheet" type="text/css">
+        <link href="css/recordspendold.css" rel="stylesheet" type="text/css">
+        <script src="js/formutils.js"></script>
+        <script src="js/alert.js"></script>
+        <script src="js/loginold.js"></script>
+        <script src="js/recordspend.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Record Spend</title>
+    </head>
+    <body onload="configureAlert(false, true);initialize(true); setUser();">              
+        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
+             <div>
+                <h1 id="alertTitle">Display Message</h1>
+            </div>
+            <div>
+                <label id="alertMessage"></label>
+            </div>
+            <div id="alertDismiss">
+                <button onclick="dismissAlert()">Cancel</button>
+            </div>
+        </div>
+        <div class="newline">
+            <div class="colall">
+                <fieldset id="loginfields" hidden>
+                    <legend>Login Details</legend>
+                    <div hidden>
+                        <input id="secserver">
+                    </div>
+                    <div>
+                        <label for="user">User</label>
+                        <input type="text" name="User" size ="10" id="user" tabindex="1">
+                        <label for="saveuser" class="notfirst">Save</label>
+                        <input id="saveuser" name="saveuser" value="saveuser" type="checkbox" onclick="saveUser()">
+                    </div>
+                    <div>
+                        <label for="password">Password</label>
+                        <input type="password" name="Password" size ="20" id="password" tabindex="2" onkeypress="login(document.getElementById('secserver').value, event)">
+                    </div>
+                    <div>
+                        <label for="newpassword">New Password</label>
+                        <input type="password" name="NewPassword" size ="20" id="newpassword" tabindex="4">
+                    </div>
+                    <div>
+                        <label for="confirmpassword">Confirm Password</label>
+                        <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword" tabindex="5">
+                    </div>
+                    <div>
+                        <label for="requestlogin"></label>
+                        <input id="requestlogin" name="requestlogin" type="button" class='button' value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+        <div class="frame" id="appframe">
+            <div class="newline">
+                <div class="colall">
+                    <h1>Record Spend Details</h1>
+                </div>
+            </div>
+            <div class="newline">
+                <div id="fieldspanel" class="colall">
+                    <div id="innerfields">
+                        <div class="colleft">
+                            <fieldset id="detailfields">
+                                <legend>Expenditure Details</legend>
+                                <div>
+                                    <div>
+                                        <input type="text" name="seqno" id="seqno" hidden>
+                                    </div>
+                                    <div>
+                                        <label for="date">Date</label>
+                                        <input type="text" name="Date" id="date" maxlength="11" tabindex="-1">
+                                        <label for="time" class="notfirst">Time</label>
+                                        <input type="text" name="time" size="8" id="time" maxlength="8" tabindex="-1">
+                                    </div>
+                                    <div>
+                                        <label for="category">Category</label>
+                                        <select id="category" tabindex="-1" onchange="setTime(); updateFilteredLists();">
+                                            <option></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="type">Type</label>
+                                        <select id="type" tabindex="-1" onchange="setTime(); updateFilteredLists();">
+                                            <option></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="location">Location</label>
+                                        <input type="text" name="location" list="locationList" id="location" oninput="setTime();" tabindex="-1">
+                                        <datalist id="locationList">
+                                            <option></option>
+                                        </datalist>
+                                    </div>
+                                    <div>
+                                        <label for="description">Description</label>
+                                        <input type= "text" name="description" list="descriptionList" id="description" oninput="setTime();">
+                                        <datalist id="descriptionList">
+                                            <option></option>
+                                        </datalist>
+                                    </div>
+                                    <div>
+                                        <label for="amount">Amount</label>
+                                        <input type="text" name="Amount" size ="3" id="amount" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">
+                                        <label for="correction" class="notfirst">Correction</label>
+                                        <input title = "Value to add to amount to get bank debit" type="text" name="correction" size="3" id="correction" maxlength="8" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">
+                                    </div>
+                                    <div>
+                                        <label for="payment">Payment</label>
+                                        <select id="payment" tabindex="-1" onchange="setTime();">
+                                            <option></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="save"></label>
+                                        <input id="save" name="save" type="button" class='button' value="Create" onclick="send();">
+                                        <input id="clone" name="clone" type="button" hidden class='button' value="Clone" onclick="clonedata();">
+                                        <input id="remove" name="remove" type="button" hidden class='button' value="Delete" onclick="deleteData();">
+                                    </div>
+                                    <div id="logoff" hidden>
+                                        <label for="logoffbtn"></label>
+                                        <input id="logoffbtn" name="logoffbtn" type="button" class='button' value="Logoff" onclick="logOff(document.getElementById('secserver').value);">
+                                    </div>
+                                    <div id="mysqldiv" hidden>
+                                        <label for="mysql">Use MySQL</label>
+                                        <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestHistory();requestSummary();">
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div class="colright optional">
+                            <fieldset id="summaryfields" disabled>
+                                <legend>Summary</legend>
+                                <div>
+                                    <div>
+                                        <label for="DailyRate">Daily Rate</label>
+                                        <input type="text" id="DailyRate" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="Essential">Essential</label>
+                                        <input type="text" id="Essential" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="Discretionary">Discretionary</label>
+                                        <input type="text" id="Discretionary" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="MonthSpend">Month Spend</label>
+                                        <input type="text" id="MonthSpend" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="YearEstimate">Year Estimate</label>
+                                        <input type="text" id="YearEstimate" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="Target">Year Target</label>
+                                        <input type="text" id="Target" class="moneyvalue">
+                                    </div>
+                                    <div>
+                                        <label for="UnderSpend">Under Spend</label>
+                                        <input type="text" id="UnderSpend" class="moneyvalue">
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+            
+            <div class="newline">
+                <table id="history" hidden>
+                    <caption>Recent Spend</caption>
+                    <thead>
+                        <tr><th></th></tr>
+                    </thead>
+                    <tr><th></th></tr>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

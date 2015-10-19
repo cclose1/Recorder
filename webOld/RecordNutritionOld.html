@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/frameworkold.css" rel="stylesheet" type="text/css">
+        <link href="css/recordnutritionold.css" rel="stylesheet" type="text/css">
+        <script src="js/formutils.js"></script>
+        <script src="js/alert.js"></script>
+        <script src="js/loginold.js"></script>
+        <script src="js/recordnutrition.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Record Spend</title>
+    </head>
+    <body onload="configureAlert(false, true);initialize(true); setUser();">              
+        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
+             <div>
+                <h1 id="alertTitle">Display Message</h1>
+            </div>
+            <div>
+                <label id="alertMessage"></label>
+            </div>
+            <div id="alertDismiss">
+                <button onclick="dismissAlert()">Cancel</button>
+            </div>
+        </div>
+        <div class="newline">
+            <div class="colall">
+                <fieldset id="loginfields" hidden>
+                    <legend>Login Details</legend>
+                    <div>
+                        <div hidden>
+                            <input id="secserver">
+                        </div>
+                        <label for="user">User</label>
+                        <input type="text" name="User" size ="10" id="user" tabindex="1">
+                        <label for="saveuser" class="nogap">Save</label>
+                        <input id="saveuser" name="saveuser" value="saveuser" type="checkbox" onclick="saveUser()">
+                    </div>
+                    <div>
+                        <label for="password">Password</label>
+                        <input type="password" name="Password" size ="20" id="password" tabindex="2" onkeypress="login(document.getElementById('secserver').value, event)">
+                    </div>
+                    <div>
+                        <label for="newpassword">New Password</label>
+                        <input type="password" name="NewPassword" size ="20" id="newpassword" tabindex="4">
+                    </div>
+                    <div>
+                        <label for="confirmpassword">Confirm Password</label>
+                        <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword" tabindex="5">
+                    </div>
+                    <div>
+                        <label for="requestlogin"></label>
+                        <input id="requestlogin" name="requestlogin" type="button" class='cbutton' value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+        <div class="frame" id="appframe">
+            <div class="newline">
+                <div class="colall">
+                    <h1>Record Nutrition Details</h1>
+                </div>
+            </div>
+            <div class="newline">
+                <div id="fieldspanel" class="colall">
+                    <div id="innerfields">
+                        <div>
+                            <fieldset id="updateitem">
+                                <legend>Update Item</legend>
+                                <div>
+                                    <label for='iid'>Id</label>
+                                    <input id='iid' type='text' name='Id' readonly maxlength='6' tabindex='-1'>
+                                </div>
+                                <div>
+                                    <label for='iitem'>Item</label>
+                                    <input id='iitem' type='text' name='Item' size ='25' maxlength='50'>
+                                </div>
+                                <div>
+                                    <label for="isource">Source</label>
+                                    <input type="text" name="isource" list="iSourceList" id="isource">
+                                    <datalist id="iSourceList">
+                                        <option></option>
+                                    </datalist>
+                                    <label for="itype">Type</label>
+                                    <input type="text" name="itype" list="iTypeList" id="itype">
+                                    <datalist id="iTypeList">
+                                        <option></option>
+                                    </datalist> 
+                                </div>
+                                <div>
+                                    <label for='icalories'>Calories</label>
+                                    <input id='icalories' type='text' name='Calories' maxlength='6' onkeypress='allowedInNumberField();'>
+                                </div>
+                                <div>
+                                    <label for='iprotein'>Protein</label>
+                                    <input id='iprotein' type='text' name='Protein' maxlength='6' onkeypress='allowedInNumberField();'>
+                                </div>
+                                <div>
+                                    <label for='icholesterol'>Cholesterol</label>
+                                    <input id='icholesterol' type='text' name='Cholesterol' maxlength='6' onkeypress='allowedInNumberField();'>
+                                </div>
+                                <div>
+                                    <label for='ifat'>Fat</label>
+                                    <input id='ifat' type='text' name='Fat' maxlength='6' onkeypress='allowedInNumberField();'>
+                                    <label for='isaturated'>Saturated</label>
+                                    <input id='isaturated' type='text' name='Saturated' maxlength='6' onkeypress='allowedInNumberField();'>
+                                </div>
+                                <div>
+                                    <label for='icarbohydrate'>Carbohydrate</label>
+                                    <input id='icarbohydrate' type='text' name='Carbohydrate' maxlength='6' onkeypress='allowedInNumberField();'>
+                                    <label for='isugar'>Sugar</label>
+                                    <input id='isugar' type='text' name='Sugar' maxlength='6' onkeypress='allowedInNumberField();'>
+                                    <label for='ifibre'>Fibre</label>
+                                    <input id='ifibre' type='text' name='Fibre' maxlength='6' onkeypress='allowedInNumberField();'>
+                                </div>
+                                <div>
+                                    <label for='isalt'>Salt</label>
+                                    <input id='isalt' type='text' name='Salt' maxlength='6' onkeypress='allowedInNumberField();' onchange='setSalt(true);'>
+                                    <label class='gap10al'>gr</label>
+                                    <label class='gap70ar'>Sodium</label>
+                                    <input id='isodium' type='text' name='Sodium' maxlength='6' onkeypress='allowedInNumberField();' onchange='setSalt(false);'>
+                                    <label class='nogap'>mg</label>                                    
+                                </div>
+                                <div>
+                                    <label for="isimple">Simple</label>
+                                    <input id="isimple" name="Simple" value="Simple" type="checkbox" onclick="setSimple()">
+                                    <label id='iabvlab' for='iabv' class='gap110ar'>ABV</label>
+                                    <input id='iabv' type='text' name='iabv' maxlength='4'>
+                                    <label id='isizelab' for='isize'>Size</label>
+                                    <input id='isize' type='text' name='Size' maxlength='4'>
+                                    <label id='idefaultlab' for='idefault'>Default</label>
+                                    <input id='idefault' type='text' name='Default' maxlength='4'>
+                                </div>
+                                    <div>
+                                        <label for="icreate"></label>
+                                        <input id="icreate" name="CreateItem" type="button" class='cbutton' value="Create" onclick="applyItemUpdate();">
+                                        <input id="inew"    name="NewItem"    type="button" class='cbutton' value="New"    onclick="setCreateItem('start');">
+                                    </div>
+                            </fieldset>
+                        </div>
+                        <div class="colleft">
+                            <fieldset id="detailfields">
+                                <legend>Event Details</legend>
+                                <div>
+                                    <div>
+                                        <input type="text" name="seqno" id="seqno" hidden>
+                                    </div>
+                                    <div>
+                                        <label for  = "date">Date</label>
+                                        <input type = "text" class = "date" readonly name="Date" id="date" maxlength="11" tabindex="-1">
+                                        <label for  = "time" class = "nogap">Time</label>
+                                        <input type = "text" class = "time" readonly name="time" size="8" id="time" maxlength="8" tabindex="-1">
+                                    </div>
+                                    <div>
+                                        <label for="description">Description</label>
+                                        <input type= "text" name="description" id="description" onchange="updateEvent();">
+                                    </div>
+                                    <div>
+                                        <label for="comment">Comment</label>
+                                        <input type= "text" name="comment"     id="comment"     onchange="updateEvent();">
+                                    </div>
+                                    <fieldset id='eventfilter'>
+                                        <legend>Event Filter</legend>
+                                        <div><label for="efday">Day</label>
+                                            <select id="efday" tabindex="-1" onchange="requestEventHistory(true);">
+                                                <option></option>
+                                                <option>Sun</option>
+                                                <option>Mon</option>
+                                                <option>Tue</option>
+                                                <option>Wed</option>
+                                                <option>Thu</option>
+                                                <option>Fri</option>
+                                                <option>Sat</option>
+                                            </select>
+                                            <div>
+                                                <label for='efdescription'>Description</label>
+                                                <input id='efdescription' type='text' name='description' size ='15' tabindex='-1' onchange='requestEventHistory(true);'>
+                                            </div>
+                                            <div id="efreset" hidden>
+                                                <label for="efresetbtn"></label>
+                                                <input id="efresetbtn" name="resetbutton" type="button" class='cbutton' value="Reset" onclick="setEventFilterReset();">                                                
+                                            </div>
+                                        </div>
+                                    </fieldset>
+
+                                    <fieldset id="itemfilter">
+                                        <legend>Item Filter</legend>
+                                        <div>
+                                            <label for="fsource">Source</label>
+                                            <select id="fsource" tabindex="-1" onchange="getNutritionDetails();">
+                                                <option></option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="ftype">Type</label>
+                                            <select id="ftype" tabindex="-1" onchange="getNutritionDetails();">
+                                                <option></option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="fitem">Item</label>
+                                            <input type="text" name="fItem" size ="3" id="fitem" tabindex="-1" onchange="getNutritionDetails();">
+                                        </div>
+                                            <div id="freset" hidden>
+                                                <label for="fresetbtn"></label>
+                                                <input id="fresetbtn" name="resetbutton" type="button" class='cbutton' value="Reset" onclick="setItemFilterReset();">                                                
+                                            </div>
+                                    </fieldset>
+                                    <div>
+                                        <label for="item">Item</label>
+                                        <input type="text" name="Item" size ="10" id="item" tabindex="-1" readonly>
+                                    </div>
+                                    <div>
+                                        <label for="source">Source</label>
+                                        <input type="text" name="Source" size ="10" id="source" tabindex="-1" readonly>
+                                    </div>
+                                    <div>
+                                        <label for="type">Type</label>
+                                        <input type="text" name="Type" size ="3" id="type" tabindex="-1" readonly>
+                                    </div>
+                                    <label for='quantity'>Quantity</label>
+                                    <input id='quantity' type='text' name='Quantity' size ='7' maxlength='10' tabindex='-1' onkeypress='allowedInNumberField();'>
+                                    <label id='unitslabel' class = 'nogap'>Grams</label>
+                                    <label id='abvlab' for='abv' class='nogap'>ABV</label>
+                                    <input id='abv' type='text' name='abv' size='2' maxlength='4' tabindex='-1'>
+                                    <div id="itembuttons">
+                                        <label for="addItem"></label>
+                                        <input id="addItem" name="addItem" type="button" class='cbutton' value="Add Item" onclick="modifyItemData(false);">
+                                        <input id="removeItem" name="removeItem" type="button" class='cbutton' value="Delete Item" onclick="modifyItemData(true);">
+                                        <input id="cancelItem" name="cancelItem" type="button" class='cbutton' value="Cancel Item" onclick="setEventMode(false);">
+                                    </div>
+                                    <div id="eventbuttons">
+                                        <label for="create">Event</label>
+                                        <input id="create" name="create" type="button" class='cbutton' value="Create"        onclick="createNutritionEvent('start');">
+                                        <input id="clone"  name="clone"  type="button" hidden class='cbutton' value="Clone"  onclick="cloneEvent('start');">
+                                        <input id="remove" name="remove" type="button" hidden class='cbutton' value="Delete" onclick="deleteEvent();">
+                                        <input id="clear"  name="clear"  type="button" hidden class='cbutton' value="Clear"  onclick="clearEvent();">
+                                    </div>
+                                    <div id="logoff" hidden>
+                                        <label for="logoffbtn"></label>
+                                        <input id="logoffbtn" name="logoffbtn" type="button" class='cbutton' value="Logoff" onclick="logOff(document.getElementById('secserver').value);">
+                                    </div>
+                                    <div id="mysqldiv" hidden>
+                                        <label for="mysql">Use MySQL</label>
+                                        <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestHistory()">
+                                    </div>
+                                    <div>
+                                        <label for="showitem">Show Item</label>
+                                        <input id="showitem" name="Show Item" value="false" type="checkbox" onclick="displayUpdateItem()">
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div class="colright optional">
+                            <fieldset id="itemdetails" disabled>
+                                <legend>Items</legend>
+                                <div>
+                                    <table id="itemdetailstable" hidden>
+                                        <caption>Details</caption>
+                                        <thead>
+                                            <tr><th></th></tr>
+                                        </thead>
+                                        <tr><th></th></tr>
+                                    </table>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div>
+                            <fieldset id="clonefields" hidden>
+                                <legend>Clone Details</legend>
+                               <div>
+                                    <fieldset>
+                                        <legend>Source</legend>
+                                        <div>
+                                            <label for="sdate">Date</label>
+                                            <input type="text" id="sdate" class = "date" readonly name="Date" maxlength="11" tabindex="-1">
+                                            <label for="stime" class="nogap">Time</label>
+                                            <input type="text" id="stime" class = "time" readonly name="time" size="8" maxlength="8" tabindex="-1">
+                                        </div>
+                                        <div>
+                                            <label for="sdescription">Description</label>
+                                            <input type= "text" readonly id="sdescription" name="description">
+                                        </div>
+                                    </fieldset>
+                                    <fieldset>
+                                        <legend>Copy</legend>
+                                        <div>
+                                            <label for="cdate">Date</label>
+                                            <input type="text" class = "date" name="Date" id="cdate" maxlength="11">
+                                            <label for="ctime" class="nogap">Time</label>
+                                            <input type="text" class = "time" name="time" size="8" id="ctime" maxlength="8">
+                                        </div>
+                                        <div>
+                                            <label for="cdescription">Description</label>
+                                            <input id="cdescription" type= "text" name="cdescription">
+                                        </div>
+                                        <div>
+                                            <label for="ccomment">Comment</label>
+                                            <input id="ccomment" type= "text" name="comment">
+                                        </div>
+                                    </fieldset>                                   
+                                    <label for="cweight">Day Weight</label>
+                                    <input type= "text" id="cweight" name="weight"> 
+                                    <div>
+                                        <label for="ccopy"></label>
+                                        <input id="ccopy"   name="copy"   type="button" class='cbutton' value="Copy"   onclick="cloneEvent('copy');">
+                                        <input id="ccancel" name="cancel" type="button" class='cbutton' value="Cancel" onclick="cloneEvent('cancel');">
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div>
+                            <fieldset id="createfields" hidden>
+                                <legend>Create Event</legend>
+                                <div>
+                                    <label for="crdate">Date</label>
+                                    <input type="text" id="crdate" class = "date" name="Date" maxlength="11">
+                                    <label for="crtime" class="nogap">Time</label>
+                                    <input type="text" id="crtime" class = "time" name="time" size="8" maxlength="8">
+                                </div>
+                                <div>
+                                    <label for="crdescription">Description</label>
+                                    <input type= "text" id="crdescription" name="description"> 
+                                </div>
+                                <div>
+                                    <label for="crcomment">Comment</label>
+                                    <input type= "text" id="crcomment" name="comment">
+                                </div>
+                                <div>
+                                    <label for="crweight">Day Weight</label>
+                                    <input type= "text" id="crweight" name="weight">  
+                                </div>
+                                <div>
+                                    <label for="crcreate"></label>
+                                    <input id="crcreate" name="crcreate" type="button" class='cbutton' value="Create" onclick="createNutritionEvent('create');">
+                                    <input id="crcancel" name="cancel"   type="button" class='cbutton' value="Cancel" onclick="createNutritionEvent('cancel');">
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div> 
+                </div>
+            </div>   
+            <div class="newline">
+                <table id="activeeventtable">
+                    <caption>Active Event</caption>
+                    <thead>
+                        <tr><th></th></tr>
+                    </thead>
+                    <tbody id="activeeventtablebody">
+                    <tr><th></th></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="newline">
+                <table id="eventhistorytable" hidden>
+                    <caption>Recent Events</caption>
+                    <thead>
+                        <tr><th></th></tr>
+                    </thead>
+                    <tr><th></th></tr>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

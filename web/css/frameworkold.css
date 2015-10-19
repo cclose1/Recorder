@@ -1,0 +1,178 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 21-Nov-2014, 08:43:31
+    Author     : Chris
+*/
+
+.frame {
+    background-color: lightblue
+}
+@media screen and (max-width: 900px) {
+    .optional {
+        display: none
+    }
+    .colleft {
+        width: 320px;
+    }
+    .colright {
+        width: 0px;
+    }
+    .frame {
+        width: 550px;
+        margin-right: auto;
+        margin-left: auto;
+    }
+    #innerfields {
+        width: 340px;
+        margin: auto
+    }
+}
+@media screen and (min-width: 901px) {
+    .colleft {
+        width: 320px;
+    }
+    .colright {
+        width: 198px;
+    }
+    .frame {
+        width: 900px;
+        margin-right: auto;
+        margin-left: auto;
+    }
+    #innerfields {
+        width: 550px;
+        margin: auto
+    }
+}
+.newline {
+    margin-left: 0px;
+}
+[class*="col"] {
+    float: left;
+    min-height: 1px;
+    margin-left: 0px;
+}      
+.colall {
+    width: 100%;
+}
+
+#appframe label {
+    display: inline-block;
+    width: 85px;
+    text-align: right;
+}
+#appframe label.notfirst {
+    display: inline-block;
+    width: auto;
+    text-align: right;
+}
+ .nogap {    
+    display: inline-block;
+    width: auto;
+}
+#appframe .gap10al {    
+    display: inline-block;
+    width: 10px;
+    text-align: left;
+}
+#appframe .gap70ar {    
+    display: inline-block;
+    width: 70px;
+    text-align: right;
+}
+#appframe .gap110ar {    
+    display: inline-block;
+    width: 108px;
+    text-align: right;
+}
+#loginfields {
+    width: 350px;
+}
+#loginfields label {
+    display: inline-block;
+    width: 150px;
+    text-align: right;
+}
+#loginfields label.notfirst {
+    display: inline-block;
+    width: auto;
+    text-align: right;
+}
+th {
+    text-align: left;                
+}
+td {
+    text-align: left;
+}
+td.number {
+    text-align: right;                
+}
+.moneyvalue {
+    text-align: right;
+    width: 4.5em;
+}
+div.scrollWrapper{
+    height: 300px;
+    overflow:auto;
+}
+thead {
+    display: block;
+}
+tbody {
+    display: block;
+    border: solid;
+    height: 300px;
+    overflow-y: scroll;
+}
+
+/* 
+ * The following style is a simplified version of TwitterBootstrap.
+*/
+.row {
+    margin-left: -20px;
+}
+[class*="span"] {
+    float: left;
+    min-height: 1px;
+    margin-left: 20px;
+}
+.span12 {
+    width: 950px;
+}
+.span11 {
+    width: 860px;
+}
+.span10 {
+    width: 780px;
+}
+.span9 {
+    width: 700px;
+}
+.span8 {
+    width: 620px;
+}
+.span7 {
+    width: 540px;
+}
+.span6 {
+    width: 460px;
+}
+.span5 {
+    width: 380px;
+}
+.span4 {
+    width: 300px;
+}
+.span3 {
+    width: 220px;
+}
+.span2 {
+    width: 140px;
+}
+.span1 {
+    width: 60px;
+}
