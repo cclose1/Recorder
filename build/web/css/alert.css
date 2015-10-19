@@ -1,0 +1,23 @@
+
+#alertdiv{
+    position: absolute;
+    display: none;
+    height:150px;
+    width:auto;
+    padding: 5px 5px 5px 5px;
+    background-color:#f3f3f3;
+    border-style: solid;
+    border-color: black;
+    border-radius:3px;
+    text-align: center;
+}
+/*
+ * Override global label properties
+ */
+#alertdiv label {    
+    width:auto;
+    text-align: center;
+}
+#alertDismiss{
+    padding:10px 10px 10px 10px;
+}
