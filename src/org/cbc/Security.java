@@ -130,7 +130,7 @@ class Security {
             }
             db.commit();
         }
-        if (securityFailure && !loggedIn && logInRequired) {
+        if (!securityFailure && !loggedIn && logInRequired) {
             securityFailure = true;
             reply.append("securityfailure;notloggedin;");
         }
