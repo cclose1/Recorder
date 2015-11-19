@@ -103,7 +103,7 @@ public class RecordNutrition extends ApplicationServer {
         setNumericItemField(rs, "PackSize",      ctx.getParameter("packsize"),     1);
     }
     public String getVersion() {        
-        return "V2.0 Released 15-Apr-2015";    
+        return "V3.0 Released 18-Nov-2015";    
     }
     public void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(
@@ -140,7 +140,8 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("DefaultSize",   "idefault");
             sql.addField("PackSize",      "ipacksize");
 
-            sql.addAnd("SeqNo", "=", ctx.getParameter("seqno"));
+            sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
+            sql.addAnd("Source", "=", ctx.getParameter("isource"));
             JSONArray fields = new JSONArray();
             ResultSet rs     = executeQuery(ctx, sql);
 
@@ -149,12 +150,14 @@ public class RecordNutrition extends ApplicationServer {
 
             ctx.setStatus(200);
         } else if (action.equals("applyitemupdate")) {
-            String    seqNo = ctx.getParameter("seqno");
+            String    command = ctx.getParameter("command");
+            String    item    = ctx.getParameter("item");
+            String    source  = ctx.getParameter("source");
             ResultSet rs;
 
             ctx.getAppDb().startTransaction();
 
-            if (seqNo.length() == 0) {
+            if (command.equalsIgnoreCase("create")) {
                 rs = ctx.getAppDb().insertTable("NutritionDetail");
                 rs.moveToInsertRow();
                 setItemFields(ctx, rs);
@@ -162,11 +165,12 @@ public class RecordNutrition extends ApplicationServer {
                 ctx.setStatus(200);
             } else {
                 SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
-                sql.addAnd("SeqNo", "=", seqNo, false);
+                sql.addAnd("Item",   "=", item);
+                sql.addAnd("Source", "=", source);
                 rs = updateQuery(ctx, sql.build());
 
                 if (!rs.next()) {
-                    ctx.getReplyBuffer().append("No record for SeqNo " + seqNo);
+                    ctx.getReplyBuffer().append("No record for Item '" + item + ", Source '" + source + "'");
                 } else {
                     rs.moveToCurrentRow();
                     setItemFields(ctx, rs);
@@ -214,7 +218,6 @@ public class RecordNutrition extends ApplicationServer {
             String           item   = ctx.getParameter("item");
             SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionDetail");
 
-            sql.addField("SeqNo");
             sql.addField("Item");
             sql.addDefaultedField("ABV",         0);
             sql.addDefaultedField("Source",      "");
@@ -283,8 +286,8 @@ public class RecordNutrition extends ApplicationServer {
                 sql.addField("Comment",     cComment);
                 executeUpdate(ctx, sql);
                 executeUpdate(ctx,
-                        "INSERT NutritionRecord(Timestamp, Detail, Quantity, ABV) "
-                        + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Detail, Quantity, ABV "
+                        "INSERT NutritionRecord(Timestamp, Item, Source, Quantity, ABV) "
+                        + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Item, Source, Quantity, ABV "
                         + "FROM   NutritionRecord "
                         + "WHERE Timestamp = ' " + ctx.getDbTimestamp(sTimestamp) + "'");
             }
@@ -302,13 +305,15 @@ public class RecordNutrition extends ApplicationServer {
             ctx.setStatus(200);
         } else if (action.equals("deleteitem")) {
             Date             timestamp   = ctx.getTimestamp("date", "time");
-            String           seqNo       = ctx.getParameter("seqno");
+            String           item        = ctx.getParameter("item");
+            String           source      = ctx.getParameter("source");
             String           description = ctx.getParameter("description");
             SQLDeleteBuilder sqld        = ctx.getDeleteBuilder("NutritionRecord");
             SQLUpdateBuilder sqlu        = ctx.getUpdateBuilder("NutritionEvent");
             
             sqld.addAnd("Timestamp", "=", timestamp);
-            sqld.addAnd("Detail",    "=", seqNo, false);
+            sqld.addAnd("Item",      "=", item);
+            sqld.addAnd("Source",    "=", source);
             executeUpdate(ctx, sqld.build());
             sqlu.addField("Description", description);
             sqlu.addAnd("Timestamp", "=", timestamp);
@@ -317,7 +322,8 @@ public class RecordNutrition extends ApplicationServer {
             ctx.setStatus(200);
         } else if (action.equals("modifyitem")) {
             Date  timestamp    = ctx.getTimestamp("date", "time");
-            String seqNo       = ctx.getParameter("seqno");
+            String item        = ctx.getParameter("item");
+            String source      = ctx.getParameter("source");
             String description = ctx.getParameter("description");
             String quantity    = ctx.getParameter("quantity");
             String abv         = ctx.getParameter("abv");
@@ -344,10 +350,13 @@ public class RecordNutrition extends ApplicationServer {
             sql.setFrom("NutritionRecord");
             sql.addField("Timestamp");
             sql.addField("Detail");
+            sql.addField("Item");
+            sql.addField("Source");
             sql.addField("Quantity");
             sql.addField("ABV");
             sql.addAnd("Timestamp", "=", timestamp);
-            sql.addAnd("Detail",    "=", seqNo);
+            sql.addAnd("Item",      "=", item);
+            sql.addAnd("Source",    "=", source);
 
             rs = updateQuery(ctx, sql.build());
 
@@ -362,7 +371,8 @@ public class RecordNutrition extends ApplicationServer {
             } else {
                 rs.moveToInsertRow();
                 rs.updateString("Timestamp", ctx.getDbTimestamp(timestamp));
-                rs.updateString("Detail",    seqNo);
+                rs.updateString("Item",      item);
+                rs.updateString("Source",    source);
                 rs.updateString("Quantity",  quantity);
 
                 if (abv.length() != 0) {
@@ -376,7 +386,6 @@ public class RecordNutrition extends ApplicationServer {
             Date             timestamp = ctx.getTimestamp("date", "time");
             SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
 
-            sql.addField("ND.SeqNo", "SeqNo");
             sql.addField("ND.Item",  "Item");
             sql.addDefaultedField("NR.ABV",      "ABV",      0, 1);
             sql.addDefaultedField("NR.Quantity", "Quantity", 0, 1);
@@ -387,7 +396,7 @@ public class RecordNutrition extends ApplicationServer {
             sql.addDefaultedField("NR.Quantity * ND.Salt",     "Salt",     0, 1);
             sql.setOrderBy("ND.Item");
 
-            sql.setFrom("NutritionRecord NR JOIN NutritionDetail ND ON NR.Detail = ND.SeqNo");
+            sql.setFrom("NutritionRecord NR JOIN NutritionDetail ND ON NR.Item = ND.Item AND NR.Source = ND.Source");
             sql.addAnd("NR.Timestamp", "=", timestamp);
 
             ResultSet rs = executeQuery(ctx, sql);

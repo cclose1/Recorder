@@ -36,7 +36,7 @@ and open the template in the editor.
 input[onkeypress^='allowedInNumberField'] {
     width: 40px;
 }
-#itemdetailstable tr *:nth-child(1), #itemdetailstable tr *:nth-child(3), #itemdetailstable tr *:nth-child(7) {
+#itemdetailstable tr *:nth-child(2), #itemdetailstable tr *:nth-child(6) {
     display: none;
 }
 #eventhistorytable tr *:nth-child(4) {

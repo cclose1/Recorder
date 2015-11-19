@@ -3,7 +3,6 @@ function setHiddenLabelField(name, yes) {
     setHidden(name + 'lab', yes);
 }
 function clearItem() {    
-    document.getElementById('seqno').value    = '';
     document.getElementById('source').value   = '';
     document.getElementById('type').value     = '';
     document.getElementById('item').value     = '';
@@ -95,6 +94,8 @@ function detailsRowClick(row, operation) {
     var abv     = '';
     var h       = document.getElementById(row.parentNode.parentNode.id).rows[0];
     var isEvent = document.getElementById('date').value !== '';
+    var item    = '';
+    var source  = '';
 
     if (document.getElementById('item').value !== '') {
         displayAlert('Error', 'Complete or cancel item');
@@ -105,16 +106,15 @@ function detailsRowClick(row, operation) {
         var colValue = row.cells[i].innerText;
         
         switch (colName) {
-            case 'SeqNo':
-                setUpdateItem(colValue);
-                
-                if (isEvent) document.getElementById('seqno').value = colValue;                
-                break;
             case 'Item':
-                if (isEvent) document.getElementById('item').value = colValue;
+                item = colValue;
+                
+                if (isEvent) document.getElementById('item').value = item;
                 break;
             case 'Source':
-                if (isEvent) document.getElementById('source').value = colValue;
+                source = colValue;
+                
+                if (isEvent) document.getElementById('source').value = source;
                 break;
             case 'Type':
                 if (isEvent) document.getElementById('type').value = colValue;
@@ -134,6 +134,7 @@ function detailsRowClick(row, operation) {
                 break;
         }
     }
+    setUpdateItem(item, source);
     setItemMode(operation !== 'add', simple, abv);
 }
 function loadActiveEvent() {    
@@ -332,7 +333,8 @@ function modifyItemData(isDelete) {
     function processResponse(response) {
     }
     parameters = addParameterById(parameters, 'mysql');
-    parameters = addParameterById(parameters, 'seqno');
+    parameters = addParameterById(parameters, 'item');
+    parameters = addParameterById(parameters, 'source');
     parameters = addParameterById(parameters, 'date');
     parameters = addParameterById(parameters, 'time');
     parameters = addParameterById(parameters, 'description');
@@ -448,14 +450,14 @@ function setCreateItem() {
     setItemCreateCaption();
 
 }
-function setUpdateItem(seqno) {    
+function setUpdateItem(item, source) {    
     var parameters = createParameters('getitem');
 
-    parameters = addParameter(parameters, 'seqno', seqno);
+    parameters = addParameter(parameters, 'iitem',   item);
+    parameters = addParameter(parameters, 'isource', source);
 
     function processResponse(response) {
         loadJSONFields(response, false);
-        document.getElementById('iid').value   = seqno; 
         document.getElementById('isize').value = 1; 
         setSalt(true);
         setSimple();
@@ -467,7 +469,7 @@ function applyItemUpdate() {
     var parameters = addParameterById("", "mysql");
 
     parameters = addParameter(parameters, 'action', 'applyitemupdate');
-    parameters = addParameterById(parameters, 'iid',           'seqno');
+    parameters = addParameterById(parameters, 'icreate',       'command');
     parameters = addParameterById(parameters, 'iitem',         'item');
     parameters = addParameterById(parameters, 'isource',       'source');
     parameters = addParameterById(parameters, 'itype',         'type');
