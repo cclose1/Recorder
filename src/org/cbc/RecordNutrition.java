@@ -161,6 +161,7 @@ public class RecordNutrition extends ApplicationServer {
                 rs = ctx.getAppDb().insertTable("NutritionDetail");
                 rs.moveToInsertRow();
                 setItemFields(ctx, rs);
+                rs.updateString("Start", ctx.getDbTimestamp(new Date()));
                 rs.insertRow();
                 ctx.setStatus(200);
             } else {
@@ -239,7 +240,18 @@ public class RecordNutrition extends ApplicationServer {
         } else if (action.equals("getList")) {
             String field = ctx.getParameter("field");
 
-            getList(ctx, "NutritionDetail", field);
+            if (field.equalsIgnoreCase("source"))
+                getList(ctx, "NutritionSources", "Name");
+            else
+                getList(ctx, "NutritionTypes", "Name");
+        } else if (action.equals("addListItem")) {
+            String           field   = ctx.getParameter("field");
+            String           table   = field.equalsIgnoreCase("source")? "NutritionSources" : "NutritionTypes";
+            SQLInsertBuilder sql = ctx.getInsertBuilder(table);
+            
+            sql.addField("Name", ctx.getParameter("item"));
+            executeUpdate(ctx, sql);
+            ctx.setStatus(200);
         } else if (action.equals("createevent")) {
             Date   timestamp   = ctx.getTimestamp("crdate", "crtime");
             String description = ctx.getParameter("crdescription");
@@ -349,7 +361,6 @@ public class RecordNutrition extends ApplicationServer {
             sql.clear();
             sql.setFrom("NutritionRecord");
             sql.addField("Timestamp");
-            sql.addField("Detail");
             sql.addField("Item");
             sql.addField("Source");
             sql.addField("Quantity");

@@ -24,7 +24,8 @@
                 <label id="alertMessage" class="centre"></label>
             </div>
             <div id="alertDismiss">
-                <button onclick="dismissAlert()">Cancel</button>
+                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
+                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
             </div>
         </div>
         <div id="loginfields" hidden>
@@ -64,21 +65,17 @@
                     <fieldset id="updateitem" class='form'>
                         <legend>Update Item</legend>
                         <div>
-                            <label for='iid'>Id</label>
-                            <input id='iid' type='text' name='Id' readonly maxlength='6' tabindex='-1'>
-                        </div>
-                        <div>
                             <label for='iitem'>Item</label>
                             <input id='iitem' type='text' name='Item' size ='25' maxlength='50'>
                         </div>
                         <div>
                             <label for="isource">Source</label>
-                            <input type="text" name="isource" list="iSourceList" id="isource">
+                            <input type="text" name="Source" list="iSourceList" id="isource" onchange="checkExists()">
                             <datalist id="iSourceList">
                                 <option></option>
                             </datalist>
                             <label for="itype">Type</label>
-                            <input type="text" name="itype" list="iTypeList" id="itype">
+                            <input type="text" name="Type" list="iTypeList" id="itype" onchange="checkExists()">
                             <datalist id="iTypeList">
                                 <option></option>
                             </datalist> 

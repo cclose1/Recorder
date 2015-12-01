@@ -1,6 +1,7 @@
 
 var alertTime;
 var useBrowserAlert = true;
+var confirm;
 
 function position() {
     var elm  = new Object();
@@ -102,7 +103,6 @@ function mouseMove(event, type) {
     else if (type === 'up')
         pos.mouseUp(event);
 }
-var alertTime;
 
 function div_show(lenTitle, lenText, width) {
     var w = screen.availWidth;
@@ -130,8 +130,7 @@ function div_show(lenTitle, lenText, width) {
 function checkAlert(e) {
     var target = (e && e.target) || (event && event.srcElement);
 
-    if (new Date().getTime() - alertTime < 1000)
-        return;
+    if (new Date().getTime() - alertTime < 1000 || !isVisible('alertdiv')) return;
 
     while (target.parentNode) {
         if (target === document.getElementById('alertdiv'))
@@ -141,22 +140,48 @@ function checkAlert(e) {
     }
     dismissAlert();
 }
-function dismissAlert() {
-    document.getElementById('alertdiv').style.display = 'none';
-}
-function displayAlert(title, text) {
-    if (useBrowserAlert)
-        alert(text);
+function dismissAlert(clearValue) {
+    if (!useBrowserAlert) document.getElementById('alertdiv').style.display = 'none';
+    
+    if ((clearValue === undefined || clearValue) && confirm !== undefined) confirm.actionCancel();
+    
+    confirm = undefined;
+}    
+function displayAlert(title, text, confirm) {
+    this.confirm = confirm;
+    
+    if (useBrowserAlert) {
+        if (confirm === undefined)
+            alert(text);
+        else {
+            if (prompt(title, text) !== null)
+                confirm.actionClick();
+            else
+                dismissAlert();
+        }
+    }
     else {
+        document.getElementById("alertCancel").value = confirm === undefined? 'Cancel' : 'No';
         pos.mouseClear();
         alertTime = new Date().getTime();
         document.getElementById("alertTitle").innerHTML = title;
         document.getElementById("alertMessage").innerHTML = text; 
+        document.getElementById("alertCancel").onclick = dismissAlert;
         /*
          * This needs to be done before div_show as div height and width are not
          * calculated until its displayed.
          */
         document.getElementById('alertdiv').style.display = 'block';
+        
+        if (document.getElementById('alertOK')) {
+            if (confirm === undefined) {
+                setHidden('alertOK', true);
+                document.getElementById("alertOK").onclick = dismissAlert;
+            } else {
+                setHidden('alertOK', false);
+                document.getElementById("alertOK").onclick = confirm.actionClick;
+            }
+        }
         div_show(title.length, text.length);
     }
 }
@@ -167,7 +192,6 @@ function configureAlert(browserAlert, autoDismiss) {
         useBrowserAlert = true;
         return;
     }
-
     if (autoDismiss)
         document.onclick = checkAlert;
 }

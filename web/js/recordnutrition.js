@@ -147,8 +147,7 @@ function loadActiveEvent() {
         loadJSONArray(response, 'activeeventtable', 19, 'detailsRowClick(this, "update")');
         setHidden('activeeventtable', false);
     }
-    ajaxLoggedInCall('Nutrition', processResponse, parameters);
-    
+    ajaxLoggedInCall('Nutrition', processResponse, parameters);    
 }
 function getNutritionDetails() {    
     var parameters = createParameters('requestdetails');    
@@ -376,11 +375,14 @@ function deleteEvent() {
  * @returns {undefined}
  */
 function updateFilteredList(name, dbField, filter, dbFilter) {
-    getList('Nutrition', {name: name, field: dbField, filter: dbFilter + '!' + document.getElementById(filter).value, firstValue: ' ', async:false}); 
+    if (filter === undefined)
+        getList('Nutrition', {name: name, field: dbField, firstValue: ' ', async:false}); 
+    else
+        getList('Nutrition', {name: name, field: dbField, filter: dbFilter + '!' + document.getElementById(filter).value, firstValue: ' ', async:false}); 
 }
 function updateFilteredLists() {
-    updateFilteredList('iSourceList', 'source', 'itype',   'type');
-    updateFilteredList('iTypeList',   'type',   'isource', 'source');
+    updateFilteredList('iSourceList', 'source');
+    updateFilteredList('iTypeList',   'type');
     updateFilteredList('fsource',     'source', 'ftype',   'type');
     updateFilteredList('ftype',       'type',   'fsource', 'source');
 }
@@ -428,7 +430,6 @@ function setSimple() {
     setHiddenLabelField('idefault', false);
 }
 function setCreateItem() {
-    document.getElementById('iid').value = "";
     document.getElementById('iitem').value = "";
     document.getElementById('isource').value = "";
     document.getElementById('itype').value = "";
@@ -494,8 +495,16 @@ function applyItemUpdate() {
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);    
 }
-function setItemCreateCaption() {            
-    document.getElementById('icreate').value =  document.getElementById("iid").value === ''? 'Create' : 'Update';
+function setItemCreateCaption() {
+    if (document.getElementById("iitem").value === '') {
+        document.getElementById('icreate').value    = 'Create';
+        document.getElementById('iitem').readOnly   = false;
+        document.getElementById('isource').readOnly = false;
+    } else {
+        document.getElementById('icreate').value    = 'Update';
+        document.getElementById('iitem').readOnly   = true;
+        document.getElementById('isource').readOnly = true;
+    }
 }
 function displayUpdateItem() {
     setHidden('updateitem', !document.getElementById("showitem").checked);
@@ -511,6 +520,38 @@ function reload() {
     requestEventHistory();
     setCreateItem();
     displayUpdateItem();    
+}
+function confirmListCreate(field) {
+    this.field        = field;
+    this.actionClick  = actionClick;
+    this.actionCancel = actionCancel;
+    
+    function actionCancel() {
+        field.value = '';
+    }
+    function actionClick() {
+        var parameters = createParameters('addListItem');
+        
+        parameters = addParameter(parameters, 'field', field.name);
+        parameters = addParameter(parameters, 'item',  field.value);
+        parameters = addParameterById(parameters, 'mysql');
+    
+        function processResponse(response) {
+        }
+        ajaxLoggedInCall("Nutrition", processResponse, parameters, false);
+        updateFilteredLists();
+        dismissAlert(false);
+    }
+}
+function checkExists() {
+    var field   = event.target;
+    var options = field.list;
+    
+    if (indexOfOption(options, field.value) !== -1) return;
+    
+    var confirm = new confirmListCreate(field);
+    
+    displayAlert('Confirm', 'Create ' + field.name + ' for ' + field.value, confirm);
 }
 function initialize() {
     document.getElementById('secserver').value = 'Nutrition';

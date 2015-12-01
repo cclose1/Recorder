@@ -175,6 +175,11 @@ function getValueNew(id) {
 function getNameValue(id) {
     return id + "=" + document.getElementById(id).type + "," + getValue(id);
 }
+function isVisible(element) {
+    if (typeof element === 'string') element = document.getElementById(element);
+        
+    return !!( element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+}
 function assignNameValue(frame, value) {
     var fields = value.split("=", 2);
     var id     = fields[0];
@@ -759,6 +764,14 @@ function currentDateTime(date) {
 }
 function hasValue(parameter) {
     return parameter !== null && parameter !== undefined;
+}
+function indexOfOption(list, option) {
+    if (typeof list === 'string') list = document.getElementById(list);
+    
+    for (i = 0; i <= list.options.length - 1; i++){
+        if (list.options[i].value === option) return i;
+    }
+    return -1;
 }
 function allowedInIntegerField() {
     if (!(event.charCode >= 48 && event.charCode <= 57)) {
