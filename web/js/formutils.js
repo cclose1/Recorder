@@ -88,6 +88,17 @@ function dateString(date){
                 
     return lpad(fields[2], 2, "0") + "-" + fields[1] + "-" + fields[5] + " " + fields[3];   
 }
+function getDateTime() {
+    var now      = new Date(); 
+    var datetime = 
+            now.getFullYear()                  + '-' +
+            lpad((now.getMonth() + 1), 2, '0') + '-' +
+            lpad(now.getDate(),        2, '0') + ' ' +
+            lpad(now.getHours(),       2, '0') + ':' + 
+            lpad(now.getMinutes(),     2, '0') + ':' +
+            lpad(now.getSeconds(),     2, '0');
+    return datetime;
+}
 function toDate(text) {
     var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
     var date   = text.split(" ");
@@ -552,6 +563,8 @@ function setElementValue(field, value, type, scale) {
                 value.toLowerCase() === 'true';
         else
             field.value = value;
+    } else if (type === 'datetime') {
+        field.value = value;
     } else {
         if (scale > 0)
             value = parseFloat(value, 10).toFixed(scale);

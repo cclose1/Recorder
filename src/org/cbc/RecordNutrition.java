@@ -89,21 +89,21 @@ public class RecordNutrition extends ApplicationServer {
         rs.updateString("Type",   ctx.getParameter("type"));
         rs.updateString("Simple", simple? "Y" : "N");
         
-        setNumericItemField(rs, "Calories",      ctx.getParameter("calories"),     scale);
-        setNumericItemField(rs, "Protein",       ctx.getParameter("protein"),      scale);
-        setNumericItemField(rs, "Cholesterol",   ctx.getParameter("cholesterol"),  scale);
-        setNumericItemField(rs, "Fat",           ctx.getParameter("fat"),          scale);
-        setNumericItemField(rs, "Saturated",     ctx.getParameter("saturated"),    scale);
-        setNumericItemField(rs, "Carbohydrates", ctx.getParameter("carbohydrate"), scale);
-        setNumericItemField(rs, "Sugar",         ctx.getParameter("sugar"),        scale);
-        setNumericItemField(rs, "Fibre",         ctx.getParameter("fibre"),        scale);
-        setNumericItemField(rs, "Salt",          ctx.getParameter("salt"),         scale);
-        setNumericItemField(rs, "ABV",           ctx.getParameter("abv"),          1);
-        setNumericItemField(rs, "DefaultSize",   ctx.getParameter("default"),      1);
-        setNumericItemField(rs, "PackSize",      ctx.getParameter("packsize"),     1);
+        setNumericItemField(rs, "Calories",     ctx.getParameter("calories"),     scale);
+        setNumericItemField(rs, "Protein",      ctx.getParameter("protein"),      scale);
+        setNumericItemField(rs, "Cholesterol",  ctx.getParameter("cholesterol"),  scale);
+        setNumericItemField(rs, "Fat",          ctx.getParameter("fat"),          scale);
+        setNumericItemField(rs, "Saturated",    ctx.getParameter("saturated"),    scale);
+        setNumericItemField(rs, "Carbohydrate", ctx.getParameter("carbohydrate"), scale);
+        setNumericItemField(rs, "Sugar",        ctx.getParameter("sugar"),        scale);
+        setNumericItemField(rs, "Fibre",        ctx.getParameter("fibre"),        scale);
+        setNumericItemField(rs, "Salt",         ctx.getParameter("salt"),         scale);
+        setNumericItemField(rs, "ABV",          ctx.getParameter("abv"),          1);
+        setNumericItemField(rs, "DefaultSize",  ctx.getParameter("default"),      1);
+        setNumericItemField(rs, "PackSize",     ctx.getParameter("packsize"),     1);
     }
     public String getVersion() {        
-        return "V3.0 Released 18-Nov-2015";    
+        return "V4.0 Released 24-Jan-2016";    
     }
     public void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(
@@ -123,22 +123,24 @@ public class RecordNutrition extends ApplicationServer {
         } else if (action.equals("getitem")) {
             SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
 
-            sql.addField("Item",          "iitem");
-            sql.addField("Calories",      "icalories");
-            sql.addField("Source",        "isource");
-            sql.addField("Type",          "itype");
-            sql.addField("Protein",       "iprotein");
-            sql.addField("Cholesterol",   "icholesterol");
-            sql.addField("Fat",           "ifat");
-            sql.addField("Saturated",     "isaturated");
-            sql.addField("Carbohydrates", "icarbohydrate");
-            sql.addField("Sugar",         "isugar");
-            sql.addField("Fibre",         "ifibre");
-            sql.addField("Salt",          "isalt");
-            sql.addField("Simple",        "isimple");
-            sql.addField("ABV",           "iabv");
-            sql.addField("DefaultSize",   "idefault");
-            sql.addField("PackSize",      "ipacksize");
+            sql.addField("Item",         "iitem");
+            sql.addField("Calories",     "icalories");
+            sql.addField("Source",       "isource");
+            sql.addField("Type",         "itype");
+            sql.addField("Start",        "istart");
+            sql.addField("End",          "iend");
+            sql.addField("Protein",      "iprotein");
+            sql.addField("Cholesterol",  "icholesterol");
+            sql.addField("Fat",          "ifat");
+            sql.addField("Saturated",    "isaturated");
+            sql.addField("Carbohydrate", "icarbohydrate");
+            sql.addField("Sugar",        "isugar");
+            sql.addField("Fibre",        "ifibre");
+            sql.addField("Salt",         "isalt");
+            sql.addField("Simple",       "isimple");
+            sql.addField("ABV",          "iabv");
+            sql.addField("DefaultSize",  "idefault");
+            sql.addField("PackSize",     "ipacksize");
 
             sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
             sql.addAnd("Source", "=", ctx.getParameter("isource"));
@@ -161,7 +163,8 @@ public class RecordNutrition extends ApplicationServer {
                 rs = ctx.getAppDb().insertTable("NutritionDetail");
                 rs.moveToInsertRow();
                 setItemFields(ctx, rs);
-                rs.updateString("Start", ctx.getDbTimestamp(new Date()));
+                rs.updateString("Start", ctx.getParameter("start"));
+                rs.updateString("End",   ctx.getParameter("end"));
                 rs.insertRow();
                 ctx.setStatus(200);
             } else {
@@ -217,7 +220,7 @@ public class RecordNutrition extends ApplicationServer {
             String           source = ctx.getParameter("source");
             String           type   = ctx.getParameter("type");
             String           item   = ctx.getParameter("item");
-            SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionDetail");
+            SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionItem");
 
             sql.addField("Item");
             sql.addDefaultedField("ABV",         0);
@@ -298,8 +301,8 @@ public class RecordNutrition extends ApplicationServer {
                 sql.addField("Comment",     cComment);
                 executeUpdate(ctx, sql);
                 executeUpdate(ctx,
-                        "INSERT NutritionRecord(Timestamp, Item, Source, Quantity, ABV) "
-                        + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Item, Source, Quantity, ABV "
+                        "INSERT NutritionRecord(Timestamp, Item, Source, Quantity, ABV, IsComposite) "
+                        + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Item, Source, Quantity, ABV, IsComposite "
                         + "FROM   NutritionRecord "
                         + "WHERE Timestamp = ' " + ctx.getDbTimestamp(sTimestamp) + "'");
             }
@@ -365,6 +368,7 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Source");
             sql.addField("Quantity");
             sql.addField("ABV");
+            sql.addField("IsComposite");
             sql.addAnd("Timestamp", "=", timestamp);
             sql.addAnd("Item",      "=", item);
             sql.addAnd("Source",    "=", source);
@@ -381,10 +385,11 @@ public class RecordNutrition extends ApplicationServer {
                 rs.updateRow();
             } else {
                 rs.moveToInsertRow();
-                rs.updateString("Timestamp", ctx.getDbTimestamp(timestamp));
-                rs.updateString("Item",      item);
-                rs.updateString("Source",    source);
-                rs.updateString("Quantity",  quantity);
+                rs.updateString("Timestamp",   ctx.getDbTimestamp(timestamp));
+                rs.updateString("Item",        item);
+                rs.updateString("Source",      source);
+                rs.updateString("Quantity",    quantity);
+                rs.updateString("IsComposite", ctx.getParameter("simple").equalsIgnoreCase("c")? "Y" :"N");
 
                 if (abv.length() != 0) {
                     rs.updateString("ABV", abv);
@@ -397,18 +402,19 @@ public class RecordNutrition extends ApplicationServer {
             Date             timestamp = ctx.getTimestamp("date", "time");
             SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
 
-            sql.addField("ND.Item",  "Item");
-            sql.addDefaultedField("NR.ABV",      "ABV",      0, 1);
-            sql.addDefaultedField("NR.Quantity", "Quantity", 0, 1);
-            sql.addDefaultedField("ND.Source",   "Source",   "");
-            sql.addDefaultedField("ND.Type",     "Type",     "");
-            sql.addDefaultedField("ND.Calories * NR.Quantity", "Calories", 0, 0);
-            sql.addDefaultedField("ND.Sugar    * NR.Quantity", "Sugar",    0, 0);
-            sql.addDefaultedField("NR.Quantity * ND.Salt",     "Salt",     0, 1);
-            sql.setOrderBy("ND.Item");
+            sql.addField("Item");
+            sql.addDefaultedField("ABV",       0, 1);
+            sql.addDefaultedField("Quantity",  0, 1);
+            sql.addDefaultedField("Source",    "");
+            sql.addDefaultedField("Type",      "");
+            sql.addDefaultedField("Calories",  0, 0);
+            sql.addDefaultedField("Saturated", 0, 1);
+            sql.addDefaultedField("Sugar",     0, 1);
+            sql.addDefaultedField("Salt",      0, 1);
+            sql.setOrderBy("Item");
 
-            sql.setFrom("NutritionRecord NR JOIN NutritionDetail ND ON NR.Item = ND.Item AND NR.Source = ND.Source");
-            sql.addAnd("NR.Timestamp", "=", timestamp);
+            sql.setFrom("NutritionRecordFull");
+            sql.addAnd("Timestamp", "=", timestamp);
 
             ResultSet rs = executeQuery(ctx, sql);
             data.add("ItemDetails", rs);

@@ -130,7 +130,7 @@ public class RecordSpend extends ApplicationServer {
         sel.addAnd("Year",   "=", cal.getYear());
         sel.addAnd("Month",  "=", cal.getMonth());
         sel.addAnd("Period", "=", period);
-        sel.addValueField("Count", "Count(*)");
+        sel.addValueField("Count", "Count(*)", false);
         ResultSet rsr   = executeQuery(ctx, sel);
         
         if (rsr.next()) count = rsr.getInt("Count");
@@ -250,11 +250,11 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("Weekday");
             sql.addField("Category");
             sql.addField("Type");
-            sql.addValueField("Description", "COALESCE(Description, '')");
-            sql.addValueField("Location",    "COALESCE(Location, '')");
+            sql.addValueField("Description", "COALESCE(Description, '')",             false);
+            sql.addValueField("Location",    "COALESCE(Location, '')",                false);
             sql.addField("Payment");
-            sql.addValueField("Amount",      "CAST(Amount AS DECIMAL(10,2))");
-            sql.addValueField("Correction",  "CAST(BankCorrection AS DECIMAL(10,2))");
+            sql.addValueField("Amount",      "CAST(Amount AS DECIMAL(10,2))",         false);
+            sql.addValueField("Correction",  "CAST(BankCorrection AS DECIMAL(10,2))", false);
             sql.addAnd("CAST(Timestamp AS DATE)", ">=", start);
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);
