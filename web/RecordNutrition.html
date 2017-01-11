@@ -81,6 +81,12 @@
                             </datalist> 
                         </div>
                         <div>
+                            <label for="istart">Start</label>
+                            <input type="text" name="Start" id="istart">
+                            <label for="iend">End</label>
+                            <input type="text" name="End" id="iend">
+                        </div>
+                        <div>
                             <label for='icalories'>Calories</label>
                             <input id='icalories' type='text' name='Calories' maxlength='6' onkeypress='allowedInNumberField();'>
                         </div>
@@ -137,7 +143,7 @@
                             <legend>Event Details</legend>
                             <div>
                                 <div>
-                                    <input type="text" name="seqno" id="seqno" hidden>
+                                    <input type="text" name="simple" id="simple" hidden>
                                 </div>
                                 <div>
                                     <label for  = "date">Date</label>
@@ -202,7 +208,7 @@
                                 </fieldset>
                                 <div>
                                     <label for="item">Item</label>
-                                    <input type="text" name="Item" size ="10" id="item" tabindex="-1" readonly>
+                                    <input type="text" name="Item" size ="25" id="item" tabindex="-1" readonly>
                                 </div>
                                 <div>
                                     <label for="source">Source</label>

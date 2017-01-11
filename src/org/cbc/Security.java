@@ -67,15 +67,13 @@ class Security {
         Trace t = new Trace("checkSession");
         
         SQLSelectBuilder sql;
-        boolean          logInRequired = true;
+        boolean          logInRequired = config.getLoginRequired() || config.getSSHRequired();
         String           source        = origin == null ? referrer : origin;
         
         if (config.getLogRequest()) {
             handler.dumpRequest();
         }
-        if (source.startsWith("http://local")) {
-            logInRequired = config.getLoginRequired();
-        } else if (!source.startsWith("https://")) {
+        if (!source.startsWith("https://") && config.getSSHRequired()) {
             reply.append("securityfailure;httpsrequired;");
             securityFailure = true;
         }

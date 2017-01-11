@@ -134,6 +134,8 @@ public abstract class ApplicationServer extends HttpServlet {
         private boolean logReply;
         private boolean loginRequired;
         private boolean measureSQL;
+        private boolean sqlServerAvailable;
+        private boolean sshRequired;
         private String  openShiftHost;
         
         public String getProperty(String name) {
@@ -151,26 +153,37 @@ public abstract class ApplicationServer extends HttpServlet {
             }        
             return defaultValue;
         }
+        private String getenv(String name) {
+            String env = System.getenv(name);
+                
+            return env == null? "" : env.trim();
+        }
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
-            dbServer        = properties.getProperty("dbserver");
-            appName         = config.getServletName();
-            deadlockRetries = properties.getProperty("deadlockretries");
-            hashAlgorithm   = properties.getProperty("hashalgorithm", "SHA");
-            logRequest      = properties.getProperty("logrequest", "no").equalsIgnoreCase("yes");
-            logReply        = properties.getProperty("logreply", "no").equalsIgnoreCase("yes");
-            loginRequired   = properties.getProperty("loginrequired", "no").equalsIgnoreCase("yes");
-            measureSQL      = properties.getProperty("measureSQL", "no").equalsIgnoreCase("yes");
-            openShiftHost   = System.getenv("OPENSHIFT_MYSQL_DB_HOST");
+            dbServer           = properties.getProperty("dbserver");
+            appName            = config.getServletName();
+            deadlockRetries    = properties.getProperty("deadlockretries");
+            hashAlgorithm      = properties.getProperty("hashalgorithm", "SHA");
+            logRequest         = properties.getProperty("logrequest", "no").equalsIgnoreCase("yes");
+            logReply           = properties.getProperty("logreply", "no").equalsIgnoreCase("yes");
+            loginRequired      = properties.getProperty("loginrequired", "no").equalsIgnoreCase("yes");
+            measureSQL         = properties.getProperty("measureSQL", "no").equalsIgnoreCase("yes");
+            sqlServerAvailable = properties.getProperty("sqlavailable", "yes").equalsIgnoreCase("yes");
+            sshRequired        = false;
+            openShiftHost      = getenv("OPENSHIFT_MYSQL_DB_HOST");
             
-            if (openShiftHost != null && openShiftHost.length() != 0) {
-                dbServer = openShiftHost + ':' + System.getenv("OPENSHIFT_MYSQL_DB_PORT");
-            } else
-                openShiftHost = "";
+            if (openShiftHost.length() != 0) {
+                dbServer           = openShiftHost + ':' + getenv("OPENSHIFT_MYSQL_DB_PORT");
+                sqlServerAvailable = false;
+                sshRequired        = true;
+            } else if (getenv("DATABASE_SERVER").length() != 0) {
+                dbServer           = getenv("DATABASE_SERVER");
+                sqlServerAvailable = !getenv("SQLSERVER_AVAILABLE").equalsIgnoreCase("no");
+            }
         }
-        public boolean isOpenShift() {
-            return openShiftHost.length() != 0;
+        public boolean isSqlServerAvailable() {
+            return sqlServerAvailable;
         }
         public String getAppName() {
             return appName;
@@ -180,9 +193,6 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public String getDeadlockRetries() {
             return deadlockRetries;
-        }
-        public String getOpenShiftHost() {
-            return openShiftHost;
         }
         public String getHashAlgorithm() {
             return hashAlgorithm;
@@ -195,6 +205,10 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public boolean getLoginRequired() {
             return loginRequired;
+        }
+        public boolean getSSHRequired()
+        {
+            return sshRequired;
         }
         public boolean getMeasureSQL() {
             return measureSQL;
@@ -403,7 +417,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 /*
                  * This action does not require the user to be logged in.
                  */
-                ctx.getReplyBuffer().append(!config.isOpenShift()? "yes" : "no");
+                ctx.getReplyBuffer().append(config.isSqlServerAvailable()? "yes" : "no");
                 ctx.setStatus(200);
             } else if (security.isSecurityFailure()) {
                 ctx.getReplyBuffer().append(security.getReply());
@@ -475,11 +489,11 @@ public abstract class ApplicationServer extends HttpServlet {
         try {
             Report.comment(null, "processRequest called with action " + action + " sessionId " + ctx.getHandler().getCookie("sessionid") + " mysql " + useMySql + " default " + System.getProperty("user.dir"));
             
-            if (config.isOpenShift()) useMySql = true;
+            if (!config.isSqlServerAvailable()) useMySql = true;
             
             t.report('C', "action " + action + " server " + config.getDbServer() + " database " + config.databases.application.name + " user " + config.databases.application.user);
 
-            ctx.openDatabases(useMySql);
+            ctx.openDatabases(useMySql || !config.isSqlServerAvailable());
             
             Security security = new Security(ctx.getSecDb(), request, config);
             

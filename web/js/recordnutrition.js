@@ -130,6 +130,7 @@ function detailsRowClick(row, operation) {
                
                 break;
             case 'Simple':
+                document.getElementById('simple').value = colValue;
                 simple = colValue === 'Y';
                 break;
         }
@@ -213,7 +214,7 @@ function cloneEvent(action) {
             document.getElementById('cdate').value        = '';
             document.getElementById('ctime').value        = '';
             document.getElementById('cdescription').value = document.getElementById('description').value;
-            document.getElementById('ccomment').value     = '';
+            document.getElementById('ccomment').value     = document.getElementById('comment').value;
             setDateTime('cdate', 'ctime');
             document.getElementById('cweight').value      = getWeight(document.getElementById('cdate').value);
             
@@ -337,6 +338,7 @@ function modifyItemData(isDelete) {
     parameters = addParameterById(parameters, 'date');
     parameters = addParameterById(parameters, 'time');
     parameters = addParameterById(parameters, 'description');
+    parameters = addParameterById(parameters, 'simple');
     
     if (!isDelete) {
         parameters = addParameterById(parameters, 'quantity');
@@ -433,6 +435,8 @@ function setCreateItem() {
     document.getElementById('iitem').value = "";
     document.getElementById('isource').value = "";
     document.getElementById('itype').value = "";
+    document.getElementById('istart').value = getDateTime();
+    document.getElementById('iend').value = "3000-01-01 00:00:00";
     document.getElementById('icalories').value = "";
     document.getElementById('iprotein').value = "";
     document.getElementById('icholesterol').value = "";
@@ -473,6 +477,8 @@ function applyItemUpdate() {
     parameters = addParameterById(parameters, 'icreate',       'command');
     parameters = addParameterById(parameters, 'iitem',         'item');
     parameters = addParameterById(parameters, 'isource',       'source');
+    parameters = addParameterById(parameters, 'istart',        'start');
+    parameters = addParameterById(parameters, 'iend',          'end');
     parameters = addParameterById(parameters, 'itype',         'type');
     parameters = addParameterById(parameters, 'icalories',     'calories');
     parameters = addParameterById(parameters, 'iprotein',      'protein');
@@ -500,10 +506,14 @@ function setItemCreateCaption() {
         document.getElementById('icreate').value    = 'Create';
         document.getElementById('iitem').readOnly   = false;
         document.getElementById('isource').readOnly = false;
+        document.getElementById('istart').readOnly  = false;
+        document.getElementById('iend').readOnly    = false;
     } else {
         document.getElementById('icreate').value    = 'Update';
         document.getElementById('iitem').readOnly   = true;
         document.getElementById('isource').readOnly = true;
+        document.getElementById('istart').readOnly  = true;
+        document.getElementById('iend').readOnly    = true;
     }
 }
 function displayUpdateItem() {
