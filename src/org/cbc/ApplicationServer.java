@@ -136,7 +136,6 @@ public abstract class ApplicationServer extends HttpServlet {
         private boolean measureSQL;
         private boolean sqlServerAvailable;
         private boolean sshRequired;
-        private String  openShiftHost;
         
         public String getProperty(String name) {
             return properties.getProperty(name);
@@ -161,7 +160,7 @@ public abstract class ApplicationServer extends HttpServlet {
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
-            dbServer           = properties.getProperty("dbserver");
+            dbServer           = getenv("DATABASE_SERVER").length() == 0? "127.0.0.1" : getenv("DATABASE_SERVER");
             appName            = config.getServletName();
             deadlockRetries    = properties.getProperty("deadlockretries");
             hashAlgorithm      = properties.getProperty("hashalgorithm", "SHA");
@@ -169,17 +168,11 @@ public abstract class ApplicationServer extends HttpServlet {
             logReply           = properties.getProperty("logreply", "no").equalsIgnoreCase("yes");
             loginRequired      = properties.getProperty("loginrequired", "no").equalsIgnoreCase("yes");
             measureSQL         = properties.getProperty("measureSQL", "no").equalsIgnoreCase("yes");
-            sqlServerAvailable = properties.getProperty("sqlavailable", "yes").equalsIgnoreCase("yes");
-            sshRequired        = false;
-            openShiftHost      = getenv("OPENSHIFT_MYSQL_DB_HOST");
+            sqlServerAvailable = getenv("SQLSERVER_AVAILABLE").equalsIgnoreCase("yes");
+            sshRequired        = !getenv("SSH_REQUIRED").equalsIgnoreCase("no");
             
-            if (openShiftHost.length() != 0) {
-                dbServer           = openShiftHost + ':' + getenv("OPENSHIFT_MYSQL_DB_PORT");
-                sqlServerAvailable = false;
-                sshRequired        = true;
-            } else if (getenv("DATABASE_SERVER").length() != 0) {
-                dbServer           = getenv("DATABASE_SERVER");
-                sqlServerAvailable = !getenv("SQLSERVER_AVAILABLE").equalsIgnoreCase("no");
+            if (getenv("DATABASE_PORT").length() != 0) {
+                dbServer += ":" + getenv("DATABASE_PORT");
             }
         }
         public boolean isSqlServerAvailable() {
@@ -444,9 +437,11 @@ public abstract class ApplicationServer extends HttpServlet {
         }
     }    
     public void init(ServletConfig config) throws ServletException{ 
-        super.init(config);  
-        Process.setConfigFile("ARConfig.cfg");
-  
+        super.init(config);
+        String arRoot = System.getenv("AR_ROOT");
+        String arFile = System.getenv("AR_FILE");
+        Process.setConfigFile(arRoot, arFile == null? "ARConfig.cfg" : arFile);
+        
         Thread.attach(config.getServletName());
         Trace t = new Trace("initRequest");
         
