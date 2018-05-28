@@ -181,7 +181,7 @@ public class RecordSpend extends ApplicationServer {
         t.exit();
     }
     public String getVersion() {        
-        return "V2.0 Released 15-Apr-2015";    
+        return "V2.1 Released 26-May-18";    
     }
     public void initApplication (ServletConfig config, ApplicationServer.Configuration.Databases databases) throws ServletException, IOException {
         this.config.load(config, databases);        

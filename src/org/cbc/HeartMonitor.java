@@ -26,7 +26,7 @@ import org.cbc.utils.data.DatabaseSession;
 @WebServlet(name = "NewServletz", urlPatterns = {"/NewServletz"})
 public class HeartMonitor extends ApplicationServer {
     public String getVersion() {
-        return "V1.2 Released 16-Jan-2017";    
+        return "V1.3 Released 26-May-18";    
     }
     private String getOrientation(Context ctx, String field) throws SQLException {
         String           value = ctx.getParameter(field);

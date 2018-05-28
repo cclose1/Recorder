@@ -128,6 +128,7 @@ public abstract class ApplicationServer extends HttpServlet {
         private String  appName;
         private String  dbServer;
         private String  deadlockRetries;
+        private String  mysqlUseSSL;
         
         private String  hashAlgorithm;
         private boolean logRequest;
@@ -152,8 +153,16 @@ public abstract class ApplicationServer extends HttpServlet {
             }        
             return defaultValue;
         }
-        private String getenv(String name) {
+        private String getenv(String name, boolean expand) {
             String env = System.getenv(name);
+            
+            if (env != null && env.startsWith("${") && expand) {
+                env = System.getenv(env.substring(2, env.length() - 1));
+            }
+            return env == null? "" : env.trim();
+        }
+        private String getenv(String name) {
+            String env = getenv(name, true);
                 
             return env == null? "" : env.trim();
         }
@@ -161,6 +170,7 @@ public abstract class ApplicationServer extends HttpServlet {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
             dbServer           = getenv("DATABASE_SERVER").length() == 0? "127.0.0.1" : getenv("DATABASE_SERVER");
+            mysqlUseSSL        = getenv("MYSQL_USE_SSL");
             appName            = config.getServletName();
             deadlockRetries    = properties.getProperty("deadlockretries");
             hashAlgorithm      = properties.getProperty("hashalgorithm", "SHA");
@@ -186,6 +196,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public String getDeadlockRetries() {
             return deadlockRetries;
+        }
+        public String getMysqlUseSSL() {
+            return mysqlUseSSL;
         }
         public String getHashAlgorithm() {
             return hashAlgorithm;
@@ -236,27 +249,17 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
             Trace           t       = new Trace("openDatabase");
-            DatabaseSession session = null;
+            DatabaseSession session = new DatabaseSession(useMySql? "mysql" : "sqlserver", config.getDbServer(), login.name);
             
             if (login.name != null) {
                 t.report('C', "Database " + login.name);
                 
-                session = new DatabaseSession();
+                session.setUser(login.user, login.password);
                 
-                if (useMySql)
-                    session.open(
-                            "mysql", 
-                            "com.mysql.jdbc.Driver", 
-                            config.getDbServer(), 
-                            login.name, 
-                            login.user, 
-                            login.password);
-                else
-                    session.open(
-                            config.getDbServer(), 
-                            login.name, 
-                            login.user, 
-                            login.password);
+                if (useMySql && config.getMysqlUseSSL().length() != 0) session.addConnectionProperty("useSSL", config.getMysqlUseSSL());
+                
+                session.connect();
+                t.report('C', "Connection string " + session.getConnectionString());
             }   
             t.exit();
             
@@ -440,10 +443,13 @@ public abstract class ApplicationServer extends HttpServlet {
         super.init(config);
         String arRoot = System.getenv("AR_ROOT");
         String arFile = System.getenv("AR_FILE");
-        Process.setConfigFile(arRoot, arFile == null? "ARConfig.cfg" : arFile);
+        Process.setReportingRoot(arRoot);
+        
+        if (arFile != null) Process.setConfigFile(arFile);
         
         Thread.attach(config.getServletName());
         Trace t = new Trace("initRequest");
+        
         
         try {
             this.config.load(config);
@@ -458,7 +464,10 @@ public abstract class ApplicationServer extends HttpServlet {
         } catch (IOException ex) {
             Report.error(null, "IOException reading servlet properties", ex);
         }
-        Report.comment(null, "Version " + getVersion());
+        Report.comment(null, 
+                "Version "  + getVersion() + 
+                " home "    + System.getProperty("user.home") +
+                " current " + System.getProperty("user.dir"));
         t.report('C', "Servlet name " + config.getServletName() + " started");
         t.exit();
     }
