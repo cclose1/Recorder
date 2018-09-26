@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package org.cbc;
 
 import java.security.NoSuchAlgorithmException;
@@ -98,6 +97,7 @@ class Security {
                 Date last = getDate(rs, "Last");
                 deadlocks += rs.getInt("Deadlocks");
                 t.report('C', "Deadlocks read");
+                
                 if (maxIdle != 0 && last != null && new Date().getTime() - last.getTime() > maxIdle) {
                     logOff("Timed Out");
                     reply.append("securityfailure;Session Timed Out");
@@ -190,6 +190,7 @@ class Security {
                 updateUser(upd);
             }
             hash.setSalt(salt);
+            
             if (state != null && state.equals("Suspended")) {
                 if (suspendTime == 0) {
                     getReply().append("Your account has been suspended and must be reactivated by an administrator");
@@ -233,6 +234,7 @@ class Security {
                 return;
             }
             String newPassword = handler.getParameter("newpassword");
+            
             if (newPassword.length() != 0) {
                 upd.addField("Password", hash.getHash(newPassword));
             }
@@ -259,20 +261,19 @@ class Security {
         updateUser(upd);
         db.commit();
     }
-
     private void logOff(String state) throws SQLException {
         SQLUpdateBuilder sql = new SQLUpdateBuilder("Session");
-        db.startTransaction();
         sql.addField("State", state);
         sql.addField(db.getProtocol().equals("mysql") ? "`End`" : "\"End\"", df.format(new Date()));
         sql.setWhere("SessionId = '" + sessionId + '\'');
         db.executeUpdate(sql.build());
-        db.commit();
         loggedIn = false;
     }
 
     public void logOff() throws SQLException {
+        db.startTransaction();
         logOff("Closed");
+        db.commit();
     }
 
     /**

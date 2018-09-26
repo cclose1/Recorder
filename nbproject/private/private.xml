@@ -3,15 +3,10 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/build.xml</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordnutrition.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/nbproject/build-impl.xml</file>
-            <file>file:/C:/MyFiles/Java/Recorder/nbproject/project.xml</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/RecordNutrition.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/nbproject/project.properties</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordNutrition.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/WEB-INF/record.properties</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Security.java</file>
         </group>
     </open-files>
 </project-private>

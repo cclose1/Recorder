@@ -70,7 +70,7 @@
     -->
     <target name="-post-dist">
         <copy file="${dist.war}" todir="C:/MyFiles/Repo/Openshift/webapps"/>
-        <copy file="${dist.war}" todir="C:/Users/Chris/tomcatdockerbuild"/> 
+        <copy file="${dist.war}" todir="C:/MyFiles/Development/Docker/TomcatBuild"/> 
     </target> 
 
 </project>

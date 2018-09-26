@@ -162,24 +162,34 @@ public abstract class ApplicationServer extends HttpServlet {
             return env == null? "" : env.trim();
         }
         private String getenv(String name) {
-            String env = getenv(name, true);
-                
-            return env == null? "" : env.trim();
+            return getenv(name, true);
+        }
+        private boolean getenvBoolean(String name, boolean ifNull) {
+            String env = getenv(name, true).trim();
+            
+            if (env.equals("")) return ifNull;
+            
+            env = env.toLowerCase();
+            
+            return env.equals("true") || env.equals("t") || env.equals("yes") || env.equals("y");
+        }
+        private boolean getenvBoolean(String name) {
+            return getenvBoolean(name, false);
         }
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
             dbServer           = getenv("DATABASE_SERVER").length() == 0? "127.0.0.1" : getenv("DATABASE_SERVER");
-            mysqlUseSSL        = getenv("MYSQL_USE_SSL");
+            mysqlUseSSL        = getenv("DATABASE_USE_SSL");
+            logRequest         = getenvBoolean("LOG_HTML_REQUEST");
+            logReply           = getenvBoolean("LOG_HTML_REPLY");
+            measureSQL         = getenvBoolean("MEASURE_SQL_QUERY");
+            sqlServerAvailable = getenvBoolean("SQLSERVER_AVAILABLE");
+            sshRequired        = getenvBoolean("SSH_REQUIRED");
             appName            = config.getServletName();
             deadlockRetries    = properties.getProperty("deadlockretries");
             hashAlgorithm      = properties.getProperty("hashalgorithm", "SHA");
-            logRequest         = properties.getProperty("logrequest", "no").equalsIgnoreCase("yes");
-            logReply           = properties.getProperty("logreply", "no").equalsIgnoreCase("yes");
             loginRequired      = properties.getProperty("loginrequired", "no").equalsIgnoreCase("yes");
-            measureSQL         = properties.getProperty("measureSQL", "no").equalsIgnoreCase("yes");
-            sqlServerAvailable = getenv("SQLSERVER_AVAILABLE").equalsIgnoreCase("yes");
-            sshRequired        = !getenv("SSH_REQUIRED").equalsIgnoreCase("no");
             
             if (getenv("DATABASE_PORT").length() != 0) {
                 dbServer += ":" + getenv("DATABASE_PORT");
@@ -465,9 +475,10 @@ public abstract class ApplicationServer extends HttpServlet {
             Report.error(null, "IOException reading servlet properties", ex);
         }
         Report.comment(null, 
-                "Version "  + getVersion() + 
-                " home "    + System.getProperty("user.home") +
-                " current " + System.getProperty("user.dir"));
+                "Version "        + getVersion() + 
+                " Home Dir "      + System.getProperty("user.home") +
+                " Current Dir "   + System.getProperty("user.dir")  +
+                " Report Config " + Process.getConfigFile().getAbsoluteFile());
         t.report('C', "Servlet name " + config.getServletName() + " started");
         t.exit();
     }
