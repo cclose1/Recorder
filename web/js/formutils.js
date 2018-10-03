@@ -696,7 +696,7 @@ function addOption(select, value) {
     else
         select.options[select.options.length] = new Option(value, value);
 }
-function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue) {
+function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue, allowblank) {
     try {
         var select  = document.getElementById(id);
         var jObj    = new jsonObject(json);
@@ -707,6 +707,9 @@ function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue) {
          * For the Datalist options setting select.options = 0 has no effect.
          */
         select.innerHTML = "";
+        
+        if (allowblank !== undefined && allowblank) addOption(select, '');
+        
         jObj.next("{");
         
         if (firstValue !== undefined && firstValue) addOption(select, firstValue);
@@ -939,6 +942,12 @@ function setDateTime(fldDate, fldTime) {
         document.getElementById(fldTime).value = currentTime(date);
     }
 }
+function loadDateTime(fields) {
+    if (fields.length === 2) {
+        document.getElementById("date").value = fields[0];
+        document.getElementById("time").value = fields[1];
+    }
+}
 function tidyNumber(number, zeroToNull, maxPlaces) {
     if (zeroToNull && toNumber(number) <= 0) return '';
     
@@ -974,7 +983,7 @@ function getList(server, options) {
     if (options.filter !== undefined) parameters = addParameter(parameters, 'filter', options.filter);
     
     function processResponse(response) {
-        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue, options.firstValue);
+        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue, options.firstValue, options.allowblank);
     }
     ajaxLoggedInCall(server, processResponse, parameters, options.async);
 }

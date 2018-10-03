@@ -1,0 +1,32 @@
+
+@media screen and (max-width: 900px) {
+    .colright {
+        width: 0px;
+    }
+    #innerfields {
+        width: 340px;
+    }
+}
+@media screen and (min-width: 901px) {
+    .colright {
+        width: 498px;
+    }
+    #innerfields {
+        width: 840px;
+    }
+}    
+#accounts > tbody {
+    height: 180px;
+}
+.colleft {
+    width: 340px
+}
+#innerfields {
+    margin: auto;
+}
+table#transactions th:nth-child(1) {
+    display: none;
+}
+table#transactions td:nth-child(1) {
+    display: none;
+}
