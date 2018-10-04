@@ -69,12 +69,14 @@ public class RecordBankTransaction extends ApplicationServer {
             
             if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
                 sql.addField("SUBSTRING(DATENAME(WEEKDAY, Timestamp), 1, 3)", "Weekday");
+                sql.addField("ISNULL(AccountNumber,'')", "Number");
+                sql.addField("ISNULL(CardNumber,'')",    "Card");
             } else {
                 sql.addField("SubStr(DayName(Timestamp), 1, 3)", "Weekday");
+                sql.addField("IFNULL(AccountNumber,'')", "Number");
+                sql.addField("IFNULL(CardNumber,'')",    "Card");
             }
             sql.addField("Account");
-            sql.addField("ISNULL(AccountNumber,'')", "Number");
-            sql.addField("ISNULL(CardNumber,'')",    "Card");
             sql.addValueField("Amount", "CAST(Amount AS DECIMAL(10,2))", false);
             sql.addField("Currency");
             sql.addField("Type");
