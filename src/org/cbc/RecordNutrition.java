@@ -102,8 +102,8 @@ public class RecordNutrition extends ApplicationServer {
         setNumericItemField(rs, "DefaultSize",  ctx.getParameter("default"),      1);
         setNumericItemField(rs, "PackSize",     ctx.getParameter("packsize"),     1);
     }
-    public String getVersion() {        
-        return "V4.1 Released 23-May-2018   ";    
+    public String getVersion() {       
+        return "V4.2 Released 05-Dec-2018   ";  
     }
     public void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(

@@ -1,3 +1,5 @@
+'use strict';
+
 function setHiddenLabelField(name, yes) {
     setHidden(name, yes);
     setHidden(name + 'lab', yes);
@@ -89,10 +91,9 @@ function checkTimestamp(fldDate, fldTime) {
     return valid;
 }
 function detailsRowClick(row, operation) {
-    var i;
+    var rdr     = new rowReader(row);
     var simple  = false;
     var abv     = '';
-    var h       = document.getElementById(row.parentNode.parentNode.id).rows[0];
     var isEvent = document.getElementById('date').value !== '';
     var item    = '';
     var source  = '';
@@ -101,11 +102,10 @@ function detailsRowClick(row, operation) {
         displayAlert('Error', 'Complete or cancel item');
         return;
     }
-    for (i = 0; i < h.cells.length; i++) {
-        var colName  = h.cells[i].innerHTML;
-        var colValue = row.cells[i].innerText;
+    while (rdr.nextColumn()) {
+        var colValue = rdr.columnValue();
         
-        switch (colName) {
+        switch (rdr.columnName()) {
             case 'Item':
                 item = colValue;
                 
@@ -389,35 +389,36 @@ function updateFilteredLists() {
     updateFilteredList('ftype',       'type',   'fsource', 'source');
 }
 function rowEventHistoryClick(row) {
-    var i;
-    var h = document.getElementById(row.parentNode.parentNode.id).rows[0];
+    try {
+        var rdr = new rowReader(row, true);
 
-    if (document.getElementById('item').value !== '') {
-        displayAlert('Error', 'Complete or cancel item');
-        return;
-    }
-    for (i = 0; i < h.cells.length; i++) {
-        var colName = h.cells[i].innerHTML;
-
-        switch (colName) {
-            case 'Timestamp':
-                var fields = row.cells[i].innerText.split(' ');
-
-                if (fields.length === 2) {
-                    document.getElementById('date').value = fields[0];
-                    document.getElementById('time').value = fields[1];
-                }
-                break;
-            case 'Description':
-                document.getElementById('description').value = row.cells[i].innerText;
-                break;
-            case 'Comment':
-                document.getElementById('comment').value = row.cells[i].innerText;
-                break;
+        if (document.getElementById('item').value !== '') {
+            displayAlert('Error', 'Complete or cancel item');
+            return;
         }
+        while (rdr.nextColumn()) {
+            switch (rdr.columnName()) {
+                case 'Timestamp':
+                    var fields = rdr.columnValue().split(' ');
+
+                    if (fields.length === 2) {
+                        document.getElementById('date').value = fields[0];
+                        document.getElementById('time').value = fields[1];
+                    }
+                    break;
+                case 'Description':
+                    document.getElementById('description').value = rdr.columnValue();
+                    break;
+                case 'Comment':
+                    document.getElementById('comment').value = rdr.columnValue();
+                    break;
+            }
+        }
+        setEventMode(true);
+        requestEventHistory();
+    } catch (e) {
+        alert("Exception " + e);
     }
-    setEventMode(true);
-    requestEventHistory();
 }
 function setSalt(isSalt) {
     if (isSalt)
@@ -561,11 +562,9 @@ function checkExists() {
     
     var confirm = new confirmListCreate(field);
     
-    displayAlert('Confirm', 'Create ' + field.name + ' for ' + field.value, confirm);
+    displayAlert('Confirm', 'Create ' + field.name + ' for ' + field.value, {confirm: confirm});
 }
-function initialize() {
-    document.getElementById('secserver').value = 'Nutrition';
-    
+function initialize() {    
     if (!serverAcceptingRequests('Nutrition')) return;
     
     enableMySql('Nutrition');

@@ -1,24 +1,26 @@
+'use strict';
+
+
+var pu = new popUp();
+
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 
+function addLoginParameter(parameters, id) {
+    return addParameter(parameters, id, pu.getValueById(id));
+}
 function setUser() {
     document.getElementById("user").value       = getCookie("userid");
     document.getElementById("saveuser").checked = getCookie("userid") !== "";
 }
 function displayLogOn(yes) {
-    if (yes) {
-        setHidden("appframe", true);
-        setHidden("loginfields", false);
-    } else {
-        setHidden("appframe", false);
-        setHidden("loginfields", true);
-    }
+    pu.display(yes, true);
 }
 function loggingIn() {
-    var el = document.getElementById("loginfields");
+    var el = document.getElementById(pu.getContainerId());
     /*
      * return !document.getElementById("loginfields").hasAttribute("hidden");
      * 
@@ -34,12 +36,12 @@ function loggedIn(response) {
     if (params[0] !== "securityfailure")
         return true;
     if (params[1] === 'httpsrequired') {
-        setHidden("appframe", true);
-        setHidden("loginfields", true);
+        setHidden(pu.getAppId(), true);
+        setHidden(pu.getContainerId(), true);
         displayAlert("Security Failure", "Secure connection required; use https");
     } else {
         if (params.length >= 3)
-            document.getElementById("user").value = params[2];
+            pu.getElementById("user").value = params[2];
 
         displayLogOn(true);
 
@@ -75,7 +77,7 @@ function serverAcceptingRequests(server) {
 }
 
 function saveUser() {
-    setCookie('userid', document.getElementById('saveuser').checked? document.getElementById('user').value : '');
+    setCookie('userid', pu.getElementById('saveuser').checked? pu.getValueById('user') : '');
 }
 function login(server, event) {
     if (event !== undefined) {
@@ -97,30 +99,30 @@ function login(server, event) {
         } else
             displayAlert("Security Failure", params[0]);
     }
-    if (trim(document.getElementById("password").value) === "") {
+    if (pu.getValueById("password") === "") {
         displayAlert("Validation Failure", "Must enter the password");
         return;
     }
-    if (trim(document.getElementById("newpassword").value) !== "" && trim(document.getElementById("confirmpassword").value) !== "") {
-        if (trim(document.getElementById("newpassword").value) !== trim(document.getElementById("confirmpassword").value)) {
+    if (pu.getValueById("newpassword") !== "" && pu.getValueById("confirmpassword") !== "") {
+        if (pu.getValueById("newpassword") !== pu.getValueById("confirmpassword")) {
             displayAlert("Validation Failure", "Confirm Password is not the same as New Password");
             return;
         }
-    } else if (trim(document.getElementById("newpassword").value) !== "" || trim(document.getElementById("confirmpassword").value) !== "") {
-       displayAlert("Validation Failure", "Must enter a value for both New Password and Confirm Password or neither");
+    } else if (pu.getValueById("newpassword") !== "" || pu.getValueById("confirmpassword") !== "") {
+        displayAlert("Validation Failure", "Must enter a value for both New Password and Confirm Password or neither");
         return;
     }
     parameters = addParameterById(parameters, "mysql");
-    parameters = addParameterById(parameters, "user");
-    parameters = addParameterById(parameters, "password");
-    parameters = addParameterById(parameters, "newpassword");
-    document.getElementById("password").value        = "";
-    document.getElementById("newpassword").value     = "";
-    document.getElementById("confirmpassword").value = "";
+    parameters = addLoginParameter(parameters, "user");
+    parameters = addLoginParameter(parameters, "password");
+    parameters = addLoginParameter(parameters, "newpassword");
+    pu.getElementById("password").value        = "";
+    pu.getElementById("newpassword").value     = "";
+    pu.getElementById("confirmpassword").value = "";
     saveUser();
     ajaxCall(server, parameters, processResponse, false);
 }
-function logOff(server) {
+function logOff() {
     var parameters = addParameter("", "action", "logoff");
 
     function processResponse(response) {
@@ -128,5 +130,12 @@ function logOff(server) {
         displayLogOn(true);
     }
     parameters = addParameterById(parameters, "mysql");
-    ajaxCall(server, parameters, processResponse, false);
+    ajaxCall(pu.getValueById('secserver'), parameters, processResponse, false);
+}
+
+function configureLogin(secserver, homeElementId) {
+    if (homeElementId === undefined) homeElementId = 'loginframe';
+        
+    pu.initialise(homeElementId);
+    pu.getElementById('secserver').value = secserver;
 }

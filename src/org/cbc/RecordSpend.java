@@ -181,7 +181,7 @@ public class RecordSpend extends ApplicationServer {
         t.exit();
     }
     public String getVersion() {        
-        return "V2.1 Released 26-May-18";    
+        return "V2.2 Released 05-Dec-18";    
     }
     public void initApplication (ServletConfig config, ApplicationServer.Configuration.Databases databases) throws ServletException, IOException {
         this.config.load(config, databases);        
@@ -250,11 +250,11 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("Weekday");
             sql.addField("Category");
             sql.addField("Type");
-            sql.addValueField("Description", "COALESCE(Description, '')",             false);
-            sql.addValueField("Location",    "COALESCE(Location, '')",                false);
+            sql.addDefaultedField("Description", "");
+            sql.addDefaultedField("Location",    "");
             sql.addField("Payment");
-            sql.addValueField("Amount",      "CAST(Amount AS DECIMAL(10,2))",         false);
-            sql.addValueField("Correction",  "CAST(BankCorrection AS DECIMAL(10,2))", false);
+            sql.addField("Amount",         null,         null, "DECIMAL(10,2)");
+            sql.addField("BankCorrection", "Correction", null, "DECIMAL(10,2)");
             sql.addAnd("CAST(Timestamp AS DATE)", ">=", start);
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);

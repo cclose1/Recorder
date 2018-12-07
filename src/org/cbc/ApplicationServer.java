@@ -246,16 +246,16 @@ public abstract class ApplicationServer extends HttpServlet {
         private StringBuilder       replyBuffer;
         
         public String getDbTimestamp(Date date) { 
-            return (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(date);
+            return date == null? null : (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(date);
         }
         public String getDbDate(Date date) { 
-            return (new SimpleDateFormat("yyyy-MM-dd")).format(date);
+            return date == null? null : (new SimpleDateFormat("yyyy-MM-dd")).format(date);
         }
         public String getDbTime(Date date) { 
-            return (new SimpleDateFormat("HH:mm:ss")).format(date);
+            return date == null? null : (new SimpleDateFormat("HH:mm:ss")).format(date);
         }
         public java.sql.Timestamp getSQLTimestamp(Date date) {
-            return new java.sql.Timestamp(date.getTime());
+            return date == null? null : new java.sql.Timestamp(date.getTime());
         }
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
             Trace           t       = new Trace("openDatabase");
@@ -293,17 +293,24 @@ public abstract class ApplicationServer extends HttpServlet {
         public String getParameter(String name) {
             return handler.getParameter(name);
         }        
-        public Date getTimestamp(String date, String time) throws ParseException {                        
-            return DateFormatter.parseDate(getParameter(date) + ' ' + getParameter(time));
+        public Date getTimestamp(String date, String time) throws ParseException {
+            String dt = getParameter(date).trim();
+            String tm = getParameter(time).trim();
+            
+            return dt.length() == 0 && tm.length() == 0? null : DateFormatter.parseDate(dt + ' ' + tm);
         }       
-        public Date getTimestamp(String date) throws ParseException {                        
-            return DateFormatter.parseDate(getParameter(date));
+        public Date getTimestamp(String date) throws ParseException {
+            String ts = getParameter(date);
+            
+            return ts.trim().length() == 0? null : DateFormatter.parseDate(ts);
         }   
-        public java.sql.Timestamp getSQLTimestamp(String date) throws ParseException {                        
-            return getSQLTimestamp(getTimestamp(date));
+        public java.sql.Timestamp getSQLTimestamp(String date) throws ParseException {
+            Date ts = getTimestamp(date);
+            
+            return ts == null? null : getSQLTimestamp(ts);
         }         
-        public Date getDate(String date) throws ParseException {                        
-            return DateFormatter.parseDate(getParameter(date));
+        public Date getDate(String date) throws ParseException {
+            return getTimestamp(date);
         }
         public void setStatus(int status) {
             handler.getResponse().setStatus(status);

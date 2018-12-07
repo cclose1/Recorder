@@ -1,3 +1,5 @@
+'use strict';
+
 var timer = setInterval(function(){ updateTimer();}, 1000);
 
 function showUpdate(yes) {
@@ -115,42 +117,41 @@ function modify(deleteRow) {
     return true;
 }
 function bpHistoryRowClick(row) {
-    var i;
-    var h = document.getElementById(row.parentNode.parentNode.id).rows[0];
+    var rdr = new rowReader(row);
     
-    for (i = 0; i < h.cells.length; i++) {
-        var colName = h.cells[i].innerHTML;
+    while (rdr.nextColumn()) {
+        var value = rdr.columnValue();
 
-        switch (colName) {
+        switch (rdr.columnName()) {
             case 'Individual':
-                document.getElementById('uindividual').value  = row.cells[i].innerText;
-                document.getElementById('ukindividual').value = row.cells[i].innerText;
+                document.getElementById('uindividual').value  = value;
+                document.getElementById('ukindividual').value = value;
                 break;
             case 'Session':
-                document.getElementById('usession').value = row.cells[i].innerText;
+                document.getElementById('usession').value = value;
                 break;
             case 'Timestamp':
-                document.getElementById('utimestamp').value  = row.cells[i].innerText;
-                document.getElementById('uktimestamp').value = row.cells[i].innerText;
+                document.getElementById('utimestamp').value  = value;
+                document.getElementById('uktimestamp').value = value;
                 break;
             case 'Side':
-                document.getElementById('uside').value  = row.cells[i].innerText;
-                document.getElementById('ukside').value = row.cells[i].innerText;
+                document.getElementById('uside').value  = value;
+                document.getElementById('ukside').value = value;
                 break;
             case 'Systolic':
-                document.getElementById('usystolic').value = row.cells[i].innerText;
+                document.getElementById('usystolic').value = value;
                 break;
             case 'Diastolic':
-                document.getElementById('udiastolic').value = row.cells[i].innerText;
+                document.getElementById('udiastolic').value = value;
                 break;
             case 'Pulse':
-                document.getElementById('upulse').value = row.cells[i].innerText;
+                document.getElementById('upulse').value = value;
                 break;
             case 'Orientation':
-                document.getElementById('uorientation').value = row.cells[i].innerText;
+                document.getElementById('uorientation').value = value;
                 break;
             case 'Comment':
-                document.getElementById('ucomment').value = row.cells[i].innerText;
+                document.getElementById('ucomment').value = value;
                 break;
         }
     }
@@ -170,8 +171,6 @@ function updateOrientationList(name, dbField) {
     getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false}); 
 }
 function initialize() {
-    document.getElementById('secserver').value = 'Record';
-
     if (!serverAcceptingRequests('Record')) return;
     
     enableMySql('Record');

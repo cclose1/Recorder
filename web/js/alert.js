@@ -1,7 +1,11 @@
+'use strict';
 
 var alertTime;
 var useBrowserAlert = true;
 var confirm;
+var focusElement;
+
+var al = new popUp();
 
 function position() {
     var elm  = new Object();
@@ -13,17 +17,18 @@ function position() {
     
     function mouseStart(event) {
         elm.startX     = event.screenX;
-        elm.startY     = event.screenY;
-        elm.offsetLeft = event.target.offsetLeft;
-        elm.offsetTop  = event.target.offsetTop;
+        elm.startY     = event.screenY;;
     }    
-    function mouseMove(event) {
-        var el = event.target;
+    function mouseMove(event) {        
+        var ct   = document.getElementById(al.getContainerId());
+        if (elm.startX === -1) return false;
         
-        if (elm.startX === -1) return;
+        ct.style.left = (ct.offsetLeft + event.screenX - elm.startX) + 'px';
+        ct.style.top  = (ct.offsetTop  + event.screenY - elm.startY) + 'px';
+        elm.startX    = event.screenX;
+        elm.startY    = event.screenY;
         
-        el.style.left = (elm.offsetLeft + event.screenX - elm.startX) + 'px';
-        el.style.top  = (elm.offsetTop  + event.screenY - elm.startY) + 'px';
+        return true;
     }
     function mouseUp(event) {
         elm.startX = -1;
@@ -32,85 +37,99 @@ function position() {
         elm.startX = -1;
     }
 }
-pos = new position();
+var pos = new position();
 
 function alertDebug() {
-    return document.getElementById('alertDebug') !== null;
+    var el = al.getElementById('alertDebug');
+    
+    return el !== null && el.className.indexOf('hidden') === -1;
 }
-function traceAlertDiv() {
+function traceAlertDiv(clear) {
     if (!alertDebug()) return;
     
-    var el   = document.getElementById('alertdiv');
-    var top  = parseFloat(el.style.top);
-    var left = parseFloat(el.style.left);
+    var el   = document.getElementById(al.getContainerId());
     
-    document.getElementById('width').value   = screen.width;
-    document.getElementById('height').value  = screen.height;
-    document.getElementById('awidth').value  = screen.availWidth;
-    document.getElementById('aheight').value = screen.availHeight;
-    document.getElementById('top').value     = el.style.top;
-    document.getElementById('left').value    = el.style.left;
-    document.getElementById('xleft').value   = Math.round(left * screen.width  / 100);
-    document.getElementById('ytop').value    =  Math.round(top * screen.height  / 100);
-    document.getElementById('axleft').value  =  Math.round(left * screen.availWidth  / 100);
-    document.getElementById('aytop').value   =  Math.round(top * screen.availHeight  / 100);  
+    al.setValueById('ctswidth',   screen.width,       true);
+    al.setValueById('ctsheight',  screen.height,      true);
+    al.setValueById('ctaswidth',  screen.availWidth,  true);
+    al.setValueById('ctasheight', screen.availHeight, true);
+    al.setValueById('ctsttop',    el.offsetTop,       true);
+    al.setValueById('ctstleft',   el.offsetLeft,      true);
 
-    document.getElementById('iscreenx').value = "";
-    document.getElementById('iscreeny').value = "";
-    document.getElementById('cscreenx').value = "";
-    document.getElementById('cscreeny').value = "";
-    document.getElementById('data').value = "";
-    document.getElementById('drags').value = 0;
-    document.getElementById('comment').value = "";
-    document.getElementById('offsetx').value = "";
-    document.getElementById('offsety').value = "";
-    document.getElementById('ntop').value = "";
-    document.getElementById('nleft').value = "";
+    if (clear === undefined || clear) {
+        al.setValueById('trmovetype', "", true);
+        al.setValueById('trmoveid',   "", true);
+        al.setValueById('iscreenx',   "", true);
+        al.setValueById('iscreeny',   "", true);
+        al.setValueById('cscreenx',   "", true);
+        al.setValueById('cscreeny',   "", true);
+        al.setValueById('trdrags',    0,  true);
+        al.setValueById('toleft',     "", true);
+        al.setValueById('totop',      "", true);
+        al.setValueById('towidth',    "", true);
+        al.setValueById('toheight',   "", true);
+    }
+}
+function traceTarget(target) {
+    if (!alertDebug()) return;
+    
+    al.setValueById('trmoveid', target.id,           true);    
+    al.setValueById('toleft',   target.offsetLeft,   true);
+    al.setValueById('totop',    target.offsetTop,    true);
+    al.setValueById('towidth',  target.offsetWidth,  true);
+    al.setValueById('toheight', target.offsetHeight, true);  
+ 
 }
 function trace(ev, initial) {
     if (!alertDebug()) return;
 
-    if (ev.screenX !== 0) {
-        document.getElementById((initial? 'i' : 'c') + 'screenx').value = ev.screenX;
-        document.getElementById((initial? 'i' : 'c') + 'screeny').value = ev.screenY;
-        document.getElementById((initial? 'i' : 'c') + 'clientx').value = ev.clientX;
-        document.getElementById((initial? 'i' : 'c') + 'clienty').value = ev.clientY; 
-        document.getElementById((initial? 'i' : 'c') + 'oleft').value   = ev.target.offsetLeft;
-        document.getElementById((initial? 'i' : 'c') + 'otop').value    = ev.target.offsetTop;  
-        document.getElementById('nleft').value = ev.target.style.left; 
-        document.getElementById('ntop').value  = ev.target.style.top;
+    if (ev.screenX !== 0) {   
+        al.setValueById('trmovetype', ev.type.substring(5), true); 
+        al.setValueById((initial? 'i' : 'c') + 'screenx', ev.screenX, true);
+        al.setValueById((initial? 'i' : 'c') + 'screeny', ev.screenY, true);
+        al.setValueById((initial? 'i' : 'c') + 'clientx', ev.clientX, true);
+        al.setValueById((initial? 'i' : 'c') + 'clienty', ev.clientY, true); 
+        
+        var el = al.getElementById('trdrags');
+        
+        if (el !== null) el.value = initial? 0 : parseInt(el.value, 10) + 1;
     }
 }
-function mouseMove(event, type) {
-    if (alertDebug() && type !== 'move') document.getElementById('comment').value = type;
-    if (alertDebug()) document.getElementById('data').value = event.target.id;
-    
-    if (event.target.id !== 'alertdiv') {
+function mouseMove(event) {
+    if (!al.inDisplay(event.target)) {
         pos.mouseClear();
         return;
     }
-    if (type === 'down') {
-        pos.mouseStart(event);
-        trace(event, true);
+    event.preventDefault();
+    traceTarget(event.target);
+    
+    switch (event.type) {
+        case 'mousedown':
+            pos.mouseStart(event);
+            trace(event, true);
+            break;
+        case 'mousemove':       
+            if (pos.mouseMove(event)) traceAlertDiv(false);
+            
+            trace(event, false);
+            break;
+        case 'mouseup':
+            pos.mouseUp(event);
+            break;
+        case 'mouseout':
+            break;
+        default:
+            alert(event.type);
     }
-    else if (type === 'move') {        
-        pos.mouseMove(event);
-        
-        if (alertDebug()) document.getElementById('drags').value = parseInt(document.getElementById('drags').value) + 1;
-        
-        trace(event, false);
-    }
-    else if (type === 'up')
-        pos.mouseUp(event);
 }
-
-function div_show(lenTitle, lenText, width) {
-    var w = screen.availWidth;
-    var h = screen.availHeight;
-    var d   = document.getElementById('alertdiv');
+function div_show(lenTitle, lenText, width) {    
+    traceAlertDiv();
+    
+    var w   = screen.availWidth;
+    var h   = screen.availHeight;
+    var d   = document.getElementById(al.getContainerId());
     var lpx = 15  * lenTitle;
     var tpx = 8.5 * lenText;
-
     d.style.width = (lpx > tpx ? lpx : tpx) + 'px';
 
     if (width > 0) d.style.width = width + 'px';
@@ -119,8 +138,6 @@ function div_show(lenTitle, lenText, width) {
     var left = 0.5 * w - parseInt(d.clientWidth);
     d.style.left = (100 * left / w).toFixed(2) + "%";
     d.style.top  = (100 * top  / h).toFixed(2) + "%";
-    
-    traceAlertDiv();
 }
 /*
  * Will cancel the message alert if the there is a click outside of it. The delay is required because the
@@ -128,28 +145,35 @@ function div_show(lenTitle, lenText, width) {
  * used to call displayMessage, the onclick event fires after the function call.
  */
 function checkAlert(e) {
+    var aDiv   = document.getElementById(al.getContainerId());
     var target = (e && e.target) || (event && event.srcElement);
 
-    if (new Date().getTime() - alertTime < 1000 || !isVisible('alertdiv')) return;
+    if (new Date().getTime() - alertTime < 1000 || !isVisible(aDiv)) return;
 
-    while (target.parentNode) {
-        if (target === document.getElementById('alertdiv'))
-            return;
-
-        target = target.parentNode;
-    }
-    dismissAlert();
+    var inDisplay = al.inDisplay(target);
+    
+    if (!inDisplay) dismissAlert();
 }
 function dismissAlert(clearValue) {
-    if (!useBrowserAlert) document.getElementById('alertdiv').style.display = 'none';
+    if (!useBrowserAlert) al.display(false, false);
     
-    if ((clearValue === undefined || clearValue) && confirm !== undefined) confirm.actionCancel();
-    
-    confirm = undefined;
+    if ((clearValue === undefined || clearValue) && confirm !== undefined) {
+        confirm.actionCancel();
+    }    
+    if (focusElement !== undefined) {
+        focusElement.focus();
+    }
+    focusElement = undefined;
+    confirm      = undefined;
 }    
-function displayAlert(title, text, confirm) {
-    this.confirm = confirm;
-    
+function displayAlert(title, text, options) {
+    if (options !== undefined) {
+        confirm      = options.confirm;
+        focusElement = options.focus;
+    } else {
+        confirm      = undefined;
+        focusElement = undefined;      
+    }
     if (useBrowserAlert) {
         if (confirm === undefined)
             alert(text);
@@ -161,37 +185,38 @@ function displayAlert(title, text, confirm) {
         }
     }
     else {
-        document.getElementById("alertCancel").value = confirm === undefined? 'Cancel' : 'No';
+        al.getElementById("alertCancel").value = confirm === undefined? 'Cancel' : 'No';
         pos.mouseClear();
         alertTime = new Date().getTime();
-        document.getElementById("alertTitle").innerHTML = title;
-        document.getElementById("alertMessage").innerHTML = text; 
-        document.getElementById("alertCancel").onclick = dismissAlert;
-        /*
-         * This needs to be done before div_show as div height and width are not
-         * calculated until its displayed.
-         */
-        document.getElementById('alertdiv').style.display = 'block';
+        al.getElementById("alertTitle").innerHTML   = title;
+        al.getElementById("alertMessage").innerHTML = text; 
+        al.getElementById("alertCancel").onclick    = dismissAlert;
         
-        if (document.getElementById('alertOK')) {
+        var alOK = al.getElementById('alertOK');
+        
+        if (alOK) {
             if (confirm === undefined) {
-                setHidden('alertOK', true);
-                document.getElementById("alertOK").onclick = dismissAlert;
+                setHidden(alOK, true);
+                alOK.onclick = dismissAlert;
             } else {
-                setHidden('alertOK', false);
-                document.getElementById("alertOK").onclick = confirm.actionClick;
+                setHidden(alOK, false);
+                alOK.onclick = confirm.actionClick;
             }
         }
         div_show(title.length, text.length);
+        al.display(true, false);
     }
 }
-function configureAlert(browserAlert, autoDismiss) {
+function configureAlert(browserAlert, autoDismiss, homeElementId, appId) {
     useBrowserAlert = browserAlert;
     
-    if (document.getElementById('alertdiv') === null) {
+    if (homeElementId === undefined) homeElementId = 'alertdiv';
+    
+    if (document.getElementById(homeElementId) === null) {
         useBrowserAlert = true;
         return;
-    }
-    if (autoDismiss)
-        document.onclick = checkAlert;
+    }        
+    al.initialise(homeElementId, appId);
+    
+    if (autoDismiss) al.setDocumentOnClick(checkAlert);
 }

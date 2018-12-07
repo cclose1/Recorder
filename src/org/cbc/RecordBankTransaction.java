@@ -17,6 +17,7 @@ import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.utils.data.DatabaseSession;
 
 /**
  *
@@ -29,28 +30,32 @@ public class RecordBankTransaction extends ApplicationServer {
                         "' AND Currency = '" + ctx.getParameter("currency") + "'");
         return rs.next();
     }
-    private void createTransaction(Context ctx, Date timestamp, String prefix) throws SQLException {
+    private void createTransaction(Context ctx, Date timestamp, Date completed, String prefix) throws SQLException {
         String account  = ctx.getParameter(prefix + "account");
         String amount   = ctx.getParameter(prefix + "amount");
+        String fee      = ctx.getParameter(prefix + "fee");
         String currency = ctx.getParameter(prefix + "currency");
         
         if (account == null || account.length() == 0) return;
         
         SQLInsertBuilder sql = ctx.getInsertBuilder("AccountTransaction");
         sql.addField("Timestamp",   ctx.getDbTimestamp(timestamp));
+        sql.addField("Completed",   ctx.getDbTimestamp(completed));
         sql.addField("Account",     account);
         sql.addField("Amount",      amount);
+        sql.addField("Fee",         fee.length() == 0? null : fee);
         sql.addField("Currency",    currency);
         sql.addField("Type",        ctx.getParameter("txntype"));
+        sql.addField("Usage",       ctx.getParameter("txnusage"));
         sql.addField("Description", ctx.getParameter("description"));
         executeUpdate(ctx, sql);
         ctx.setStatus(200);
     }
     @Override
     public String getVersion() {
-        return "V1.0 Released 26-Sep-18";    
+        return "V1.1 Released 05-Dec-18";    
     }
-    public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {       
+    public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(
                 super.config.getProperty("btdatabase"),
                 super.config.getProperty("btuser"),
@@ -69,23 +74,24 @@ public class RecordBankTransaction extends ApplicationServer {
             
             if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
                 sql.addField("SUBSTRING(DATENAME(WEEKDAY, Timestamp), 1, 3)", "Weekday");
-                sql.addField("ISNULL(AccountNumber,'')", "Number");
-                sql.addField("ISNULL(CardNumber,'')",    "Card");
             } else {
                 sql.addField("SubStr(DayName(Timestamp), 1, 3)", "Weekday");
-                sql.addField("IFNULL(AccountNumber,'')", "Number");
-                sql.addField("IFNULL(CardNumber,'')",    "Card");
             }
+            sql.addField("Completed");
+            sql.addDefaultedField("AccountNumber", "Number", "");
+            sql.addDefaultedField("CardNumber",    "Card",   "");
             sql.addField("Account");
-            sql.addValueField("Amount", "CAST(Amount AS DECIMAL(10,2))", false);
+            sql.addField("Amount", null, null, "DECIMAL(10,2)");
+            sql.addField("Fee",    null, null, "DECIMAL(10,2)");
             sql.addField("Currency");
-            sql.addField("Type");
+            sql.addDefaultedField("Type",  "");
+            sql.addDefaultedField("Usage", "" );
             sql.addField("Description");
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);
             
             data.add("Transactions", rs, super.config.getProperty("bpoptionalcolumns"), false);
-            data.append(ctx.getReplyBuffer());
+            data.append(ctx.getReplyBuffer(), "");
 
             ctx.setStatus(200);
         } else if (action.equals("accounts")) {
@@ -112,6 +118,7 @@ public class RecordBankTransaction extends ApplicationServer {
             getList(ctx);
         } else if (action.equals("create")) {
             Date   timestamp = ctx.getTimestamp("date", "time");
+            Date   completed = ctx.getTimestamp("cdate", "ctime");
             String seqNo     = ctx.getParameter("seqno");
             
             if (seqNo.length() != 0) {
@@ -120,10 +127,13 @@ public class RecordBankTransaction extends ApplicationServer {
                 
                 sql.addField("SeqNo");
                 sql.addField("Timestamp");
+                sql.addField("Completed");
                 sql.addField("Account");
                 sql.addField("Amount");
+                sql.addField("Fee");
                 sql.addField("Currency");
                 sql.addField("Type");
+                sql.addField("Usage");
                 sql.addField("Description");
                 sql.addAnd("SeqNo", "=", seqNo, false);
                 rs = ctx.getAppDb().updateQuery(sql.build());
@@ -134,10 +144,13 @@ public class RecordBankTransaction extends ApplicationServer {
                 {
                     rs.moveToCurrentRow();
                     rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(timestamp));
+                    rs.updateTimestamp("Completed", ctx.getSQLTimestamp(completed));
                     rs.updateString("Account",      ctx.getParameter("paccount"));
+                    rs.updateString("Fee",          ctx.getParameter("pfee"));
                     rs.updateString("Amount",       ctx.getParameter("pamount"));
                     rs.updateString("Currency",     ctx.getParameter("pcurrency"));
                     rs.updateString("Type",         ctx.getParameter("txntype"));
+                    rs.updateString("Usage",        ctx.getParameter("txnusage"));
                     rs.updateString("Description",  ctx.getParameter("description"));
                     rs.updateRow();
                     ctx.getAppDb().commit();
@@ -147,8 +160,8 @@ public class RecordBankTransaction extends ApplicationServer {
                 if (transactionFor(ctx, timestamp)) {
                     ctx.getReplyBuffer().append("Change time as transaction already recorded at " + timestamp + " for currency " + ctx.getParameter("currency"));
                 } else {
-                    createTransaction(ctx, timestamp, "p");
-                    createTransaction(ctx, timestamp, "s");                    
+                    createTransaction(ctx, timestamp, completed, "p");
+                    createTransaction(ctx, timestamp, completed, "s");                    
                 }
             }
         } else if (action.equals("delete")) {

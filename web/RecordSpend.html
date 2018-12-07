@@ -11,9 +11,9 @@
         <script src="js/login.js"></script>
         <script src="js/recordspend.js"></script>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Record Spend</title>
+        <title>Record Spend Details</title>
     </head>
-    <body onload="configureAlert(false, true);initialize(true); setUser();">                  
+    <body onload="configureAlert(false, true); configureLogin('Spend', 'loginfields'); initialize(true); setUser();">                  
         <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>

@@ -5,7 +5,10 @@
         <group>
             <file>file:/C:/MyFiles/Java/Recorder/web/RecordBankTransaction.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/WEB-INF/record.properties</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/css/framework.css</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/css/alert.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Security.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordSpend.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/recordspend.js</file>

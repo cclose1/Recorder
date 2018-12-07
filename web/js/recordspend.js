@@ -1,3 +1,5 @@
+'use strict';
+
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 }
@@ -129,18 +131,17 @@ function updateFilteredLists() {
     getList1('Spend', {name: "descriptionList", field: "description", filter: true});
 }
 function rowClick(row) {
-    var i;
-    var h = document.getElementById(row.parentNode.parentNode.id).rows[0];
-
-    for (i = 0; i < h.cells.length; i++) {
-        var colName = h.cells[i].innerHTML;
-
-        switch (colName) {
+    var rdr = new rowReader(row);
+    
+    while (rdr.nextColumn()) {
+        var value   = rdr.columnValue();
+        
+        switch (rdr.columnName()) {
             case 'SeqNo':
-                document.getElementById("seqno").value = row.cells[i].innerText;
+                document.getElementById("seqno").value = value;
                 break;
             case 'Timestamp':
-                var fields = row.cells[i].innerText.split(" ");
+                var fields = value.split(" ");
 
                 if (fields.length === 2) {
                     document.getElementById("date").value = fields[0];
@@ -148,25 +149,25 @@ function rowClick(row) {
                 }
                 break;
             case 'Category':
-                document.getElementById("category").value = row.cells[i].innerText;
+                document.getElementById("category").value = value;
                 break;
             case 'Type':
-                document.getElementById("type").value = row.cells[i].innerText;
+                document.getElementById("type").value = value;
                 break;
             case 'Location':
-                document.getElementById("location").value = row.cells[i].innerText;
+                document.getElementById("location").value = value;
                 break;
             case 'Description':
-                document.getElementById("description").value = row.cells[i].innerText;
+                document.getElementById("description").value = value;
                 break;
             case 'Amount':
-                document.getElementById("amount").value = row.cells[i].innerText;
+                document.getElementById("amount").value = value;
                 break;
             case 'Payment':
-                document.getElementById("payment").value = row.cells[i].innerText;
+                document.getElementById("payment").value = value;
                 break;
             case 'Correction':
-                document.getElementById("correction").value = row.cells[i].innerText;
+                document.getElementById("correction").value = value;
                 break;
         }
     }
@@ -174,9 +175,7 @@ function rowClick(row) {
     setHidden("clone", false);
     setHidden("remove", false);
 }
-function initialize() {
-    document.getElementById('secserver').value = 'Spend';
-    
+function initialize() {   
     if (!serverAcceptingRequests('Spend')) return;
     
     enableMySql('Spend');
