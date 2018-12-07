@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>Login</title>
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <div id="loginfields">
+            <fieldset>
+                <legend>Login Details</legend>
+                <div>
+                    <div hidden>
+                        <input id="secserver">
+                    </div>
+                    <label for="user">User</label>
+                    <input type="text" name="User" size ="10" id="user">
+                    <label for="saveuser" class="nogap">Save</label>
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" name="Password" size ="20" id="password" onkeypress="top.login(document.getElementById('secserver').value, event)">
+                </div>
+                <div>
+                    <label for="newpassword">New Password</label>
+                    <input type="password" name="NewPassword" size ="20" id="newpassword">
+                </div>
+                <div>
+                    <label for="confirmpassword">Confirm Password</label>
+                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
+                </div>
+                <div>
+                    <label for="requestlogin"></label>
+                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="top.login(document.getElementById('secserver').value);" tabindex="3">
+                </div>
+            </fieldset>
+        </div>  
+    </body>
+</html>

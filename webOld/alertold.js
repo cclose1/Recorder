@@ -1,7 +1,9 @@
+'use strict';
 
 var alertTime;
 var useBrowserAlert = true;
 var confirm;
+var focusElement;
 
 function position() {
     var elm  = new Object();
@@ -32,7 +34,7 @@ function position() {
         elm.startX = -1;
     }
 }
-pos = new position();
+var pos = new position();
 
 function alertDebug() {
     return document.getElementById('alertDebug') !== null;
@@ -51,9 +53,9 @@ function traceAlertDiv() {
     document.getElementById('top').value     = el.style.top;
     document.getElementById('left').value    = el.style.left;
     document.getElementById('xleft').value   = Math.round(left * screen.width  / 100);
-    document.getElementById('ytop').value    =  Math.round(top * screen.height  / 100);
-    document.getElementById('axleft').value  =  Math.round(left * screen.availWidth  / 100);
-    document.getElementById('aytop').value   =  Math.round(top * screen.availHeight  / 100);  
+    document.getElementById('ytop').value    = Math.round(top * screen.height  / 100);
+    document.getElementById('axleft').value  = Math.round(left * screen.availWidth  / 100);
+    document.getElementById('aytop').value   = Math.round(top * screen.availHeight  / 100);  
 
     document.getElementById('iscreenx').value = "";
     document.getElementById('iscreeny').value = "";
@@ -143,13 +145,23 @@ function checkAlert(e) {
 function dismissAlert(clearValue) {
     if (!useBrowserAlert) document.getElementById('alertdiv').style.display = 'none';
     
-    if ((clearValue === undefined || clearValue) && confirm !== undefined) confirm.actionCancel();
-    
-    confirm = undefined;
+    if ((clearValue === undefined || clearValue) && confirm !== undefined) {
+        confirm.actionCancel();
+    }    
+    if (focusElement !== undefined) {
+        focusElement.focus();
+    }
+    focusElement = undefined;
+    confirm      = undefined;
 }    
-function displayAlert(title, text, confirm) {
-    this.confirm = confirm;
-    
+function displayAlert(title, text, options) {
+    if (options !== undefined) {
+        confirm      = options.confirm;
+        focusElement = options.focus;
+    } else {
+        confirm      = undefined;
+        focusElement = undefined;      
+    }
     if (useBrowserAlert) {
         if (confirm === undefined)
             alert(text);
@@ -164,9 +176,9 @@ function displayAlert(title, text, confirm) {
         document.getElementById("alertCancel").value = confirm === undefined? 'Cancel' : 'No';
         pos.mouseClear();
         alertTime = new Date().getTime();
-        document.getElementById("alertTitle").innerHTML = title;
+        document.getElementById("alertTitle").innerHTML   = title;
         document.getElementById("alertMessage").innerHTML = text; 
-        document.getElementById("alertCancel").onclick = dismissAlert;
+        document.getElementById("alertCancel").onclick    = dismissAlert;
         /*
          * This needs to be done before div_show as div height and width are not
          * calculated until its displayed.
@@ -192,6 +204,8 @@ function configureAlert(browserAlert, autoDismiss) {
         useBrowserAlert = true;
         return;
     }
+    document.getElementById('alertdiv').style.display = 'none';
+    
     if (autoDismiss)
         document.onclick = checkAlert;
 }

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <link href="css/heartmonitor.css" rel="stylesheet" type="text/css">
+        <script src="js/formutils.js"></script>  
+        <script src="js/alert.js"></script>
+        <script src="js/login.js"></script>
+        <script src="js/heartmonitor.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Record Blood Pressure</title>
+    </head>
+    <body onload="configureAlert(false, true);initialize();">                    
+        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
+            <div>
+                <h1 id="alertTitle">Display Message</h1>
+            </div>
+            <div>
+                <label id="alertMessage" class="centre"></label>
+            </div>
+            <div id="alertDismiss">
+                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
+                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
+            </div>
+        </div>        
+        <div id="loginfields" hidden>
+            <fieldset>
+                <legend>Login Details</legend>
+                <div>
+                    <div hidden>
+                        <input id="secserver">
+                    </div>
+                    <label for="user">User</label>
+                    <input type="text" name="User" size ="10" id="user">
+                    <label for="saveuser" class="nogap">Save</label>
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" name="Password" size ="20" id="password" onkeypress="login(document.getElementById('secserver').value, event)">
+                </div>
+                <div>
+                    <label for="newpassword">New Password</label>
+                    <input type="password" name="NewPassword" size ="20" id="newpassword">
+                </div>
+                <div>
+                    <label for="confirmpassword">Confirm Password</label>
+                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
+                </div>
+                <div>
+                    <label for="requestlogin"></label>
+                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
+                </div>
+            </fieldset>
+        </div>  
+        <div class="frame" id="appframe">
+            <div>
+                <h1>Record Blood Pressure</h1>
+            </div>
+            <div id='formfields' class='form formwidth'>
+                <div>
+                    <label>Name</label>
+                    <input type="text" name="identifier" id="identifier" value="ANON" onchange="requestHistory();newSession();" tabindex="-1">
+                </div>
+                <div>
+                    <label>Session</label>
+                    <input name="session" id="session" readonly size="20" tabindex="-1">
+                    <input id="newsession" name="newsession" type="button" value="New Session" onclick="newSession();" tabindex="-1">
+                </div>
+                <div>
+                    <label for="side">Side</label>
+                    <select id="side" class='optlist' onchange="document.getElementById('try').value = 1;document.getElementById('systolic').focus();" tabindex="-1">
+                        <option>Left</option>
+                        <option>Right</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="orientation">Orientation</label>
+                    <select id="orientation" class='optlist' onchange="document.getElementById('systolic').focus();" tabindex="-1">
+                        <option></option>
+                    </select>
+                </div>
+                <div>
+                    <label for="time">Time</label>
+                    <input type="text" name="time" size ="8" id="time" readonly tabindex="-1">
+                    <input type="text" name="timestamp" id="timestamp" hidden tabindex="-1">
+                    <label for="timer" class ='nogap'>Gap</label>
+                    <input type="text" name="timer" size ="3" id="timer" readonly tabindex="-1">
+                    <label for="try" class ='nogap'>Try</label>
+                    <input type="text" name="try" size ="2" id="try" readonly tabindex="-1">
+                </div>
+                <div>
+                    <label for="systolic">Systolic</label>
+                    <input type="text" name="Systolic" size ="4" id="systolic" onkeypress="validateIntegerField(0, 300);" oninput="setTime();">
+                </div>
+                <div>
+                    <label for="diastolic">Diastolic</label>
+                    <input type="text" name="Diastolic" size ="4" id="diastolic" onkeypress="validateIntegerField(0, 300);" oninput="setTime();">
+                </div>
+                <div>
+                    <label for="pulse">Pulse</label>
+                    <input type="text" name="Pulse" size ="4" id="pulse" onkeypress="validateIntegerField(0, 400);" oninput="setTime();">
+                </div>
+                <div>
+                    <label for="comment">Comment</label>
+                    <input type="text" name="Comment" size ="4" id="comment"  tabindex="-1" onchange="document.getElementById('systolic').focus();">
+                </div>
+                <div>
+                    <label for="save"></label>
+                    <input id="save" name="save" type="button" value="Save" onclick="send();" onkeypress="send(event);">
+                </div>
+                <div id="logoff" hidden>
+                    <label for="logoffbtn"></label>
+                    <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff(document.getElementById('secserver').value);">
+                </div>
+                <div id="mysqldiv" hidden>
+                    <label for="mysql">Use MySQL</label>
+                    <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestHistory()">
+                </div>
+            </div>
+            <div id='updatefields' class='form formwidth'>
+                <div hidden>
+                    <input type="text" id="ukindividual">
+                    <input type="text" id="uktimestamp">
+                    <input type="text" id="ukside">
+                </div>
+                <div>
+                    <label>Name</label>
+                    <input type="text" name="individual" id="uindividual">
+                </div>
+                <div>
+                    <label>Time</label>
+                    <input name="timestamp" id="utimestamp" size="20">
+                </div>
+                <div>
+                    <label for="uside">Side</label>
+                    <select id="uside">
+                        <option>Left</option>
+                        <option>Right</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="uorientation">Orientation</label>
+                    <select id="uorientation" tabindex="-1">
+                        <option></option>
+                    </select>
+                </div>
+                <div>
+                    <label>Session</label>
+                    <input name="session" id="usession" size="20">
+                </div>
+                <div>
+                    <label for="usystolic">Systolic</label>
+                    <input type="text" name="Systolic" size ="4" id="usystolic" onkeypress="validateIntegerField(0, 300);">
+                </div>
+                <div>
+                    <label for="udiastolic">Diastolic</label>
+                    <input type="text" name="Diastolic" size ="4" id="udiastolic" onkeypress="validateIntegerField(0, 300);">
+                </div>
+                <div>
+                    <label for="upulse">Pulse</label>
+                    <input type="text" name="Pulse" size ="4" id="upulse" onkeypress="validateIntegerField(0, 400);">
+                </div>
+                <div>
+                    <label for="ucomment">Comment</label>
+                    <input type="text" name="Comment" size ="4" id="ucomment">
+                </div>
+                <div>
+                    <label for="umodify"></label>
+                    <input id="umodify" name="modify" type="button" value="Modify" onclick="modify(false);">
+                    <input id="udelete" name="delete" type="button" value="Delete" onclick="modify(true);">
+                    <input id="ucancel" name="cancel" type="button" value="Cancel" onclick="showUpdate(false);">
+                </div>
+            </div>
+                <table id="history">
+                    <caption>Measurement History</caption>
+                    <thead>
+                        <tr><th>Name</th><th>Session</th><th>Timestamp</th><th>Side</th><th>Systolic</th><th>Diastolic</th><th>Pulse</th><th>Comment</th></tr>
+                    </thead>
+                    <tr><td>Name</td><td>1</td><td>2</td><td>Left</td><td>123</td><td>90</td><td>60</td><td></td></tr>
+                </table>
+        </div>
+    </body>
+</html>

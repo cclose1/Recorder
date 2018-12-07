@@ -1,0 +1,39 @@
+
+@media screen and (max-width: 900px) {
+    .colright {
+        width: 0px;
+    }
+    #innerfields {
+        width: 340px;
+    }
+}
+@media screen and (min-width: 901px) {
+    .colright {
+        width: 498px;
+    }
+    #innerfields {
+        width: 840px;
+    }
+}    
+#accounts > tbody {
+    height: 180px;
+}
+.colleft {
+    width: 340px
+}
+#innerfields {
+    margin: auto;
+}
+.tbcol9 {
+    width: 60px;
+    background-color: aquamarine;
+}
+#primaryaccount .nogap {
+    width : 60px;
+}
+#transactions th:nth-child(1), #transactions th:nth-child(4), #transactions th:nth-child(5), #transactions th:nth-child(6) {
+    display: none;
+}
+#transactions td:nth-child(1), #transactions td:nth-child(4), #transactions td:nth-child(5), #transactions td:nth-child(6) {
+    display: none;
+}

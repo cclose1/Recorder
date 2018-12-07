@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <link href="css/recordbanktransaction.css" rel="stylesheet" type="text/css">
+        <script src="js/formutils.js"></script>  
+        <script src="js/alertnew.js"></script>
+        <script src="js/loginnew.js"></script>
+        <script src="js/recordbanktransaction.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Record Bank Transaction</title>
+    </head>
+    <body onload="configureAlert(false, true); configureLogin('BankTransaction', 'loginfields'); initialize();">                    
+        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')" class="hidden">
+            <div>
+                <h1 id="alertTitle">Display Message</h1>
+            </div>
+            <div>
+                <label id="alertMessage" class="centre"></label>
+            </div>
+            <div id="alertDismiss">
+                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
+                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
+            </div>
+        </div>        
+        <div id="loginfields" hidden>
+            <fieldset>
+                <legend>Login Details</legend>
+                <div>
+                    <div hidden>
+                        <input id="secserver">
+                    </div>
+                    <label for="user">User</label>
+                    <input type="text" name="User" size ="10" id="user">
+                    <label for="saveuser" class="nogap">Save</label>
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" name="Password" size ="20" id="password" onkeypress="login(document.getElementById('secserver').value, event)">
+                </div>
+                <div>
+                    <label for="newpassword">New Password</label>
+                    <input type="password" name="NewPassword" size ="20" id="newpassword">
+                </div>
+                <div>
+                    <label for="confirmpassword">Confirm Password</label>
+                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
+                </div>
+                <div>
+                    <label for="requestlogin"></label>
+                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
+                </div>
+            </fieldset>
+        </div>  
+        <div class="frame" id="appframe">
+            <div>
+                <h1>Record Bank Transaction</h1>
+            </div>
+            <div id="innerfields">
+                <div class='colleft'>
+                    <fieldset id="detailfields" class='form'>
+                        <legend>Transaction Details</legend>
+                        <div>
+                            <div>
+                                <input type="text" name="seqno" id="seqno" hidden>
+                            </div>
+                            <div>
+                                <label for="date">Date</label>
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
+                                <label for="time" class="nogap">Time</label>
+                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                                <label for="cdate">Completed</label>
+                                <input type="text" name="Completed Date" id="cdate" class='date' maxlength="11" tabindex="-1">
+                                <label for="ctime" class="nogap">Time</label>
+                                <input type="text" name="Completed Time" size="8" id="ctime" class='time' maxlength="8" tabindex="-1">
+                            </div>
+                            <div>
+                                <label for="action">Action</label>
+                                <select name="action" id="action" tabindex="-1" oninput="setDateTime();" onchange="setAction();">
+                                    <option></option>
+                                </select>
+                            </div>
+                            <fieldset id="primaryaccount" class = 'form'>
+                                <legend>Primary</legend>
+                                <div>
+                                    <label for="paccount">Account</label>
+                                    <input type="text" name="PrimaryAccount" maxlength ='3' size ='3' id="paccount" oninput="setDateTime();" onchange="checkCurrencyField();" onfocus="selectedAccount = 'paccount'; value = '';" onkeypress="discardFieldInput('Select from Accounts to set value');" tabindex="-1">
+                                    <label for="pfee" class = 'nogap'>Fee</label>
+                                    <input type="text" name="PrimaryFee" size ="3" id="pfee" tabindex="-1" oninput="setDateTime();" onkeypress="allowedInNumberField();">                                                               
+                                </div>
+                                <div>
+                                    <label for="pamount">Amount</label>
+                                    <input type="text" name="PrimaryAmount" size ="3" id="pamount" tabindex="-1" oninput="setDateTime();" onchange="checkCurrencyField();" onkeypress="allowedInNumberField();">                            
+                                    <label for="pcurrency" class="nogap">Currency</label>
+                                    <select name="PrimaryCurrency" id="pcurrency" tabindex="-1" oninput="setDateTime();" onchange=" checkCurrencyField();">
+                                        <option></option>
+                                    </select>
+                                </div>
+                            </fieldset>
+                            <fieldset id="secondaryaccount" class = 'form'>
+                                <legend>Secondary</legend>
+                                <div>
+                                    <label for="saccount">Account</label>
+                                    <input type="text"  name="SecondaryAccount" maxlength ='3' size ='3' id="saccount" onchange="checkCurrencyField();" onfocus="selectedAccount = 'saccount'; value = '';" onkeypress="discardFieldInput();" tabindex="-1">
+                                </div>
+                                <div>
+                                    <label for="samount">Amount</label>
+                                    <input type="text" name="SecondaryAmount" size ="3" id="samount" tabindex="-1" oninput="setDateTime();" onchange="checkCurrencyField();" onkeypress="allowedInNumberField();">                            
+                                    <label for="scurrency" class="nogap">Currency</label>
+                                    <select name="SecondaryCurrency" id="scurrency" tabindex="-1" oninput="setDateTime();" onchange=" checkCurrencyField();">
+                                        <option></option>
+                                    </select>
+                                </div>
+                            </fieldset>
+                            <div>
+                                <label for="txntype">Type</label>
+                                <select name="TXNType" id="txntype" tabindex="-1">
+                                    <option></option>
+                                </select>
+                                <label for="txnusage" class = 'nogap'>Usage</label>
+                                <select name="TXNUsage" id="txnusage" tabindex="-1">
+                                    <option></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="description">Description</label>
+                                <input type= "text" name="Description" id="description" oninput="setDateTime();">
+                            </div>
+                            <div>
+                                <label for="save"></label>
+                                <input id="save" name="save" type="button" value="Create" onclick="send();">
+                                <input id="clone" name="clone" type="button" hidden value="Clone" onclick="clonedata();">
+                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="deleteData();">
+                                <input id="clear" name="clear" type="button" value="Clear" onclick="reset();">
+                            </div>
+                            <div id="logoff" hidden>
+                                <label for="logoffbtn"></label>
+                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
+                            </div>
+                            <div id="mysqldiv" hidden>
+                                <label for="mysql">Use MySQL</label>
+                                <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestTransactions();">
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="colright optional">
+                    <fieldset id='accountstable' class='form'>
+                        <legend>Accounts</legend>
+                        <table id="accounts">
+                            <thead>
+                                <tr><th></th></tr>
+                            </thead>
+                            <tr><td></td></tr>
+                        </table>
+                    </fieldset>
+                </div>
+            </div> 
+            <table id="transactions">
+                <caption>Transaction History</caption>
+                <thead>
+                    <tr><th></th></tr>
+                </thead>
+                <tr><td></td></tr>
+            </table>
+        </div>
+    </body>
+</html>
