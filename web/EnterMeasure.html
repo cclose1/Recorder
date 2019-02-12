@@ -55,7 +55,7 @@
                 </div>
             </fieldset>
         </div>  
-        <div class="frame" id="appframe">
+        <form class="frame" id="appframe" autocomplete="off">
             <div>
                 <h1>Record Blood Pressure</h1>
             </div>
@@ -169,7 +169,11 @@
                 </div>
                 <div>
                     <label for="umodify"></label>
-                    <input id="umodify" name="modify" type="button" value="Modify" onclick="modify(false);">
+                    <!--
+                    Changing the enclosing div to a form caused name modify to be added as an attribute to the form element which
+                    caused the modify function to be hidden. Perhaps should remove name attribute if never used.
+                    -->
+                    <input id="umodify" name="xmodify" type="button" value="Modify" onclick="modify(false);">
                     <input id="udelete" name="delete" type="button" value="Delete" onclick="modify(true);">
                     <input id="ucancel" name="cancel" type="button" value="Cancel" onclick="showUpdate(false);">
                 </div>
@@ -181,6 +185,6 @@
                     </thead>
                     <tr><td>Name</td><td>1</td><td>2</td><td>Left</td><td>123</td><td>90</td><td>60</td><td></td></tr>
                 </table>
-        </div>
+        </form>
     </body>
 </html>

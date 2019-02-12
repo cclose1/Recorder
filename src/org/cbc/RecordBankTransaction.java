@@ -17,7 +17,6 @@ import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
-import org.cbc.utils.data.DatabaseSession;
 
 /**
  *
@@ -146,7 +145,7 @@ public class RecordBankTransaction extends ApplicationServer {
                     rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(timestamp));
                     rs.updateTimestamp("Completed", ctx.getSQLTimestamp(completed));
                     rs.updateString("Account",      ctx.getParameter("paccount"));
-                    rs.updateString("Fee",          ctx.getParameter("pfee"));
+                    rs.updateString("Fee",          ctx.getParameter("pfee", null));
                     rs.updateString("Amount",       ctx.getParameter("pamount"));
                     rs.updateString("Currency",     ctx.getParameter("pcurrency"));
                     rs.updateString("Type",         ctx.getParameter("txntype"));

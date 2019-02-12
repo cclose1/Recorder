@@ -190,7 +190,7 @@ public class RecordSpend extends ApplicationServer {
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         boolean mySql  = ctx.getAppDb().getProtocol().equals("mysql");
-            
+        
         if (action.equals("deletespend")) {
             SQLDeleteBuilder sql = ctx.getDeleteBuilder(config.getUpdateTable());
             

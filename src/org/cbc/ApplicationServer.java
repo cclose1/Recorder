@@ -290,6 +290,9 @@ public abstract class ApplicationServer extends HttpServlet {
         public StringBuilder getReplyBuffer() {
             return replyBuffer;
         }
+        public String getParameter(String name, String nullDefault) {
+            return handler.getParameter(name, nullDefault);
+        }   
         public String getParameter(String name) {
             return handler.getParameter(name);
         }        

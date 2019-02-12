@@ -68,9 +68,12 @@ public class HTTPRequestHandler {
     public void dumpRequest(String reason) throws ServletException, IOException {
         dumpRequest(response, reason);
     }
-    public String getParameter(String name) {
+    public String getParameter(String name, String nullDefault) {
         String value = request.getParameter(name);
-        return value == null ? "" : value;
+        return value == null || value == "" ? nullDefault : value;
+    }
+    public String getParameter(String name) {
+        return getParameter(name, "");
     }
 
     public String getCookie(String name) {
