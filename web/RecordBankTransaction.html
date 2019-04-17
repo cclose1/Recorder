@@ -12,50 +12,16 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Bank Transaction</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('BankTransaction', 'loginfields'); initialize();">                    
-        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')" class="hidden">
-            <div>
-                <h1 id="alertTitle">Display Message</h1>
-            </div>
-            <div>
-                <label id="alertMessage" class="centre"></label>
-            </div>
-            <div id="alertDismiss">
-                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
-                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
-            </div>
-        </div>        
-        <div id="loginfields" hidden>
-            <fieldset>
-                <legend>Login Details</legend>
-                <div>
-                    <div hidden>
-                        <input id="secserver">
-                    </div>
-                    <label for="user">User</label>
-                    <input type="text" name="User" size ="10" id="user">
-                    <label for="saveuser" class="nogap">Save</label>
-                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
-                </div>
-                <div>
-                    <label for="password">Password</label>
-                    <input type="password" name="Password" size ="20" id="password" onkeypress="login(document.getElementById('secserver').value, event)">
-                </div>
-                <div>
-                    <label for="newpassword">New Password</label>
-                    <input type="password" name="NewPassword" size ="20" id="newpassword">
-                </div>
-                <div>
-                    <label for="confirmpassword">Confirm Password</label>
-                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
-                </div>
-                <div>
-                    <label for="requestlogin"></label>
-                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
-                </div>
-            </fieldset>
+    <body onload="configureAlert(false, true, 'alertframe');configureLogin('BankTransaction', 'loginframe'); initialize();">
+        <div id="alertdiv" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
+            <iframe id="alertframe" src="Alert.html" scrolling="no">
+            </iframe>
+        </div>
+        <div id="loginfields" hidden >
+            <iframe id="loginframe" src="Login.html" scrolling="no">
+            </iframe>
         </div>  
-        <div class="frame" id="appframe">
+        <form class="frame" id="appframe" autocomplete="off">
             <div>
                 <h1>Record Bank Transaction</h1>
             </div>
@@ -114,6 +80,23 @@
                                         <option></option>
                                     </select>
                                 </div>
+                                <fieldset id="exchangerate">
+                                    <legend>Exchange Rate</legend>
+                                    <div>
+                                        <label for="exsource" class="narrowlabel">Source</label>                            
+                                        <input type="text" name="Exchange Source" id="exsource" tabindex="-1" readonly="readonly">
+                                    </div>
+                                    <div>
+                                        <label for="exdate" class="narrowlabel" >Date</label>
+                                        <input type="text" name="Date" id="exdate" class='date' maxlength="11" tabindex="-1" readonly="readonly">
+                                        <label for="extime" class="nogap">Time</label>
+                                        <input type="text" name="extime" size="8" id="extime" class='time' maxlength="8" tabindex="-1" readonly="readonly">
+                                    </div>
+                                    <div>
+                                        <label for="examount" class="narrowlabel">Amount</label>
+                                        <input type="text" name="Exchange Amount" size ="3" id="examount" tabindex="-1" readonly="readonly">
+                                    </div>
+                                </fieldset>                            
                             </fieldset>
                             <div>
                                 <label for="txntype">Type</label>
@@ -129,6 +112,10 @@
                                 <label for="description">Description</label>
                                 <input type= "text" name="Description" id="description" oninput="setDateTime();">
                             </div>
+                                <div id="cryptoaddress">
+                                    <label for="address">Address</label>
+                                    <input type= "text" id="address" oninput="setDateTime();">
+                                </div>
                             <div>
                                 <label for="save"></label>
                                 <input id="save" name="save" type="button" value="Create" onclick="send();">
@@ -166,6 +153,6 @@
                 </thead>
                 <tr><td></td></tr>
             </table>
-        </div>
+        </form>
     </body>
 </html>

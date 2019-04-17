@@ -245,6 +245,9 @@ public abstract class ApplicationServer extends HttpServlet {
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
         
+        public String getTimestamp(Date date, String format) { 
+            return date == null? null : (new SimpleDateFormat(format)).format(date);
+        }
         public String getDbTimestamp(Date date) { 
             return date == null? null : (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(date);
         }
@@ -404,6 +407,16 @@ public abstract class ApplicationServer extends HttpServlet {
         measureSQL.start();
         ctx.getAppDb().executeUpdate(sql);
         measureSQL.end(sql);
+    }
+    protected ResultSet executeUpdateGetKey(Context ctx, SQLBuilder sql) throws SQLException {
+        ResultSet rs;
+        String    sqls = sql.build();
+        
+        measureSQL.start();
+        rs = ctx.getAppDb().executeUpdateGetKey(sqls);
+        measureSQL.end(sqls);
+        
+        return rs;
     }
     protected void executeUpdate(Context ctx, SQLBuilder sql) throws SQLException {
         executeUpdate(ctx, sql.build());

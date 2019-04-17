@@ -5,6 +5,7 @@
  */
 package org.cbc;
 
+import foreignexchange.CurrencyRates;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,38 +18,75 @@ import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.sql.SQLUpdateBuilder;
 
 /**
  *
  * @author chris
  */
 public class RecordBankTransaction extends ApplicationServer {    
+    private CurrencyRates crates = new CurrencyRates();
+    
+    private String getBTC(String currency) {
+        return currency.equalsIgnoreCase("mbtc")? "BTC" : currency;
+    }
+    private String getTXNId(Context ctx, int seqNo) {
+        String sq = "" + seqNo;
+        
+        while (sq.length() < 5) sq = '0' + sq;
+        
+        return (ctx.getAppDb().getProtocol().equalsIgnoreCase("sqlserver")? "SQ" : "MY") + sq;
+    }
     private boolean transactionFor(Context ctx, Date timestamp) throws SQLException {
         ResultSet rs = executeQuery(
                 ctx, "SELECT Timestamp FROM AccountTransaction WHERE Timestamp = '" + ctx.getDbTimestamp(timestamp) + 
                         "' AND Currency = '" + ctx.getParameter("currency") + "'");
         return rs.next();
     }
-    private void createTransaction(Context ctx, Date timestamp, Date completed, String prefix) throws SQLException {
+    private String createTransaction(Context ctx, Date timestamp, Date completed, String prefix, String txnId) throws SQLException {
         String account  = ctx.getParameter(prefix + "account");
         String amount   = ctx.getParameter(prefix + "amount");
         String fee      = ctx.getParameter(prefix + "fee");
         String currency = ctx.getParameter(prefix + "currency");
+        String address  = ctx.getParameter(prefix + "address");
         
-        if (account == null || account.length() == 0) return;
+        if (account == null || account.length() == 0) return null;
         
         SQLInsertBuilder sql = ctx.getInsertBuilder("AccountTransaction");
-        sql.addField("Timestamp",   ctx.getDbTimestamp(timestamp));
-        sql.addField("Completed",   ctx.getDbTimestamp(completed));
-        sql.addField("Account",     account);
-        sql.addField("Amount",      amount);
-        sql.addField("Fee",         fee.length() == 0? null : fee);
-        sql.addField("Currency",    currency);
-        sql.addField("Type",        ctx.getParameter("txntype"));
-        sql.addField("Usage",       ctx.getParameter("txnusage"));
-        sql.addField("Description", ctx.getParameter("description"));
-        executeUpdate(ctx, sql);
+        sql.addField("Timestamp",     ctx.getDbTimestamp(timestamp));
+        sql.addField("Completed",     ctx.getDbTimestamp(completed));
+        sql.addField("Account",       account);
+        sql.addField("Amount",        amount);
+        sql.addField("Fee",           fee.length() == 0? null : fee);
+        sql.addField("Currency",      currency);
+        sql.addField("Type",          ctx.getParameter("txntype"));
+        sql.addField("Usage",         ctx.getParameter("txnusage"));
+        sql.addField("CryptoAddress", address);
+        
+        if (txnId == null) {
+            int       seqNo = 0;
+            
+            sql.addField("Description", ctx.getParameter("description"));
+            ResultSet rs    = executeUpdateGetKey(ctx, sql);
+            
+            if (rs.next()) seqNo = rs.getInt(1);
+            
+            txnId = getTXNId(ctx, seqNo);
+            
+            SQLUpdateBuilder sqlu = ctx.getUpdateBuilder("AccountTransaction");
+            
+            sqlu.addField("TXNId", txnId);
+            sqlu.addAnd("SeqNo", "=", "" + seqNo, false);
+            ctx.getAppDb().executeUpdate(sqlu.build());
+        } else {        
+            sql.addField("TXNId", txnId);
+
+            executeUpdate(ctx, sql);
+        }
         ctx.setStatus(200);
+        
+        return txnId;
+        
     }
     @Override
     public String getVersion() {
@@ -59,6 +97,7 @@ public class RecordBankTransaction extends ApplicationServer {
                 super.config.getProperty("btdatabase"),
                 super.config.getProperty("btuser"),
                 super.config.getProperty("btpassword"));
+        crates.setMaxAge(3600);
     }  
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         if (action.equals("transactions")) {
@@ -80,11 +119,13 @@ public class RecordBankTransaction extends ApplicationServer {
             sql.addDefaultedField("AccountNumber", "Number", "");
             sql.addDefaultedField("CardNumber",    "Card",   "");
             sql.addField("Account");
+            sql.addDefaultedField("TXNId",    "'TXN Id'",   "");
             sql.addField("Amount", null, null, "DECIMAL(10,2)");
             sql.addField("Fee",    null, null, "DECIMAL(10,2)");
             sql.addField("Currency");
             sql.addDefaultedField("Type",  "");
             sql.addDefaultedField("Usage", "" );
+            sql.addDefaultedField("CryptoAddress", "Address",   "");
             sql.addField("Description");
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);
@@ -95,9 +136,8 @@ public class RecordBankTransaction extends ApplicationServer {
             ctx.setStatus(200);
         } else if (action.equals("accounts")) {
             JSONObject       data = new JSONObject();            
-            SQLSelectBuilder  sql = ctx.getSelectBuilder(null);
+            SQLSelectBuilder sql  = ctx.getSelectBuilder(null);
 
-            sql.setProtocol(ctx.getAppDb().getProtocol());
             sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
             
             sql.addField("A.Code", "Account");
@@ -115,8 +155,32 @@ public class RecordBankTransaction extends ApplicationServer {
             ctx.setStatus(200);
         } else if (action.equals("getList")) {
             getList(ctx);
+        } else if (action.equals("getRateData")) {
+            JSONObject data   = new JSONObject();     
+            String     fr     = ctx.getParameter("from");
+            String     to     = ctx.getParameter("to");
+            String     amount = ctx.getParameter("amount");
+            double     rate   = 0;
+            
+            CurrencyRates.Rate rt = crates.getRate(getBTC(fr), getBTC(to));
+            
+            if (rt == null) {
+                data.add("Source", "Unavailable");
+            } else {
+                rate = rt.getRate();
+
+                if (fr.equalsIgnoreCase("mbtc")) rate /= 1000;
+                if (to.equalsIgnoreCase("mbtc")) rate *= 1000;
+                
+                data.add("Source",    crates.getProvider().toString());
+                data.add("Timestamp", ctx.getTimestamp(rt.getStats().getUpdated(), "dd-MMM-yyyy HH:mm:ss"));
+                data.add("Rate",      rate);
+                data.add("Amount",    Double.parseDouble(amount.length() == 0 ? "1" : amount) * rate);
+            }
+            data.append(ctx.getReplyBuffer());
+            ctx.setStatus(200);            
         } else if (action.equals("create")) {
-            Date   timestamp = ctx.getTimestamp("date", "time");
+            Date   timestamp = ctx.getTimestamp("date",  "time");
             Date   completed = ctx.getTimestamp("cdate", "ctime");
             String seqNo     = ctx.getParameter("seqno");
             
@@ -133,6 +197,7 @@ public class RecordBankTransaction extends ApplicationServer {
                 sql.addField("Currency");
                 sql.addField("Type");
                 sql.addField("Usage");
+                sql.addField("CryptoAddress");
                 sql.addField("Description");
                 sql.addAnd("SeqNo", "=", seqNo, false);
                 rs = ctx.getAppDb().updateQuery(sql.build());
@@ -142,15 +207,16 @@ public class RecordBankTransaction extends ApplicationServer {
                 else
                 {
                     rs.moveToCurrentRow();
-                    rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(timestamp));
-                    rs.updateTimestamp("Completed", ctx.getSQLTimestamp(completed));
-                    rs.updateString("Account",      ctx.getParameter("paccount"));
-                    rs.updateString("Fee",          ctx.getParameter("pfee", null));
-                    rs.updateString("Amount",       ctx.getParameter("pamount"));
-                    rs.updateString("Currency",     ctx.getParameter("pcurrency"));
-                    rs.updateString("Type",         ctx.getParameter("txntype"));
-                    rs.updateString("Usage",        ctx.getParameter("txnusage"));
-                    rs.updateString("Description",  ctx.getParameter("description"));
+                    rs.updateTimestamp("Timestamp",  ctx.getSQLTimestamp(timestamp));
+                    rs.updateTimestamp("Completed",  ctx.getSQLTimestamp(completed));
+                    rs.updateString("Account",       ctx.getParameter("paccount"));
+                    rs.updateString("Fee",           ctx.getParameter("pfee", null));
+                    rs.updateString("Amount",        ctx.getParameter("pamount"));
+                    rs.updateString("Currency",      ctx.getParameter("pcurrency"));
+                    rs.updateString("Type",          ctx.getParameter("txntype"));
+                    rs.updateString("Usage",         ctx.getParameter("txnusage"));
+                    rs.updateString("CryptoAddress", ctx.getParameter("paddress"));
+                    rs.updateString("Description",   ctx.getParameter("description"));
                     rs.updateRow();
                     ctx.getAppDb().commit();
                     ctx.setStatus(200);
@@ -159,8 +225,10 @@ public class RecordBankTransaction extends ApplicationServer {
                 if (transactionFor(ctx, timestamp)) {
                     ctx.getReplyBuffer().append("Change time as transaction already recorded at " + timestamp + " for currency " + ctx.getParameter("currency"));
                 } else {
-                    createTransaction(ctx, timestamp, completed, "p");
-                    createTransaction(ctx, timestamp, completed, "s");                    
+                    String txnId;
+                    
+                    txnId = createTransaction(ctx, timestamp, completed, "p", null);
+                    createTransaction(ctx, timestamp, completed, "s", txnId);                    
                 }
             }
         } else if (action.equals("delete")) {

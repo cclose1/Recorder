@@ -24,37 +24,27 @@
 #accounts > tbody {
     height: 220px;
 }
-#accounts .tbcol3 {
-    width:    6em    !important;
-    overflow: hidden !important;
+#accounts thead [name='Bank'] {
+    width: 7em !important;
 }
-
-#transactions .tbcol2 {
+#accounts [name='Owner'] {
+    width: 6em !important;
+}
+#transactions [name='Timestamp'] {
     width: 9em !important;
 }
-#transactions .tbcol8 {
+#transactions [name='Amount'] {
     width: 2em !important;
 }
-#transactions .tbcol9 {
-    width: 2em !important;
-}
-#transactions .tbcol10 {
-    width: 4em !important;
-}
-#transactions .tbcol11 {
+#transactions [name='Type'] {
     width: 3.9em !important;
 }
 #primaryaccount .nogap {
     width : 60px;
 }
-#transactions .tbcol1, #transactions .tbcol4, #transactions .tbcol5, #transactions .tbcol6 {
+#transactions [name='SeqNo'], #transactions [name='Completed'], #transactions [name='Number'], #transactions [name='Card'], #transactions [name='TXN Idm'], #transactions [name='Address'] {
     display: none;
 }
-/*
-#transactions th:nth-child(1), #transactions th:nth-child(4), #transactions th:nth-child(5), #transactions th:nth-child(6) {
-    display: none;
+#exchangerate .narrowlabel {
+    width : 60px;
 }
-#transactions td:nth-child(1), #transactions td:nth-child(4), #transactions td:nth-child(5), #transactions td:nth-child(6) {
-    display: none;
-}
-*/

@@ -17,10 +17,58 @@ function setTransferCurrency(id) {
         document.getElementById('samount').disabled = false;
     }
 }
+function getRateData() {    
+    var parameters = createParameters('getRateData');
+    var frRate     = document.getElementById("pcurrency").value;
+    var toRate     = document.getElementById("scurrency").value;
+    var amount     = document.getElementById("pamount").value
+    
+    if (frRate === '' || toRate === '' || frRate === toRate || amount === '') {
+        setHidden('exchangerate', true);
+        return;
+    }
+    parameters = addParameter(parameters, 'from',   frRate);
+    parameters = addParameter(parameters, 'to',     toRate);
+    parameters = addParameter(parameters, 'amount', amount);
+    
+    function processResponse(response) {
+        var symbol;
+        
+        try {
+            var jObj = new jsonObject(response);
+            
+            while ((symbol = jObj.symbol()) !== null) {
+                switch (symbol.name) {
+                    case "Source":
+                        document.getElementById('exsource').value = symbol.value;
+                        break;
+                    case "Amount":
+                        document.getElementById('examount').value = symbol.value;
+                        break;
+                    case "Timestamp":
+                        loadDateTime(symbol.value.split(" "), 'exdate', 'extime');
+                        break;
+                }
+            }
+            setHidden('exchangerate', false);
+        } catch (err) {
+            alert("getRateData error-" + err.message);
+        }
+    }
+    ajaxLoggedInCall("BankTransaction", processResponse, parameters);
+    return true;
+}
+function isCryptoCurrency(id) {
+    var value = document.getElementById(id).value;
+    
+    return (value === 'BTC' || value === 'mBTC' || value === 'ETH' || value === 'XRP');
+}
 function checkCurrencyField(id) {
     var transfer = document.getElementById('action').value === 'Transfer';
     var exchange = document.getElementById('action').value === 'Exchange';
 
+    setHidden('cryptoaddress', !(isCryptoCurrency('pcurrency') || isCryptoCurrency('scurrency')));
+    
     if (!(transfer || exchange))
         return;
 
@@ -52,6 +100,7 @@ function checkCurrencyField(id) {
         }
         setTransferCurrency(id);
     }
+    getRateData();
 }
 function clearCurrencyField(id) {
     document.getElementById(id).value    = "";
@@ -67,6 +116,7 @@ function setAction(value) {
     var exchange = value === 'Exchange';
     
     setHidden("secondaryaccount", !(transfer || exchange));
+    setHidden("exchangerate",     true);
     clearCurrencyField("saccount");
     clearCurrencyField("samount");
     clearCurrencyField("scurrency");
@@ -88,23 +138,30 @@ function reset() {
     document.getElementById("paccount").value    = "";
     document.getElementById("pcurrency").value   = "GBP";
     document.getElementById("pamount").value     = "";  
-    document.getElementById("pfee").value     = "";  
+    document.getElementById("pfee").value        = "";  
     document.getElementById("saccount").value    = "";
     document.getElementById("scurrency").value   = "";
     document.getElementById("samount").value     = "";  
+    document.getElementById("exsource").value    = "";
+    document.getElementById("exdate").value      = "";    
+    document.getElementById("extime").value      = ""; 
+    document.getElementById("examount").value    = "";   
     document.getElementById("txntype").value     = "";  
-    document.getElementById("txnusage").value     = "";  
-    document.getElementById("description").value = "";  
+    document.getElementById("txnusage").value    = "";  
+    document.getElementById("description").value = "";
+    document.getElementById("address").value     = "";  
     document.getElementById("save").value        = "Create";
     document.getElementById("paccount").focus();
-    setHidden("clone", true);
-    setHidden("remove", true);
+    setHidden("clone",         true);
+    setHidden("remove",        true);
+    setHidden("cryptoaddress", true);
     setAction("Debit");
     selectedAccount = 'paccount';
     requestTransactions();
 }
 function send() {
     var parameters = createParameters('create');
+    var address    = document.getElementById('address').value;
     
     if (!checkDateTime("date",  "time",  true))  return;
     if (!checkDateTime("cdate", "ctime", false)) return;
@@ -128,10 +185,14 @@ function send() {
     
     switch(document.getElementById("action").value) {
         case 'Credit':
-            parameters = addParameter(parameters, 'pamount', amount);
+            parameters = addParameter(parameters, 'pamount',  amount);
+            parameters = addParameter(parameters, 'paddress', address);
+            parameters = addParameter(parameters, 'saddress', '');
             break
         case 'Debit':
             parameters = addParameter(parameters, 'pamount', '-' + amount);
+            parameters = addParameter(parameters, 'paddress', address);
+            parameters = addParameter(parameters, 'saddress', '');
             break;
         case 'Transfer':
         case 'Exchange':
@@ -142,6 +203,8 @@ function send() {
             parameters = addParameterById(parameters, 'saccount');
             parameters = addParameterById(parameters, 'samount');
             parameters = addParameterById(parameters, 'scurrency');
+            parameters = addParameter(parameters, 'paddress', '');
+            parameters = addParameter(parameters, 'saddress', address);
             break;
     }
     function processResponse(response) {
@@ -210,14 +273,18 @@ function btTransactionsRowClick(row) {
             case 'Usage':
                 document.getElementById('txnusage').value = value;
                 break;
+            case 'Address':
+                document.getElementById('address').value = value;
+                break;
             case 'Description':
                 document.getElementById('description').value = value;
                 break;
         }
     }
     document.getElementById("save").value = "Update";
-    setHidden("clone", false);
-    setHidden("remove", false);
+    setHidden("clone",         false);
+    setHidden("remove",        false);
+    setHidden('cryptoaddress', !isCryptoCurrency('pcurrency'));
 }
 function btAccountsRowClick(row) {
     var primary = selectedAccount === 'paccount';
@@ -246,7 +313,7 @@ function requestTransactions() {
     var parameters = createParameters('transactions');
     
     function processResponse(response) {
-        loadJSONArray(response, "transactions", 20, "btTransactionsRowClick(this)");
+        loadJSONArray(response, "transactions", 20, "btTransactionsRowClick(this)", null, null, false, true);
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
 }
@@ -254,7 +321,7 @@ function requestAccounts() {
     var parameters = createParameters('accounts');
     
     function processResponse(response) {
-        loadJSONArray(response, "accounts", 20, "btAccountsRowClick(this)");
+        loadJSONArray(response, "accounts", 20, "btAccountsRowClick(this)", null, null, false, true);
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
 }

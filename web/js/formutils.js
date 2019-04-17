@@ -438,21 +438,26 @@ function columns() {
     this.getColumn = getColumn;
     this.setName   = setName;
     this.setSize   = setSize;
-
-    function setClass(column) {
-        column.classValue = column.tag;
+    
+    function addClass(column, name) {
+        if (column.classValue !== '') column.classValue += ' ';
         
-        if (column.optional !== undefined && column.optional) column.classValue += ' optional';
+        column.classValue += name;
+    }
+    function setClass(column, includeTag) {
+        column.classValue = includeTag === undefined || includeTag? column.tag : '';
         
-        if (column.type !== undefined && (column.type === "int" || column.type === "decimal")) column.classValue += " number";
+        if (column.optional !== undefined && column.optional) addClass(column, 'optional');
+        
+        if (column.type !== undefined && (column.type === "int" || column.type === "decimal")) addClass(column, 'number');
         
         return column;
     }
-    function getColumn(column) {
+    function getColumn(column, includeTag) {
         if (column >= this.cols.length || this.cols[column] === undefined)
             this.cols[column] = {name: "", size: 0, tag: "tbcol" + (this.cols.length + 1)};
 
-        return setClass(this.cols[column]);
+        return setClass(this.cols[column], includeTag);
     }
     function setName(column, name, type, optional) {
         var col = this.getColumn(column);
@@ -557,16 +562,17 @@ function rowReader(row, throwError) {
     }
 }
 function jsonObject(text) {
-    this.text = text;
-    this.index = 0;
-    this.value = null;
-    this.type = null;
+    this.text   = text;
+    this.index  = 0;
+    this.value  = null;
+    this.type   = null;
     this.quoted = false;
 
-    this.next = next;
+    this.next       = next;
     this.throwError = throwError;
-    this.trace = trace;
-    this.skipValue = skipValue;
+    this.trace      = trace;
+    this.skipValue  = skipValue;
+    this.symbol     = symbol;
 
     function throwError(reason) {
         throw {
@@ -681,6 +687,26 @@ function jsonObject(text) {
             }
         }
         this.throwError("Incomplete data on skip value");
+    }
+    function symbol() {
+        var name;
+        var value;
+        var separator;
+        
+        while (this.next('{}[]:,')) {
+            value     = this.value;
+            separator = this.type;
+            
+            if (separator !== ':') 
+                return {
+                    name      : name,
+                    value     : value,
+                    separator : separator};
+            
+            name  = value;
+            value = null;
+        }
+        return null;
     }
 }
 /*
@@ -902,7 +928,7 @@ function loadJSONFields(json, exact) {
     }
 }
 
-function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, useInnerHTML) {
+function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, useInnerHTML, includeTag, addName) {
     try {
         var width = 0;
         var table = document.getElementById(id);
@@ -937,7 +963,7 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
             row = table.rows[j];
 
             for (var i = 0; i < row.cells.length; i++) {
-                var col  = cols.getColumn(i);
+                var col  = cols.getColumn(i, includeTag);
                 var cell = row.cells[i];
                 
                 if (maxField === undefined || col.size <= maxField) {
@@ -945,7 +971,8 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
                 } else {
                     cell.setAttribute("style", 'width:' + getWidth(maxField, 'em') + ';overflow: hidden');
                 }
-                cell.setAttribute("class", col.classValue);
+                if (col.classValue !== '') cell.setAttribute('class', col.classValue);
+                if (addName) cell.setAttribute('name', col.name);
 
                 if (j === 0)
                     width += col.size;
