@@ -2,9 +2,10 @@
 <html>
     <head>
         <link href="css/alert.css" rel="stylesheet" type="text/css">
-        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/frameworkold.css" rel="stylesheet" type="text/css">
         <link href="css/login.css" rel="stylesheet" type="text/css">
-        <link href="css/recordbanktransaction.css" rel="stylesheet" type="text/css">
+        <link href="css/recordbanktransactionold.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="css/test.css" type="text/css"/>
 
         <script src="js/formutils.js"></script>  
         <script src="js/alert.js"></script>
@@ -14,19 +15,12 @@
         <title>Record Bank Transaction</title>
     </head>
     <body onload="configureAlert(false, true, 'alertframe');configureLogin('BankTransaction', 'loginframe'); initialize();">
-        <div id="alertdiv" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
-            <iframe id="alertframe" src="Alert.html" scrolling="no">
-            </iframe>
-        </div>
-        <div id="loginfields" hidden >
-            <iframe id="loginframe" src="Login.html" scrolling="no">
-            </iframe>
-        </div>  
         <form class="frame" id="appframe" autocomplete="off">
             <div>
                 <h1>Record Bank Transaction</h1>
             </div>
             <div id="innerfields">
+                <label>Test</label>
                 <div class='colleft'>
                     <fieldset id="detailfields" class='form'>
                         <legend>Transaction Details</legend>
@@ -227,13 +221,6 @@
                     </fieldset>
                 </div>
             </div> 
-            <table id="transactions">
-                <caption>Transaction History</caption>
-                <thead>
-                    <tr><th></th></tr>
-                </thead>
-                <tr><td></td></tr>
-            </table>
         </form>
     </body>
 </html>

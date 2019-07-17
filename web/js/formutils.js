@@ -1,5 +1,33 @@
 'use strict';
 
+function statistics() {
+    var start;
+    var logEnabled = false;
+    
+    this.enableLog  = enableLog;
+    this.setStart   = setStart;
+    this.elapsed    = elapsed;
+    this.log        = log;
+    this.logElapsed = logElapsed;
+    
+    function enableLog(yes) {
+        this.logEnabled = yes;
+    }            
+    function setStart() {
+        this.start = new Date();
+    }
+    function elapsed() {
+        return (new Date() - this.start) / 1000;
+    }
+    function log(message) {
+        if (this.logEnabled) console.log(message);
+    }
+    function logElapsed(action) {
+        this.log(action + ' took ' + this.elapsed() + ' ms');
+    }
+}
+var st = new statistics();
+
 function popUp() {
     var popUpDoc;
     var popUpTopId;
@@ -345,7 +373,7 @@ function getValue(id) {
     if (type === "checkbox")
         return input.checked;
 
-    return input.value;
+    return input.value.trim();
 }
 function getValueNew(id) {
     var input = document.getElementByName(id);
@@ -938,7 +966,11 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
 
         clearTable(table);
         jObj.next("{");
-
+        
+        st.enableLog(true);
+        st.log("Loading table " + id);
+        st.setStart();
+        
         while (jObj.next("}:,")) {
             if (jObj.type === ",")
                 continue;
@@ -959,6 +991,8 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
                     jObj.throwError("Object " + jObj.value + " when expecting Data or Header");
             }
         }
+        st.logElapsed("Loading rows");
+        st.setStart();
         for (var j = 0; j < table.rows.length; j++) {
             row = table.rows[j];
 
@@ -978,6 +1012,7 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
                     width += col.size;
             }
         }
+        st.logElapsed("Set table sizes");
     } catch (e) {
         alert(e.name + " " + e.message);
     }
@@ -1289,8 +1324,43 @@ function createParameters(action) {
     }
     return parameters;
 }
-function getList(server, options) {
+function addDBFilterField(filter, element, name, qualifier) {
+    var fields = element.value.split(',');
+    var i;
+    
+    if (filter        === undefined) filter = '';
+    if (element.value === '') return filter;
+    
+    for (i = 0; i < fields.length; i++) {
+        if (i === 0) {
+            if (filter !== '') filter += ',';
+            
+            filter += name + '=';
+        }
+        else
+            filter += '|';
+        
+        switch (qualifier) {
+            case undefined:
+            case 'quoted':
+                fields[i] = "'" + fields[i] + "'";
+                break;
+            case 'like':                
+                fields[i] = "'%" + fields[i] + "%'";
+                break;
+            case 'numeric':
+                break;
+        }        
+        filter += fields[i];
+    }
+    return filter;
+}
+function loadListResponse(response, options) {    
+        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue, options.firstValue, options.allowblank);
+}
+function getList(server, options, returnResponse) {
     var parameters = createParameters('getList');
+    var save;
 
     parameters = addParameter(parameters, 'field', options.field === undefined ? options.name : options.field);
 
@@ -1303,7 +1373,10 @@ function getList(server, options) {
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {
-        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue, options.firstValue, options.allowblank);
+        loadListResponse(response, options);
+        
+        if (returnResponse !== undefined && returnResponse) save = response;
     }
     ajaxLoggedInCall(server, processResponse, parameters, options.async);
+    return save;
 }

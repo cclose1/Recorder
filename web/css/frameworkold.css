@@ -8,34 +8,24 @@ and open the template in the editor.
     Author     : Chris
 */
 @media screen and (max-width: 900px) {
-    body {
-        margin: auto;
-        width: 560px;
+    .optional {
+        display: none
     }
-    .colleft {
-        width: fit-content;
-        margin: auto;
-    }
-    .colright {
-        margin: auto;
-        width: fit-content;
+    .frame {
+        width: 550px;
     }
 }
 @media screen and (min-width: 901px) {
-    body {
-        margin: auto;
-        width: fit-content;
-    }
-    .colleft {
-        width: fit-content;
-        float: left;
-    }
     .colright {
-        margin: auto;
-        width: fit-content;
-        float: left;
+        width: 198px;
     }
-}   
+    .frame {
+        width: 900px;
+    }
+}
+.colleft {
+    width: 320px;
+}
 .frame {
     margin-right: auto;
     margin-left: auto;
@@ -58,6 +48,11 @@ and open the template in the editor.
     margin: auto;
     text-align: center
 }
+[class^="col"] {
+    float: left;
+    min-height: 1px;
+    margin-left: 0px;
+}      
 .colall {
     width: 100%;
 }
@@ -165,4 +160,48 @@ select.optlist {
 }
 .time {
     width: 4em;
+}
+/* 
+ * The following style is a simplified version of TwitterBootstrap.
+*/
+[class*="span"] {
+    float: left;
+    min-height: 1px;
+    margin-left: 20px;
+}
+.span12 {
+    width: 950px;
+}
+.span11 {
+    width: 860px;
+}
+.span10 {
+    width: 780px;
+}
+.span9 {
+    width: 700px;
+}
+.span8 {
+    width: 620px;
+}
+.span7 {
+    width: 540px;
+}
+.span6 {
+    width: 460px;
+}
+.span5 {
+    width: 380px;
+}
+.span4 {
+    width: 300px;
+}
+.span3 {
+    width: 220px;
+}
+.span2 {
+    width: 140px;
+}
+.span1 {
+    width: 60px;
 }

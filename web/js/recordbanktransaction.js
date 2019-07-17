@@ -67,7 +67,8 @@ function checkCurrencyField(id) {
     var transfer = document.getElementById('action').value === 'Transfer';
     var exchange = document.getElementById('action').value === 'Exchange';
 
-    setHidden('cryptoaddress', !(isCryptoCurrency('pcurrency') || isCryptoCurrency('scurrency')));
+    setHidden('pcryptoaddress', !(isCryptoCurrency('pcurrency')));
+    setHidden('scryptoaddress', !(isCryptoCurrency('scurrency')));
     
     if (!(transfer || exchange))
         return;
@@ -106,6 +107,23 @@ function clearCurrencyField(id) {
     document.getElementById(id).value    = "";
     document.getElementById(id).disabled = false;
 }
+function setCreate(on) {
+    setHidden("clone",           on);
+    setHidden("remove",          on);
+    setHidden("setappendafter", !on)
+    document.getElementById("save").value  = on? "Create" : "Update";        
+}
+function setUpdateOption() {    
+    if (document.getElementById("optappend").checked) {
+         document.getElementById("line").value         = "";
+         document.getElementById("pfee").value         = "";
+         document.getElementById("pamount").value      = "";
+         document.getElementById("pdescription").value = "";
+         document.getElementById("paddress").value     = "";
+         setCreate(true);
+    }
+    setHidden("updateaction", true);
+}
 function setAction(value) {    
     if (hasValue(value))
         document.getElementById("action").value = value;
@@ -120,7 +138,8 @@ function setAction(value) {
     clearCurrencyField("saccount");
     clearCurrencyField("samount");
     clearCurrencyField("scurrency");
-    document.getElementById("description").value = "";
+    document.getElementById("pdescription").value = "";
+    document.getElementById("sdescription").value = "";
 
     if (document.getElementById("txntype").value === "" || indexOfOption(document.getElementById("action"), document.getElementById("txntype").value) !== -1) document.getElementById("txntype").value = document.getElementById("action").value;
     
@@ -130,38 +149,56 @@ function setAction(value) {
     }
 }
 function reset() {
-    document.getElementById("seqno").value       = "";
-    document.getElementById("date").value        = "";
-    document.getElementById("time").value        = "";
-    document.getElementById("cdate").value       = "";
-    document.getElementById("ctime").value       = "";
-    document.getElementById("paccount").value    = "";
-    document.getElementById("pcurrency").value   = "GBP";
-    document.getElementById("pamount").value     = "";  
-    document.getElementById("pfee").value        = "";  
-    document.getElementById("saccount").value    = "";
-    document.getElementById("scurrency").value   = "";
-    document.getElementById("samount").value     = "";  
-    document.getElementById("exsource").value    = "";
-    document.getElementById("exdate").value      = "";    
-    document.getElementById("extime").value      = ""; 
-    document.getElementById("examount").value    = "";   
-    document.getElementById("txntype").value     = "";  
-    document.getElementById("txnusage").value    = "";  
-    document.getElementById("description").value = "";
-    document.getElementById("address").value     = "";  
-    document.getElementById("save").value        = "Create";
-    document.getElementById("paccount").focus();
-    setHidden("clone",         true);
-    setHidden("remove",        true);
-    setHidden("cryptoaddress", true);
-    setAction("Debit");
+    document.getElementById("line").value         = "";
+    document.getElementById("cdate").value        = "";
+    document.getElementById("ctime").value        = "";
+    document.getElementById("pamount").value      = "";  
+    document.getElementById("pfee").value         = "";  
+    document.getElementById("sfee").value         = "";  
+    document.getElementById("samount").value      = "";  
+    document.getElementById("exsource").value     = "";
+    document.getElementById("exdate").value       = "";    
+    document.getElementById("extime").value       = ""; 
+    document.getElementById("examount").value     = "";   
+    document.getElementById("pdescription").value = "";
+    document.getElementById("paddress").value     = "";  
+    document.getElementById("sdescription").value = "";
+    document.getElementById("saddress").value     = "";  
+    
+    if (!document.getElementById("appendafter").checked) {
+        document.getElementById("txnid").value        = "";
+        document.getElementById("date").value         = "";
+        document.getElementById("time").value         = "";
+        document.getElementById("paccount").value     = "";
+        document.getElementById("pcurrency").value    = "GBP";
+        document.getElementById("saccount").value     = "";
+        document.getElementById("scurrency").value    = "";
+        document.getElementById("txntype").value      = ""; 
+        document.getElementById("txnusage").value     = ""; 
+        document.getElementById("tdescription").value = "";
+        setHidden("pcryptoaddress", true);
+        setHidden("scryptoaddress", true);      
+        setAction("Debit");
+        document.getElementById("paccount").focus();
+    } else
+         document.getElementById("pamount").focus();
+    document.getElementById("appendafter").checked = false;
+    setHidden("updateaction",   true);  
+    setCreate(true);
     selectedAccount = 'paccount';
     requestTransactions();
 }
+/*
+ * Added this as defining reset for the onclick for element clear in RecordBankTransaction.html did not invoke the function.
+ * Unable to find the underlying reason.
+ * 
+ * @returns {undefined}
+ */
+function resetTxn() {
+    reset();
+}
 function send() {
     var parameters = createParameters('create');
-    var address    = document.getElementById('address').value;
     
     if (!checkDateTime("date",  "time",  true))  return;
     if (!checkDateTime("cdate", "ctime", false)) return;
@@ -171,7 +208,8 @@ function send() {
     
     var amount = document.getElementById("pamount").value;
     
-    parameters = addParameterById(parameters, 'seqno');
+    parameters = addParameterById(parameters, 'txnid');
+    parameters = addParameterById(parameters, 'line');
     parameters = addParameterById(parameters, 'date');
     parameters = addParameterById(parameters, 'time');
     parameters = addParameterById(parameters, 'cdate');
@@ -181,17 +219,17 @@ function send() {
     parameters = addParameterById(parameters, 'pcurrency'); 
     parameters = addParameterById(parameters, 'txntype');
     parameters = addParameterById(parameters, 'txnusage');
-    parameters = addParameterById(parameters, 'description');
+    parameters = addParameterById(parameters, 'tdescription');
+    parameters = addParameterById(parameters, 'pdescription');
+    parameters = addParameterById(parameters, 'paddress');
     
     switch(document.getElementById("action").value) {
         case 'Credit':
             parameters = addParameter(parameters, 'pamount',  amount);
-            parameters = addParameter(parameters, 'paddress', address);
             parameters = addParameter(parameters, 'saddress', '');
             break
         case 'Debit':
             parameters = addParameter(parameters, 'pamount', '-' + amount);
-            parameters = addParameter(parameters, 'paddress', address);
             parameters = addParameter(parameters, 'saddress', '');
             break;
         case 'Transfer':
@@ -201,16 +239,23 @@ function send() {
             
             parameters = addParameter(parameters, 'pamount', '-' + amount);
             parameters = addParameterById(parameters, 'saccount');
+            parameters = addParameterById(parameters, 'sfee');
             parameters = addParameterById(parameters, 'samount');
             parameters = addParameterById(parameters, 'scurrency');
-            parameters = addParameter(parameters, 'paddress', '');
-            parameters = addParameter(parameters, 'saddress', address);
+            parameters = addParameterById(parameters, 'sdescription');
+            parameters = addParameterById(parameters, 'saddress');
             break;
     }
     function processResponse(response) {
         if (response.length > 2) {
-            displayAlert('Validation Failure', response);
-            return;
+            var fields = response.split('=');
+            
+            if (fields.length === 2 && fields[0] === "TXNId") {
+                document.getElementById("txnid").value = fields[1];                
+            } else {            
+                displayAlert('Validation Failure', response);
+                return;
+            }
         }
         reset();
     }
@@ -218,16 +263,16 @@ function send() {
     return true;
 }
 function clonedata() {
-    setHidden("clone", true);
-    setHidden("remove", true);
-    document.getElementById("save").value = "Create";
-    document.getElementById("seqno").value = "";
-    document.getElementById("date").value = currentDate(new Date());
+    setCreate(false);
+    document.getElementById("txnid").value = "";
+    document.getElementById("line").value  = "";
+    document.getElementById("date").value  = currentDate(new Date());
 }
 function deleteData() {
     var parameters = createParameters('delete');
 
-    parameters = addParameterById(parameters, 'seqno');
+    parameters = addParameterById(parameters, 'txnid');
+    parameters = addParameterById(parameters, 'line');
 
     ajaxLoggedInCall('BankTransaction', reset, parameters);
 }
@@ -238,8 +283,14 @@ function btTransactionsRowClick(row) {
         var value = rdr.columnValue();
 
         switch (rdr.columnName()) {
-            case 'SeqNo':
-                document.getElementById('seqno').value  = value;
+            case 'TXNId':
+                document.getElementById('txnid').value  = value;
+                break;
+            case 'TXNDescription':
+                document.getElementById('tdescription').value  = value;
+                break;
+            case 'Line':
+                document.getElementById('line').value  = value;
                 break;
             case 'Timestamp':
                 loadDateTime(value.split(" "));
@@ -250,7 +301,7 @@ function btTransactionsRowClick(row) {
             case 'Account':
                 document.getElementById('paccount').value = value;
                 break;
-            case 'Amount':
+            case 'AmountFull':
                 var amount = value;
                 
                 if (amount < 0) {
@@ -261,7 +312,7 @@ function btTransactionsRowClick(row) {
                     document.getElementById('pamount').value = amount;                    
                 }                
                 break;
-            case 'Fee':
+            case 'FeeFull':
                 document.getElementById('pfee').value = value;
                 break;
             case 'Currency':
@@ -274,17 +325,18 @@ function btTransactionsRowClick(row) {
                 document.getElementById('txnusage').value = value;
                 break;
             case 'Address':
-                document.getElementById('address').value = value;
+                document.getElementById('paddress').value = value;
                 break;
             case 'Description':
-                document.getElementById('description').value = value;
+                document.getElementById('pdescription').value = value;
                 break;
         }
+        document.getElementById('optupdate').value = "update"
+        setHidden("updateaction", false);
     }
-    document.getElementById("save").value = "Update";
-    setHidden("clone",         false);
-    setHidden("remove",        false);
-    setHidden('cryptoaddress', !isCryptoCurrency('pcurrency'));
+    setCreate(false);
+    setHidden('pcryptoaddress', !isCryptoCurrency('pcurrency'));
+    setHidden('scryptoaddress', !isCryptoCurrency('scurrency'));
 }
 function btAccountsRowClick(row) {
     var primary = selectedAccount === 'paccount';
@@ -311,11 +363,55 @@ function btAccountsRowClick(row) {
 }
 function requestTransactions() { 
     var parameters = createParameters('transactions');
+    var filter     = '';
+    
+    filter = addDBFilterField(filter, faccounts,    'Account');
+    filter = addDBFilterField(filter, fcurrencies,  'Currency');
+    filter = addDBFilterField(filter, fusages,      'Usage');
+    filter = addDBFilterField(filter, fdescription, 'Description', 'like');
+    
+    if (filter !== '') parameters = addParameter(parameters, 'filter', filter);
     
     function processResponse(response) {
         loadJSONArray(response, "transactions", 20, "btTransactionsRowClick(this)", null, null, false, true);
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
+}
+function setFilter() {
+    setHidden("filter", !document.getElementById("showfilter").checked);
+}
+function addFilterValue(element, value) {
+    if (value === '') element.value = '';
+    else if (element.value === '') element.value = value;
+    else element.value += ',' + value;
+}
+function addFilterField() {
+    var value = event.srcElement.value;
+    
+    switch (event.srcElement.id) {
+        case 'fcurrency':
+            addFilterValue(document.getElementById('fcurrencies'), value);
+            break;
+        case 'fusage':
+            addFilterValue(document.getElementById('fusages'),     value);
+            break;
+        case 'faccount':
+            addFilterValue(document.getElementById('faccounts'),   value);
+            break;
+        case 'fapply':
+            requestTransactions();
+            break;
+        case 'fclear':
+            document.getElementById('faccount').value     = '';
+            document.getElementById('faccounts').value    = '';
+            document.getElementById('fcurrency').value    = '';
+            document.getElementById('fcurrencies').value  = '';
+            document.getElementById('fusage').value       = '';
+            document.getElementById('fusages').value      = '';
+            document.getElementById('fdescription').value = '';
+            requestTransactions();
+            break;
+    }
 }
 function requestAccounts() { 
     var parameters = createParameters('accounts');
@@ -327,6 +423,7 @@ function requestAccounts() {
 }
 function initialize() {
     var action = document.getElementById('action');
+    var response;
     
     action.innerHTML = "";
     /*
@@ -342,17 +439,21 @@ function initialize() {
     if (!serverAcceptingRequests('BankTransaction')) return;
     
     enableMySql('BankTransaction');
-    getList('BankTransaction', {
+    response = getList('BankTransaction', {
         name:         "pcurrency",
         table:        "Currency",
         field:        "Designation",
         keepValue:    true,
         defaultValue: "GBP",
-        async:        false});
-    getList('BankTransaction', {
+        async:        false},
+        true);
+    loadListResponse(response, {
         name:         "scurrency",
-        table:        "Currency",
-        field:        "Designation",
+        keepValue:    true,
+        async:        false,
+        allowblank:   true});
+    loadListResponse(response, {
+        name:         "fcurrency",
         keepValue:    true,
         async:        false,
         allowblank:   true});
@@ -363,14 +464,26 @@ function initialize() {
         keepValue:    true,
         async:        false,
         allowblank:   true});
-    getList('BankTransaction', {
+    response = getList('BankTransaction', {
         name:         "txnusage",
         table:        "AccountUsage",
         field:        "Code",
         keepValue:    true,
         async:        false,
+        allowblank:   true},
+        true);
+    loadListResponse(response, {
+        name:         "fusage",
+        keepValue:    true,
+        async:        false,
         allowblank:   true});
-    requestTransactions();
+    getList('BankTransaction', {
+        name:         "faccount",
+        table:        "Account",
+        field:        "Code",
+        keepValue:    true,
+        async:        false,
+        allowblank:   true});
     requestAccounts();
     reset();
 }

@@ -1,50 +1,39 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 31-Mar-2015, 14:50:54
+    Author     : Chris
+*/
 
-@media screen and (max-width: 900px) {
-    .colright {
-        width: 0px;
-    }
-    #innerfields {
-        width: 340px;
-    }
-}
-@media screen and (min-width: 901px) {
-    .colright {
-        width: 498px;
-    }
-    #innerfields {
-        width: 840px;
-    }
-}    
-.colleft {
-    width: 340px
-}
-#innerfields {
-    margin: auto;
-}
 #accounts > tbody {
-    height: 220px;
-}
-#accounts thead [name='Bank'] {
-    width: 7em !important;
-}
-#accounts [name='Owner'] {
-    width: 6em !important;
+    height: 280px;
 }
 #transactions [name='Timestamp'] {
     width: 9em !important;
 }
 #transactions [name='Amount'] {
-    width: 2em !important;
+    width: 4em !important;
 }
-#transactions [name='Type'] {
-    width: 3.9em !important;
-}
-#primaryaccount .nogap {
+#primaryaccount .nogap, #secondaryaccount .feegap {
     width : 60px;
 }
-#transactions [name='SeqNo'], #transactions [name='Completed'], #transactions [name='Number'], #transactions [name='Card'], #transactions [name='TXN Idm'], #transactions [name='Address'] {
+#transactions [name='TXNId'], #transactions [name='TXNDescription'], #transactions [name='Line'], #transactions [name='Completed'], #transactions [name='Number'], #transactions [name='Card'], #transactions [name='AmountFull'], #transactions [name='FeeFull'], #transactions [name='Address'] {
     display: none;
 }
 #exchangerate .narrowlabel {
     width : 60px;
 }
+@media screen and (max-width: 900px) {
+    body {
+        width: 660px;
+    }
+    #accounts > tbody {
+        height: 100px;
+    }
+    #transactions [name='TXN Id'], #transactions [name='Weekday'], #transactions [name='Type'], #transactions [name='Fee'] {
+        display: none;
+    }
+} 

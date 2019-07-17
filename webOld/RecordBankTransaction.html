@@ -114,6 +114,22 @@
                                         <option></option>
                                     </select>
                                 </div>
+                                <fieldset id="exchangerate">
+                                    <legend>Exchange Rate</legend>
+                                    <div>
+                                        <label for="exsource" class="narrowlabel">Source</label>                            
+                                        <input type="text" name="Exchange Source" id="exsource" tabindex="-1" readonly="readonly">
+                                    </div>
+                                    <div>
+                                        <label for="exdate" class="narrowlabel" >Date</label>
+                                        <input type="text" name="Date" id="exdate" class='date' maxlength="11" tabindex="-1" readonly="readonly">
+                                        <label for="extime" class="nogap">Time</label>
+                                        <input type="text" name="extime" size="8" id="extime" class='time' maxlength="8" tabindex="-1" readonly="readonly">
+                                    </div>
+                                    <div>
+                                        <label for="examount" class="narrowlabel">Amount</label>
+                                        <input type="text" name="Exchange Amount" size ="3" id="examount" tabindex="-1" readonly="readonly">
+                                    </div>
                             </fieldset>
                             <div>
                                 <label for="txntype">Type</label>
