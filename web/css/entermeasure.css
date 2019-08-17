@@ -7,14 +7,12 @@ and open the template in the editor.
     Created on : 24-Mar-2015, 20:53:07
     Author     : Chris
 */
-label {
-    width: 150px;    
+
+#history [name='Individual'] {
+    display: none;
 }
-#appframe {
-    width: 80.5em
-}
-.formwidth {
-    width: 50%;
-    margin-left: 25%;
-    margin-right: 25%
+@media screen and (max-width: 900px) {
+    #history [name='Date'], #history [name='Week'], #history [name='Weekday']{    
+        display: none;
+    }
 }

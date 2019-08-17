@@ -3,8 +3,8 @@
 var timer = setInterval(function(){ updateTimer();}, 1000);
 
 function showUpdate(yes) {
+    setHidden('insertfields',    yes);
     setHidden('updatefields', !yes);
-    setHidden('formfields',    yes);
 }
 function newSession() {
     document.getElementById("session").value = currentDateTime();
@@ -163,7 +163,7 @@ function requestHistory() {
     parameters = addParameterById(parameters, 'identifier');
     
     function processResponse(response) {
-        loadJSONArray(response, "history", 20, "bpHistoryRowClick(this)");
+        loadJSONArray(response, "history", 20, "bpHistoryRowClick(this)", null, null, false, true);
     }
     ajaxLoggedInCall("Record", processResponse, parameters);
 }

@@ -7,35 +7,29 @@ and open the template in the editor.
     Created on : 21-Nov-2014, 08:43:31
     Author     : Chris
 */
+body {
+    margin: auto;
+    width: fit-content;
+}
 @media screen and (max-width: 900px) {
-    body {
-        margin: auto;
-        width: 560px;
-    }
-    .colleft {
-        width: fit-content;
-        margin: auto;
-    }
-    .colright {
-        margin: auto;
-        width: fit-content;
+    .floatleft {
+        float: none;
+        width: inherit;
+        margin: inherit;
     }
 }
 @media screen and (min-width: 901px) {
-    body {
-        margin: auto;
-        width: fit-content;
-    }
-    .colleft {
-        width: fit-content;
-        float: left;
-    }
-    .colright {
-        margin: auto;
-        width: fit-content;
+    .floatleft{
         float: left;
     }
 }   
+#innerfields {
+    margin: auto;
+    width: max-content
+} 
+#appframe {
+    display : inline-grid;
+}
 .frame {
     margin-right: auto;
     margin-left: auto;
@@ -44,6 +38,7 @@ and open the template in the editor.
 .frame h1 {
     background-color: greenyellow;
     text-align: center;
+    margin-top: 0px;
     margin-bottom: 0px;
 }
 .form {

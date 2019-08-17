@@ -4,7 +4,7 @@
     <head>
         <link href="css/alert.css" rel="stylesheet" type="text/css">
         <link href="css/login.css" rel="stylesheet" type="text/css">
-        <link href="css/frameworkold.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
         <link href="css/recordnutrition.css" rel="stylesheet" type="text/css">
         <script src="js/formutils.js"></script>
         <script src="js/alert.js"></script>
@@ -58,7 +58,7 @@
         </div>  
         <form class="frame" id="appframe" autocomplete="off">
             <h1>Record Nutrition Details</h1>
-            <div id="fieldspanel" class="colall">
+            <div id="fieldspanel">
                 <div id="innerfields">
                     <fieldset id="updateitem" class='form'>
                         <legend>Update Item</legend>
@@ -136,7 +136,7 @@
                             <input id="inew"    name="NewItem"    type="button" value="New"    onclick="setCreateItem('start');">
                         </div>
                     </fieldset>
-                    <div class="colleft">
+                    <div class="floatleft">
                         <fieldset id="detailfields" class='form'>
                             <legend>Event Details</legend>
                             <div>
@@ -249,10 +249,9 @@
                             </div>
                         </fieldset>
                     </div>
-                    <div class="colright optional">
+                    <div class="floatleft">
                         <fieldset id="itemdetails" class='form' disabled>
                             <legend>Items</legend>
-                            <div>
                                 <table id="itemdetailstable" hidden>
                                     <caption>Details</caption>
                                     <thead>
@@ -260,7 +259,6 @@
                                     </thead>
                                     <tr><th></th></tr>
                                 </table>
-                            </div>
                         </fieldset>
                     </div>
                     <fieldset id="clonefields" class='form' hidden>

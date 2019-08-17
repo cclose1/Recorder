@@ -4,15 +4,21 @@
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
             <file>file:/C:/MyFiles/Java/Recorder/web/RecordBankTransaction.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordBankTransaction.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/css/recordbanktransaction.css</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/Alert.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/EnterMeasure.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/framework.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/recordnutrition.css</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/heartmonitor.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordbanktransaction.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/heartmonitor.css</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/RecordBankTransactionNew.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordSpend.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordNutrition.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordBankTransaction.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/css/recordbanktransaction.css</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/heartmonitor.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/Login.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordbanktransaction.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
         </group>
     </open-files>
 </project-private>

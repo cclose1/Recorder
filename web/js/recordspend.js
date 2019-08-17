@@ -105,7 +105,7 @@ function requestHistory() {
     var parameters = createParameters('spendhistory');
 
     function processResponse(response) {
-        loadJSONArray(response, "history", 19, "rowClick(this)");
+        loadJSONArray(response, "history", 19, "rowClick(this)", null, null, false, true);
         document.getElementById("history").removeAttribute("hidden");
     }
     ajaxLoggedInCall('Spend', processResponse, parameters);
