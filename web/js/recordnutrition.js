@@ -145,7 +145,7 @@ function loadActiveEvent() {
     parameters = addParameterById(parameters, 'time');
     
     function processResponse(response) {
-        loadJSONArray(response, 'activeeventtable', 19, 'detailsRowClick(this, "update")');
+        loadJSONArray(response, 'activeeventtable', 19, 'detailsRowClick(this, "update")', null, null, false, true);
         setHidden('activeeventtable', false);
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);    
@@ -163,7 +163,7 @@ function getNutritionDetails() {
     parameters = addParameter(parameters, 'item',   item);
     
     function processResponse(response) {
-        loadJSONArray(response, 'itemdetailstable', 19, 'detailsRowClick(this, "add")');
+        loadJSONArray(response, 'itemdetailstable', 19, 'detailsRowClick(this, "add")', null, null, false, true);
         document.getElementById('itemdetailstable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
@@ -186,7 +186,7 @@ function requestEventHistory(historyOnly) {
     parameters = addParameter(parameters, 'day',         day);
 
     function processResponse(response) {
-        loadJSONArray(response, 'eventhistorytable', 19, 'rowEventHistoryClick(this)', true);
+        loadJSONArray(response, 'eventhistorytable', 19, 'rowEventHistoryClick(this)', null, null, false, true);
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);

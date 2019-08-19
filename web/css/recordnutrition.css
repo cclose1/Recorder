@@ -14,10 +14,10 @@ and open the template in the editor.
 input[onkeypress^='allowedInNumberField'] {
     width: 40px;
 }
-#itemdetailstable tr *:nth-child(2), #itemdetailstable tr *:nth-child(6) {
+#itemdetailstable [name='ABV'], #itemdetailstable [name='DefaultSize'] {
     display: none;
 }
-#eventhistorytable tr *:nth-child(4) {
+#eventhistorytable [name='Comment'] {
     display: none;
 }
 #createfields, #clonefields {

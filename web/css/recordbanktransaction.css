@@ -27,9 +27,6 @@ and open the template in the editor.
     width : 60px;
 }
 @media screen and (max-width: 900px) {
-    body {
-        width: 660px;
-    }
     #accounts > tbody {
         height: 100px;
     }
