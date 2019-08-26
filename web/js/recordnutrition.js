@@ -376,11 +376,8 @@ function deleteEvent() {
  * @param dbFilter Database filter field column
  * @returns {undefined}
  */
-function updateFilteredList(name, dbField, filter, dbFilter) {
-    if (filter === undefined)
-        getList('Nutrition', {name: name, field: dbField, firstValue: ' ', async:false}); 
-    else
-        getList('Nutrition', {name: name, field: dbField, filter: dbFilter + '!' + document.getElementById(filter).value, firstValue: ' ', async:false}); 
+function updateFilteredList(name, dbField, filter, dbFilter) {    
+    getList('Nutrition', {name: name, field: dbField, filter: addDBFilterField('', document.getElementById(filter), dbFilter), firstValue: ' ', async:false}); 
 }
 function updateFilteredLists() {
     updateFilteredList('iSourceList', 'source');

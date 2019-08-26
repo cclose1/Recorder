@@ -8,17 +8,23 @@
             <file>file:/C:/MyFiles/Java/Recorder/web/EnterMeasure.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/framework.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/recordnutrition.css</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/css/heartmonitor.css</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/filter.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordSpendNew.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordspendnew.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/RecordSpend.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordspend.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/RecordNutrition.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/login.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordBankTransaction.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/recordbanktransaction.css</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/heartmonitor.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/Login.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/recordbanktransaction.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/css/recordspend.css</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/alert.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/Filter.html</file>
         </group>
     </open-files>
 </project-private>

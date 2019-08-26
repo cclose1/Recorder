@@ -41,24 +41,16 @@ import org.cbc.utils.system.SecurityConfiguration;
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet { 
 
-    protected String getListSql(Context ctx, String table, String field) throws ParseException {
-        SQLSelectBuilder sql = ctx.getSelectBuilder(table);
-        String[] filterFields = ctx.getParameter("filter").split(",");
+    protected String getListSql(Context ctx, String table, String field) throws ParseException, SQLException {
+        SQLSelectBuilder sql          = ctx.getSelectBuilder(table);
+        String[]         filterFields = ctx.getParameter("filter").split(",");
         
         sql.setOptions("DISTINCT");
         sql.addField(field);
         sql.setWhere(field + " IS NOT NULL");
-        
-        for (String condition : filterFields) {
-            String[] c = condition.split("!");
-            if (c.length > 2) {
-                throw new ParseException("Filter condition [" + condition + "] must be field!value", 0);
-            }
-            if (c.length == 2 && c[1].trim().length() != 0) {
-                sql.addAnd(c[0], "=", c[1]);
-            }
-        }
+        sql.addAnd( ctx.getParameter("filter"));
         sql.setOrderBy(field);
+        
         return sql.build();
     }
     protected void getList(Context ctx, String table, String field) throws SQLException, ParseException, JSONException {
@@ -75,9 +67,6 @@ public abstract class ApplicationServer extends HttpServlet {
         String field = ctx.getParameter("field");
 
         getList(ctx, table, field);
-    }
-    protected class Test {
-        
     }
     public static long getPID() {
         String processName

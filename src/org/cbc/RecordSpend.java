@@ -35,7 +35,6 @@ public class RecordSpend extends ApplicationServer {
         private String  readTable;
         private String  updateTable;
         private String  optionalColumns;
-        private int     historyDays;   
         
         private int getIntProperty(String name, int defaultValue) {
             String value = properties.getProperty(name);
@@ -55,7 +54,6 @@ public class RecordSpend extends ApplicationServer {
             readTable       = properties.getProperty("spendreadtable");
             updateTable     = properties.getProperty("spendupdatetable");
             optionalColumns = properties.getProperty("spendoptionalcolumns");
-            historyDays     = getIntProperty("spendhistorydays", 100);
             dbs.setApplication(
                     properties.getProperty("sddatabase"), 
                     properties.getProperty("sduser"), 
@@ -69,9 +67,6 @@ public class RecordSpend extends ApplicationServer {
         }
         public String getOptionalColumns() {
             return optionalColumns;
-        }
-        public int getHistoryDays() {
-            return historyDays;
         }
     }
     Configuration config = new Configuration();
@@ -239,12 +234,7 @@ public class RecordSpend extends ApplicationServer {
                 
             copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "M");
             copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "Y");
-            /*
-             * Ideally the calculation for start point of history should be done in SQL. However, there
-             * is a different interpretation of the ASCII SQL time functions between MySQL and SQL Server,
-             * so do it in Java.
-             */
-            Date start = new Date(System.currentTimeMillis() - (long) 1000 * config.getHistoryDays() * 24 * 60 * 60);
+            sql.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
             sql.addField("SeqNo");
             sql.addField("Timestamp");
             sql.addField("Weekday");
@@ -255,13 +245,15 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("Payment");
             sql.addField("Amount",         null,         null, "DECIMAL(10,2)");
             sql.addField("BankCorrection", "Correction", null, "DECIMAL(10,2)");
-            sql.addAnd("CAST(Timestamp AS DATE)", ">=", start);
+            sql.addAnd( ctx.getParameter("filter"));
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);
             data.add("SpendData", rs, config.getOptionalColumns());
             data.append(ctx.getReplyBuffer());
             ctx.setStatus(200);
         } else if (action.equals("getList")) {
+            getList(ctx);
+        } else if (action.equals("getListo")) {
             JSONObject       data     = new JSONObject();
             String           field    = ctx.getParameter("field");
             String           category = ctx.getParameter("category");

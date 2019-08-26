@@ -1,5 +1,13 @@
 'use strict';
 
+/*
+ * If object is an element it is returned, otherwise it is assumed to be an element id and the element with that id from
+ * the current document is returned.
+ */
+function getElement(object) {
+    return typeof object === 'string' ? document.getElementById(object) : object;
+}
+
 function statistics() {
     var start;
     var logEnabled = false;
@@ -28,6 +36,14 @@ function statistics() {
 }
 var st = new statistics();
 
+function resizeFrame(id) {
+    var elm    = getElement(id);
+    var width  = elm.contentWindow.document.body.scrollWidth;
+    var height = elm.contentWindow.document.body.scrollHeight;
+
+    elm.width  = width  + "px"; 
+    elm.height = height + "px";
+}
 function popUp() {
     var popUpDoc;
     var popUpTopId;
@@ -128,13 +144,6 @@ function popUp() {
         
         if (frameId !== '') popUpDoc.onclick = action;
     }
-}
-/*
- * If object is an element it is returned, otherwise it is assumed to be an element id and the element with that id from
- * the current document is returned.
- */
-function getElement(object) {
-    return typeof object === 'string' ? document.getElementById(object) : object;
 }
 function deleteRows(object) {
     if (object.rows.length === 0) {
@@ -1028,8 +1037,7 @@ function addOption(select, value) {
 }
 function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue, allowblank) {
     try {
-        var select = document.getElementById(id);
-        var jObj = new jsonObject(json);
+        var select  = getElement(id);
         var initial = keepValue !== undefined && keepValue ? select.value : defaultValue !== undefined ? defaultValue : "";
 
         if (initial === "" && defaultValue !== undefined)
@@ -1041,46 +1049,54 @@ function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue, allowbla
 
         if (allowblank !== undefined && allowblank)
             addOption(select, '');
+        
+        if (json.charAt(0) !== '{') {
+            json.split(',').forEach(function (option) {
+                addOption(select, option);
+            });
+        } else {
+            var jObj = new jsonObject(json);
+            
+            jObj.next("{");
 
-        jObj.next("{");
+            if (firstValue !== undefined && firstValue)
+                addOption(select, firstValue);
 
-        if (firstValue !== undefined && firstValue)
-            addOption(select, firstValue);
-
-        while (jObj.next("}:,")) {
-            if (jObj.type === ",")
-                continue;
-            if (jObj.type === "}")
-                break;
-
-            switch (jObj.value) {
-                case "Header" :
-                    jObj.skipValue();
+            while (jObj.next("}:,")) {
+                if (jObj.type === ",")
+                    continue;
+                if (jObj.type === "}")
                     break;
-                case "Data":
-                    jObj.next("[");
 
-                    while (jObj.next("[],")) {
-                        if (jObj.type === ",")
-                            continue;
-                        if (jObj.type === "]")
-                            break;
+                switch (jObj.value) {
+                    case "Header" :
+                        jObj.skipValue();
+                        break;
+                    case "Data":
+                        jObj.next("[");
 
-                        jObj.next('[],');
-                        /*
-                         * Allow row to be an array containing a single value, rather than just the value itself
-                         */
-                        if (jObj.type === '[')
-                            jObj.next(']');
+                        while (jObj.next("[],")) {
+                            if (jObj.type === ",")
+                                continue;
+                            if (jObj.type === "]")
+                                break;
 
-                        addOption(select, jObj.value);
-                    }
-                    break;
-                case "Table":
-                    jObj.skipValue();
-                    break;
-                default:
-                    jObj.throwError("Object " + jObj.value + " when expecting Data or Header");
+                            jObj.next('[],');
+                            /*
+                             * Allow row to be an array containing a single value, rather than just the value itself
+                             */
+                            if (jObj.type === '[')
+                                jObj.next(']');
+
+                            addOption(select, jObj.value);
+                        }
+                        break;
+                    case "Table":
+                        jObj.skipValue();
+                        break;
+                    default:
+                        jObj.throwError("Object " + jObj.value + " when expecting Data or Header");
+                }
             }
         }
         select.value = initial;
@@ -1325,6 +1341,8 @@ function createParameters(action) {
     return parameters;
 }
 function addDBFilterField(filter, element, name, qualifier) {
+    if (name === undefined) return filter;
+    
     var fields = element.value.split(',');
     var i;
     
@@ -1367,9 +1385,7 @@ function getList(server, options, returnResponse) {
     if (options.table !== undefined)
         parameters = addParameter(parameters, 'table', options.table);
 
-    parameters = addParameterById(parameters, 'mysql');
-
-    if (options.filter !== undefined)
+    if (options.filter !== undefined && options.filter !== '')
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {

@@ -7,6 +7,7 @@
         <link href="css/framework.css" rel="stylesheet" type="text/css">
         <link href="css/recordspend.css" rel="stylesheet" type="text/css">
         <script src="js/formutils.js"></script>
+        <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
         <script src="js/recordspend.js"></script>
@@ -124,11 +125,15 @@
                                 <label for="mysql">Use MySQL</label>
                                 <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestHistory();requestSummary();">
                             </div>
+                            <div>
+                                <label for="showfilter">Show Filter</label>
+                                <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
+                            </div>
                         </div>
                     </fieldset>
                 </div>
                 <div class="floatleft">
-                    <fieldset id='summaryfields' class='form' disabled>
+                    <fieldset id='summaryfields' class='form optional' disabled>
                         <legend>Summary</legend>
                         <div>
                             <div>
@@ -138,6 +143,10 @@
                             <div>
                                 <label for="Essential">Essential</label>
                                 <input type="text" id="Essential" readonly class="moneyvalue">
+                            </div>
+                            <div>
+                                <label for="Necessary">Necessary</label>
+                                <input type="text" id="Necessary" readonly class="moneyvalue">
                             </div>
                             <div>
                                 <label for="Discretionary">Discretionary</label>
@@ -151,17 +160,13 @@
                                 <label for="YearEstimate">Year Estimate</label>
                                 <input type="text" id="YearEstimate" readonly class="moneyvalue">
                             </div>
-                            <div>
-                                <label for="Target">Year Target</label>
-                                <input type="text" id="Target" readonly class="moneyvalue">
-                            </div>
-                            <div>
-                                <label for="UnderSpend">Under Spend</label>
-                                <input type="text" id="UnderSpend" readonly class="moneyvalue">
-                            </div>
                         </div>
                     </fieldset>
                 </div>
+                <div id="filter" hidden>
+                    <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
+                    </iframe>
+                </div>  
             </div> 
 
             <table id="history" hidden>

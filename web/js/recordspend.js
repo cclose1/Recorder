@@ -1,5 +1,7 @@
 'use strict';
 
+var hframe;
+
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 }
@@ -36,20 +38,6 @@ function clonedata() {
     document.getElementById("save").value = "Create";
     document.getElementById("seqno").value = "";
     document.getElementById("date").value = currentDate(new Date());
-}
-function getList1(server, options) {
-    var parameters = createParameters('getList');
-
-    parameters = addParameter(parameters, 'field', options.field === undefined ? options.name : options.field);
-    
-    if (options.filter !== undefined && options.filter) {
-        parameters = addParameterById(parameters, 'category');
-        parameters = addParameterById(parameters, 'type');        
-    } 
-    function processResponse(response) {
-        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue);
-    }
-    ajaxLoggedInCall(server, processResponse, parameters, options.async);
 }
 function checkTimestamp() {
     var valid      = true;
@@ -101,13 +89,16 @@ function deleteData() {
 
     ajaxLoggedInCall('Spend', reset, parameters);
 }
-function requestHistory() {
+function requestHistory(filter) {
     var parameters = createParameters('spendhistory');
 
     function processResponse(response) {
         loadJSONArray(response, "history", 19, "rowClick(this)", null, null, false, true);
         document.getElementById("history").removeAttribute("hidden");
     }
+    if (filter === undefined) filter = getFilter(hframe);
+    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
+    
     ajaxLoggedInCall('Spend', processResponse, parameters);
 }
 function requestSummary() {
@@ -116,19 +107,22 @@ function requestSummary() {
     function processResponse(response) {
         document.getElementById("DailyRate").value = "";
         document.getElementById("Essential").value = "";
+        document.getElementById("Necessary").value = "";
         document.getElementById("Discretionary").value = "";
         document.getElementById("MonthSpend").value = "";
         document.getElementById("YearEstimate").value = "";
-        document.getElementById("Target").value = "";
-        document.getElementById("UnderSpend").value = "";
         loadJSONFields(response, false);
         document.getElementById("history").removeAttribute("hidden");
     }
     ajaxLoggedInCall('Spend', processResponse, parameters);
 }
 function updateFilteredLists() {
-    getList1('Spend', {name: "locationList",    field: "location",    filter: true});
-    getList1('Spend', {name: "descriptionList", field: "description", filter: true});
+    var filter = '';
+            
+    filter = addDBFilterField(filter, document.getElementById("category"), 'Category', 'quoted');
+    filter = addDBFilterField(filter, document.getElementById("type"),     'Type',     'quoted');
+    getList('Spend', {name: "locationList",    table: 'SpendData', field: 'Location',    filter: filter});
+    getList('Spend', {name: "descriptionList", table: 'SpendData', field: 'Description', filter: filter});
 }
 function rowClick(row) {
     var rdr = new rowReader(row);
@@ -175,27 +169,41 @@ function rowClick(row) {
     setHidden("clone", false);
     setHidden("remove", false);
 }
-function initialize() {   
+function loadOption(options, type, defaultValue) {
+    var response;
+    
+    response = getList('Spend', {
+        table:        'ListValues',
+        name:         options,
+        field:        'Value',
+        filter:       "Type='" + type + "'",
+        keepValue:    true,
+        defaultValue: defaultValue,
+        async:        false},
+        true);
+    
+    return response;
+}
+function initialize() {
+    var response;
+    
     if (!serverAcceptingRequests('Spend')) return;
     
     enableMySql('Spend');
-    getList('Spend', {
-        name:         "category",
-        keepValue:    true,
-        defaultValue: "Discretionary",
-        async:        false});
-    getList('Spend', {
-        name:         "type",
-        keepValue:    true,
-        defaultValue: "Cafe",
-        async:        false});
+    hframe = getFrame('filter1', document.getElementById('filterframe'), requestHistory);
+    
+    response = loadOption('category', 'Category', 'Discretionary');
+    addFilter(hframe, 'Categories', 'Category', response);
+    response = loadOption('type', 'Type', 'Food');
+    addFilter(hframe, 'Types',       'Type',     response);
+    addFilter(hframe, 'Weekdays',    'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
+    addFilter(hframe, 'Description', 'Description');
+    addFilter(hframe, 'Location',    'Location,text');
+    addFilter(hframe, 'Count',       'Count, number');
     /*
      * The remaining calls can execute asynchronously.
      */
-    getList('Spend', {
-        name:         "payment",
-        keepValue:    true,
-        defaultValue: "Cash"});
+    loadOption('payment', 'Payment', 'Cash');
     updateFilteredLists();
     requestHistory("");
     requestSummary("");
