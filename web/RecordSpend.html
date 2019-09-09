@@ -112,6 +112,14 @@
                                 </select>
                             </div>
                             <div>
+                                <label for="period">Frequency</label>
+                                <select id="period" tabindex="-1" onchange="setTime();">
+                                    <option></option>
+                                    <option>M</option>
+                                    <option>Y</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label for="save"></label>
                                 <input id="save" name="save" type="button" value="Create" onclick="send();">
                                 <input id="clone" name="clone" type="button" hidden value="Clone" onclick="clonedata();">

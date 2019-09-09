@@ -7,7 +7,52 @@
 function getElement(object) {
     return typeof object === 'string' ? document.getElementById(object) : object;
 }
-
+function triggerClick(element) {
+    var event   = new MouseEvent('click', {
+        view:       window,
+        bubbles:    true});
+    getElement(element).dispatchEvent(event);
+}
+function setAttribute(element, id, value) {
+    var name = id;
+    
+    if (typeof id !== 'string') {
+        name  = value;
+        value = id[name];
+    }
+    if (value !== undefined) element.setAttribute(name, value);
+}
+/*
+ * Creates an element for tagName in the filter defined by frame and returns its elenent object
+ * 
+ * Options contains the options defining how the element specific characteristics are handled. Any option not
+ * explicitly handled by this code, is assumed to be an attribute name, value pair that is applicable
+ * to an element of tagName.
+ */
+function createElement(document, tagName, options) {
+    var elm = document.createElement(tagName);
+    
+    for (const name in options) {
+        let value = options[name]; 
+        
+        if (value === undefined) continue;  //Ignore options with undefined values;
+        
+        switch (name) {
+            case 'append':
+                value.appendChild(elm);
+                break;
+            case 'text':
+                elm.appendChild(document.createTextNode(value));
+                break;
+            case 'forceGap':
+                setAttribute(elm, 'style', 'margin-right: ' + value);
+                break;
+            default:
+                setAttribute(elm, name, value);
+        }
+    }
+    return elm;
+}
 function statistics() {
     var start;
     var logEnabled = false;

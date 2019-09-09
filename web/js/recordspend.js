@@ -24,6 +24,7 @@ function reset() {
     document.getElementById("description").value = "";
     document.getElementById("amount").value      = "";    
     document.getElementById("payment").value     = "Cash";  
+    document.getElementById("period").value      = "";  
     document.getElementById("correction").value  = "";
     document.getElementById("save").value        = "Create";
     document.getElementById("category").focus();
@@ -78,6 +79,7 @@ function send() {
     parameters = addParameterById(parameters, 'description');
     parameters = addParameterById(parameters, 'amount');
     parameters = addParameterById(parameters, 'payment');
+    parameters = addParameterById(parameters, 'period');
     parameters = addParameterById(parameters, 'correction', 'bankcorrection');
 
     ajaxLoggedInCall('Spend', reset, parameters);
@@ -93,7 +95,7 @@ function requestHistory(filter) {
     var parameters = createParameters('spendhistory');
 
     function processResponse(response) {
-        loadJSONArray(response, "history", 19, "rowClick(this)", null, null, false, true);
+        loadJSONArray(response, "history", 19, "rowClick(this)", true, null, false, true);
         document.getElementById("history").removeAttribute("hidden");
     }
     if (filter === undefined) filter = getFilter(hframe);
@@ -160,6 +162,9 @@ function rowClick(row) {
             case 'Payment':
                 document.getElementById("payment").value = value;
                 break;
+            case 'Period':
+                document.getElementById("period").value = value;
+                break;
             case 'Correction':
                 document.getElementById("correction").value = value;
                 break;
@@ -190,7 +195,12 @@ function initialize() {
     if (!serverAcceptingRequests('Spend')) return;
     
     enableMySql('Spend');
-    hframe = getFrame('filter1', document.getElementById('filterframe'), requestHistory);
+    hframe = getFrame('filter1', document.getElementById('filterframe'), requestHistory, {
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           'Filter Spend',
+        forceGap:        '4px',
+        trigger:         document.getElementById('showfilter')});
     
     response = loadOption('category', 'Category', 'Discretionary');
     addFilter(hframe, 'Categories', 'Category', response);
@@ -199,7 +209,7 @@ function initialize() {
     addFilter(hframe, 'Weekdays',    'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
     addFilter(hframe, 'Description', 'Description');
     addFilter(hframe, 'Location',    'Location,text');
-    addFilter(hframe, 'Count',       'Count, number');
+    addFilter(hframe, 'Amount',      'Amount,number');
     /*
      * The remaining calls can execute asynchronously.
      */

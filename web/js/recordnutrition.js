@@ -186,7 +186,7 @@ function requestEventHistory(historyOnly) {
     parameters = addParameter(parameters, 'day',         day);
 
     function processResponse(response) {
-        loadJSONArray(response, 'eventhistorytable', 19, 'rowEventHistoryClick(this)', null, null, false, true);
+        loadJSONArray(response, 'eventhistorytable', 19, 'rowEventHistoryClick(this)', true, null, false, true);
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);

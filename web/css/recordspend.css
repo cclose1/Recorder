@@ -2,7 +2,7 @@
 #category, #type {
     width: 8.7em;
 }
-#history [name='SeqNo'], #history [name='Payment'], #history [name='Correction'] {
+#history [name='SeqNo'], #history [name='Payment'], #history [name='Period'], #history [name='Correction'] {
     display: none;
 }
 #summaryfields label {

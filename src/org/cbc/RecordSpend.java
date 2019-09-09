@@ -80,6 +80,7 @@ public class RecordSpend extends ApplicationServer {
             String             description,
             String             amount,
             String             payment,
+            String             period,
             String             bankcorrection) throws SQLException {        
         rs.updateTimestamp("Timestamp", date);
         rs.updateString("Category",       category);
@@ -88,6 +89,7 @@ public class RecordSpend extends ApplicationServer {
         rs.updateString("Description",    description);
         rs.updateString("Amount",         amount);
         rs.updateString("Payment",        payment);
+        rs.updateString("Period",         period.length() == 0? null : period);
         rs.updateString("BankCorrection", bankcorrection.length() == 0? "0" : bankcorrection);
     }    
     private void setDataFields(Context ctx, ResultSet rs, Date date) throws SQLException {
@@ -100,6 +102,7 @@ public class RecordSpend extends ApplicationServer {
                 ctx.getParameter("description"),
                 ctx.getParameter("amount"),
                 ctx.getParameter("payment"),
+                ctx.getParameter("period"),
                 ctx.getParameter("bankcorrection"));
     }
     /*
@@ -144,6 +147,7 @@ public class RecordSpend extends ApplicationServer {
             sel.addField("Location");
             sel.addField("Description");
             sel.addField("Amount");
+            sel.addField("Period");
             sel.addField("Payment");
             sel.addField("BankCorrection");
             sel.addAnd("Year",   "=", cal.getYear());
@@ -169,6 +173,7 @@ public class RecordSpend extends ApplicationServer {
                         rsr.getString("Description"),
                         rsr.getString("Amount"),
                         rsr.getString("Payment"),
+                        rsr.getString("Period"),
                         rsr.getString("BankCorrection"));
                 rsi.insertRow();
             }
@@ -214,6 +219,7 @@ public class RecordSpend extends ApplicationServer {
                 sql.addField("Location");
                 sql.addField("Amount");
                 sql.addField("Payment");
+                sql.addField("Period");
                 sql.addField("BankCorrection");
                 sql.addAnd("SeqNo", "=", seqNo, false);
                 rs = ctx.getAppDb().updateQuery(sql.build());
@@ -242,6 +248,7 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("Type");
             sql.addDefaultedField("Description", "");
             sql.addDefaultedField("Location",    "");
+            sql.addField("Period");
             sql.addField("Payment");
             sql.addField("Amount",         null,         null, "DECIMAL(10,2)");
             sql.addField("BankCorrection", "Correction", null, "DECIMAL(10,2)");
