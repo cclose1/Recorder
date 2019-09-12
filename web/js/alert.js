@@ -5,7 +5,7 @@ var useBrowserAlert = true;
 var confirm;
 var focusElement;
 
-var al = new popUp();
+var al;
 
 function position() {
     var elm  = new Object();
@@ -208,6 +208,12 @@ function displayAlert(title, text, options) {
     }
 }
 function configureAlert(browserAlert, autoDismiss, homeElementId, appId) {
+    try {
+        al = new popUp();
+    } catch (err) {
+        alert('alertjs popUp undefined');
+        return;
+    }
     useBrowserAlert = browserAlert;
     
     if (homeElementId === undefined) homeElementId = 'alertdiv';

@@ -1,5 +1,6 @@
 'use strict';
 
+var txnFilter;
 var selectedAccount;
 /* 
  * To change this license header, choose License Headers in Project Properties.
@@ -21,7 +22,7 @@ function getRateData() {
     var parameters = createParameters('getRateData');
     var frRate     = document.getElementById("pcurrency").value;
     var toRate     = document.getElementById("scurrency").value;
-    var amount     = document.getElementById("pamount").value
+    var amount     = document.getElementById("pamount").value;
     
     if (frRate === '' || toRate === '' || frRate === toRate || amount === '') {
         setHidden('exchangerate', true);
@@ -110,7 +111,7 @@ function clearCurrencyField(id) {
 function setCreate(on) {
     setHidden("clone",           on);
     setHidden("remove",          on);
-    setHidden("setappendafter", !on)
+    setHidden("setappendafter", !on);
     document.getElementById("save").value  = on? "Create" : "Update";        
 }
 function setUpdateOption() {    
@@ -361,57 +362,16 @@ function btAccountsRowClick(row) {
         }
     }
 }
-function requestTransactions() { 
+function requestTransactions(filter) {
     var parameters = createParameters('transactions');
-    var filter     = '';
-    
-    filter = addDBFilterField(filter, faccounts,    'Account');
-    filter = addDBFilterField(filter, fcurrencies,  'Currency');
-    filter = addDBFilterField(filter, fusages,      'Usage');
-    filter = addDBFilterField(filter, fdescription, 'Description', 'like');
-    
-    if (filter !== '') parameters = addParameter(parameters, 'filter', filter);
-    
+
     function processResponse(response) {
-        loadJSONArray(response, "transactions", 20, "btTransactionsRowClick(this)", null, null, false, true);
+        loadJSONArray(response, "transactions", 19, "rowClick(this)", true, null, false, true);
     }
-    ajaxLoggedInCall("BankTransaction", processResponse, parameters);
-}
-function setFilter() {
-    setHidden("filter", !document.getElementById("showfilter").checked);
-}
-function addFilterValue(element, value) {
-    if (value === '') element.value = '';
-    else if (element.value === '') element.value = value;
-    else element.value += ',' + value;
-}
-function addFilterField() {
-    var value = event.srcElement.value;
+    if (filter === undefined) filter = txnFilter.getWhere();
+    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
     
-    switch (event.srcElement.id) {
-        case 'fcurrency':
-            addFilterValue(document.getElementById('fcurrencies'), value);
-            break;
-        case 'fusage':
-            addFilterValue(document.getElementById('fusages'),     value);
-            break;
-        case 'faccount':
-            addFilterValue(document.getElementById('faccounts'),   value);
-            break;
-        case 'fapply':
-            requestTransactions();
-            break;
-        case 'fclear':
-            document.getElementById('faccount').value     = '';
-            document.getElementById('faccounts').value    = '';
-            document.getElementById('fcurrency').value    = '';
-            document.getElementById('fcurrencies').value  = '';
-            document.getElementById('fusage').value       = '';
-            document.getElementById('fusages').value      = '';
-            document.getElementById('fdescription').value = '';
-            requestTransactions();
-            break;
-    }
+    ajaxLoggedInCall('BankTransaction', processResponse, parameters);
 }
 function requestAccounts() { 
     var parameters = createParameters('accounts');
@@ -439,6 +399,20 @@ function initialize() {
     if (!serverAcceptingRequests('BankTransaction')) return;
     
     enableMySql('BankTransaction');
+    txnFilter = getFilter('filter1', document.getElementById('filter'), requestTransactions, {
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           'Filter Transactions',
+        forceGap:        '4px',
+        trigger:         document.getElementById('showfilter')});
+    response = getList('BankTransaction', {
+        table:        "Account",
+        field:        "Code",
+        keepValue:    true,
+        async:        false,
+        allowblank:   true},
+        true);
+    txnFilter.addFilter('Accounts', 'Account', response);
     response = getList('BankTransaction', {
         name:         "pcurrency",
         table:        "Currency",
@@ -447,13 +421,9 @@ function initialize() {
         defaultValue: "GBP",
         async:        false},
         true);
+    txnFilter.addFilter('Currencies', 'Currency', response);
     loadListResponse(response, {
         name:         "scurrency",
-        keepValue:    true,
-        async:        false,
-        allowblank:   true});
-    loadListResponse(response, {
-        name:         "fcurrency",
         keepValue:    true,
         async:        false,
         allowblank:   true});
@@ -472,18 +442,8 @@ function initialize() {
         async:        false,
         allowblank:   true},
         true);
-    loadListResponse(response, {
-        name:         "fusage",
-        keepValue:    true,
-        async:        false,
-        allowblank:   true});
-    getList('BankTransaction', {
-        name:         "faccount",
-        table:        "Account",
-        field:        "Code",
-        keepValue:    true,
-        async:        false,
-        allowblank:   true});
+    txnFilter.addFilter('Usages', 'Usage', response);
+    txnFilter.addFilter('Description', 'Description');
     requestAccounts();
     reset();
 }

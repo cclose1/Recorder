@@ -5,27 +5,24 @@
  */
 'use strict';
 
-var frames = [];
+var filters = [];
 
-function setEventHandler(frame, element, event, handler) {    
-    element.setAttribute(event, "top." + handler  + "('" + frame.key + "', event);");
-}
-function findFrame(key) {    
+function findFilter(key) {    
     var i;
      
-    for (i = 0; i < frames.length; i++) {
-        if (frames[i].key === key) return frames[i];
+    for (i = 0; i < filters.length; i++) {
+        if (filters[i].key === key) return filters[i];
     }
     return undefined;
 }
-function getFrame(pKey, pFrame, pRequestor, pOptions) {
-    var frame = findFrame(pKey);
+function getFilter(pKey, pFilter, pRequestor, pOptions) {
+    var filter = findFilter(pKey);
     
-    if (frame === undefined) {
-        frame = new Frame(pKey, pFrame, pRequestor, pOptions);
-        frames.push(frame);
+    if (filter === undefined) {
+        filter = new Filter(pKey, pFilter, pRequestor, pOptions);
+        filters.push(filter);
     }
-    return frame;
+    return filter;
 }
 function setVarByName(object, id, value) {
     var name = id;
@@ -36,45 +33,106 @@ function setVarByName(object, id, value) {
     }
     if (value !== undefined) object[name] = value;
 }
-function Frame(key, frame, requestor, options) {
+function Filter(key, element, requestor, options) {
     this.key             = key;
-    this.frame           = frame;
-    this.document        = this.frame.contentDocument || this.frame.contentWindow.document;
+    this.element         = element;
+    this.isiFrame        = element.tagName.toLowerCase() === 'iframe';
+    this.document        = undefined;
     this.requestor       = requestor;
-    this.top             = this.document.getElementsByTagName("fieldset")[0];
+    this.top             = undefined;
     this.fields          = undefined;
     this.forceGap        = undefined;
     this.allowAutoSelect = false;
     this.autoSelect      = false;
-    this.mouseEvent      = undefined;
     this.btnRequest      = undefined;
     this.title           = 'Filter';
     
     var elm;
     var btns;
-       
-    this.getFrame = function () {
-        return this.frame;
-    };    
+    
     this.getGap = function () {
         return this.forceGap;
     };
+    this.setEventHandler = function(element, event, handler) {   
+        element.setAttribute(event, "top." + handler  + "('" + this.key + "', event);");
+    };
+    this.getWhere = function () {
+        var fields = this.fields.children;
+        var input;
+        var w = '';
+        var i;
+        var q;
+
+        for (i = 0; i < fields.length; i++) {
+            var field = fields[i];
+            
+            input = field.childNodes[1];
+
+            switch (input.type) {
+                case 'text':
+                    q = field.childElementCount > 2 ? 'quoted' : 'like';
+                    break;
+                case 'number':
+                    q = 'numeric';
+                    break;
+            }
+            w = addDBFilterField(w, input, input.name, q);
+        }
+        return w;
+    };
     this.callRequestor = function (force) {
         if (this.autoSelect || force === undefined || force) {
-            this.requestor(getWhere(this));
+            this.requestor(this.getWhere());
 
             if (this.autoSelect && this.trigger !== undefined) {
-                if (this.mouseEvent === undefined) 
-                    this.mouseEvent = 
-                        new MouseEvent('click', {
-                            view:       window,
-                            bubbles:    true});
-                this.trigger.dispatchEvent(this.mouseEvent);
+                triggerClick(this.trigger);
             }
         }
-    }   
-    for (const name in options) {
-         setVarByName(this, name, options[name]);
+    };
+    this.addFilter = function (label, qualifiedfield, response) {
+        var fields = this.fields;
+        var div = this.document.createElement('div');
+        var field = qualifiedfield.split(',');
+        var elm;
+
+        /*
+         * Fields added by code do not have a gap when display is inline-block, whereas those added in html do. Hence, the
+         * reason for adding margin-right.
+         */
+        elm = createElement(this.document, 'label', {append: div, forceGap: this.getGap(), text: label});
+        elm = createElement(this.document, 'input', {
+            append: div,
+            name: field[0],
+            type: field.length > 1 ? trim(field[1]) : 'text',
+            size: '15',
+            tabindex: '0',
+            forceGap: response !== undefined ? this.getGap() : undefined});
+
+        if (this.allowAutoSelect)
+            this.setEventHandler(elm, 'onchange', 'changeFilterValue');
+
+        if (response !== undefined) {
+            elm = createElement(this.document, 'select', {append: div});
+            this.setEventHandler(elm, 'onchange', 'addFilterField');
+            loadListResponse(response, {
+                name: elm,
+                keepValue: true,
+                async: false,
+                allowblank: true});
+        }
+        fields.appendChild(div);
+    };
+    if (this.isiFrame) {
+        this.document = this.element.contentDocument || this.element.contentWindow.document;
+        this.top      = this.document.getElementsByTagName("fieldset")[0];
+        setHidden(this.element.parentElement, true);
+    } else {
+        this.document = element.ownerDocument;
+        this.top      = this.element;
+        setHidden(this.element, true);
+    }    
+    for (name in options) {
+        setVarByName(this, name, options[name]);
     }
     /*
      * Remove current fields.
@@ -86,86 +144,60 @@ function Frame(key, frame, requestor, options) {
      * Create filter framework excluding the filter fields to be added later.
      */
     createElement(this.document, 'legend', {append: this.top, text: this.title});
-    this.fields = createElement(this.document, 'div',    {append: this.top});
-    btns        = createElement(this.document, 'div',    {append: this.top});
-    
+    this.fields = createElement(this.document, 'div', {append: this.top});
+    btns        = createElement(this.document, 'div', {append: this.top});
+  
     if (this.allowAutoSelect) {
-        elm = createElement(this.document, 'div',    {append: btns});
-        createElement(this.document, 'label',  {append: elm, text: 'Auto Select', forceGap: this.getGap()});
-        elm = createElement(this.document, 'input',  {append: elm, type: 'checkbox'}); 
-        elm.checked = this.autoSelect;  
-        setEventHandler(this, elm, 'onclick', 'changeAutoSelect');
-        
+        elm = createElement(this.document, 'div', {append: btns});
+        createElement(this.document, 'label', {append: elm, text: 'Auto Select', forceGap: this.getGap()});
+        elm = createElement(this.document, 'input', {append: elm, type: 'checkbox'});
+        elm.checked = this.autoSelect;
+        this.setEventHandler(elm, 'onclick', 'changeAutoSelect');
+
     }
-    createElement(this.document, 'label',  {append: btns, forceGap: this.getGap()});
-    elm = createElement(this.document, 'input',  {append: btns, type: 'button', value: 'Apply', forceGap: this.getGap()});
+    createElement(this.document, 'label', {append: btns, forceGap: this.getGap()});
+    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Apply', forceGap: this.getGap()});
     this.btnRequest = elm;
     setHidden(elm, this.autoSelect);
-    setEventHandler(this, elm, 'onclick', 'addFilterField');
-    elm = createElement(this.document, 'input', {append:  btns, type: 'button', value: 'Clear'});
-    setEventHandler(this, elm, 'onclick', 'addFilterField');
-}
-function setFilter(filter, key) {
-    var on = event.srcElement.checked;
+    this.setEventHandler(elm, 'onclick', 'addFilterField');
+    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear'});
+    this.setEventHandler(elm, 'onclick', 'addFilterField');
+};
+function setFilter(filterId, key) {
+    var on     = event.srcElement.checked;
+    var filter = findFilter(key);
     
-    setHidden(filter, !on);
+    setHidden(filterId, !on);
     
-    if (on && key !== undefined) {
-        resizeFrame(findFrame(key).frame);
+    if (on && key !== undefined && filter.isiFrame) {
+        resizeFrame(filter.element);
     }
-}
-function getWhere(frame) {
-    var fields = frame.fields.children;
-    var input;
-    var w = '';
-    var i;
-    var q;
-    
-    for (i = 0; i < fields.length; i++) {
-    
-        var field = fields[i];
-        input = field.childNodes[1];
-        
-        switch (input.type) {
-            case 'text':
-                q = field.childElementCount > 2? 'quoted' : 'like';
-                break;
-            case 'number':
-                q = 'numeric'
-                break;
-        }
-        w = addDBFilterField(w, input, input.name, q);
-    }
-    return w;
-}
-function getFilter(frame) {
-    return getWhere(frame);
 }
 function addFilterValue(element, value) {
     if (value === '') element.value = '';
     else if (element.value === '') element.value = value;
     else element.value += ',' + value;
 }
-function changeFilterValue(key, event) {
-    var frame  = findFrame(key);
+function changeFilterValue(key) {
+    var filter  = findFilter(key);
     
-    frame.callRequestor(false);    
+    filter.callRequestor(false);    
 }
 
 function changeAutoSelect(key, event) {
-    var frame  = findFrame(key);
+    var filter  = findFilter(key);
     
-    frame.autoSelect = event.target.checked;
+    filter.autoSelect = event.target.checked;
     
-    if (frame.btnRequest !== undefined) setHidden(frame.btnRequest, event.target.checked);
+    if (filter.btnRequest !== undefined) setHidden(filter.btnRequest, event.target.checked);
 }
 function addFilterField(key, event) {
-    var frame  = findFrame(key);
-    var fields = frame.fields.children;
+    var filter = findFilter(key);
+    var fields = filter.fields.children;
     var value  = event.srcElement.value;
+    var src    = event.srcElement;
     var input;
     var div;
-    var src    = event.srcElement;
     var i;
     
     switch (src.localName) {
@@ -174,14 +206,15 @@ function addFilterField(key, event) {
              * The top of the path will the option element firing the event. The next path element is the
              * containing div for the filter fields. The second one is the input field to which value is applied to.
              */
-            div   = event.path[1];
+            div   = event.target.parentElement;
+//          div   = event.path[1];
             input = div.childNodes[1];
             addFilterValue(input, value);
-            frame.callRequestor(false);
+            filter.callRequestor(false);
             break;
         case 'input':
             if (src.value === 'Apply')
-                frame.requestor(getWhere(frame));
+                filter.requestor(getWhere());
             else {
                 for (i = 0; i < fields.length; i++) {
                     var field = fields[i];
@@ -192,40 +225,8 @@ function addFilterField(key, event) {
                     if (field.childElementCount > 2)
                         field.childNodes[2].value = '';
                 }
-                frame.requestor();
+                filter.requestor();
             }
             break;
     }
-}
-function addFilter(frame, label, qualifiedfield, response) {
-    var fields = frame.fields;
-    var div    = frame.document.createElement('div');
-    var field  = qualifiedfield.split(',');
-    var elm;
-    
-    /*
-     * Fields added by code do not have a gap when display is inline-block, whereas those added in html do. Hence, the
-     * reason for adding margin-right.
-     */
-    elm = createElement(frame.document, 'label', {append: div, forceGap: frame.getGap(), text: label});
-    elm = createElement(frame.document, 'input', {
-        append:    div, 
-        name:      field[0], 
-        type:      field.length > 1? trim(field[1]) : 'text', 
-        size:     '15', 
-        tabindex: '0',
-        forceGap: response !== undefined? frame.getGap() : undefined});
-    
-    if (frame.allowAutoSelect) setEventHandler(frame, elm, 'onchange', 'changeFilterValue');
-    
-    if (response !== undefined) {
-        elm = createElement(frame.document, 'select', {append: div});
-        setEventHandler(frame, elm, 'onchange', 'addFilterField');
-        loadListResponse(response, {
-            name:       elm,
-            keepValue:  true,
-            async:      false,
-            allowblank: true});
-    }
-    fields.appendChild(div);
 }

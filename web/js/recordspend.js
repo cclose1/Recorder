@@ -1,6 +1,6 @@
 'use strict';
 
-var hframe;
+var hstFilter;
 
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
@@ -96,9 +96,8 @@ function requestHistory(filter) {
 
     function processResponse(response) {
         loadJSONArray(response, "history", 19, "rowClick(this)", true, null, false, true);
-        document.getElementById("history").removeAttribute("hidden");
     }
-    if (filter === undefined) filter = getFilter(hframe);
+    if (filter === undefined) filter = hstFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
     
     ajaxLoggedInCall('Spend', processResponse, parameters);
@@ -114,7 +113,6 @@ function requestSummary() {
         document.getElementById("MonthSpend").value = "";
         document.getElementById("YearEstimate").value = "";
         loadJSONFields(response, false);
-        document.getElementById("history").removeAttribute("hidden");
     }
     ajaxLoggedInCall('Spend', processResponse, parameters);
 }
@@ -194,8 +192,9 @@ function initialize() {
     
     if (!serverAcceptingRequests('Spend')) return;
     
+    var x = platform.toString();
     enableMySql('Spend');
-    hframe = getFrame('filter1', document.getElementById('filterframe'), requestHistory, {
+    hstFilter = getFilter('filter1', document.getElementById('filterframe'), requestHistory, {
         allowAutoSelect: true, 
         autoSelect:      true,
         title:           'Filter Spend',
@@ -203,20 +202,20 @@ function initialize() {
         trigger:         document.getElementById('showfilter')});
     
     response = loadOption('category', 'Category', 'Discretionary');
-    addFilter(hframe, 'Categories', 'Category', response);
+    hstFilter.addFilter('Categories', 'Category', response);
     response = loadOption('type', 'Type', 'Food');
-    addFilter(hframe, 'Types',       'Type',     response);
-    addFilter(hframe, 'Weekdays',    'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
-    addFilter(hframe, 'Description', 'Description');
-    addFilter(hframe, 'Location',    'Location,text');
-    addFilter(hframe, 'Amount',      'Amount,number');
+    hstFilter.addFilter('Types',       'Type',     response);
+    hstFilter.addFilter('Weekdays',    'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
+    hstFilter.addFilter('Description', 'Description');
+    hstFilter.addFilter('Location',    'Location,text');
+    hstFilter.addFilter('Amount',      'Amount,number');
     /*
      * The remaining calls can execute asynchronously.
      */
     loadOption('payment', 'Payment', 'Cash');
     updateFilteredLists();
-    requestHistory("");
-    requestSummary("");
+    requestHistory();
+    requestSummary();
 }
 
 

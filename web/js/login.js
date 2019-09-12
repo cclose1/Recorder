@@ -1,7 +1,7 @@
 'use strict';
 
 
-var pu = new popUp();
+var pu;
 
 /* 
  * To change this license header, choose License Headers in Project Properties.
@@ -133,7 +133,13 @@ function logOff() {
     ajaxCall(pu.getValueById('secserver'), parameters, processResponse, false);
 }
 
-function configureLogin(secserver, homeElementId) {
+function configureLogin(secserver, homeElementId) {    
+    try {
+        pu = new popUp();
+    } catch (err) {
+        alert('login.js popUp undefined');
+        return;
+    }
     if (homeElementId === undefined) homeElementId = 'loginframe';
         
     pu.initialise(homeElementId);

@@ -8,9 +8,16 @@ function getElement(object) {
     return typeof object === 'string' ? document.getElementById(object) : object;
 }
 function triggerClick(element) {
-    var event   = new MouseEvent('click', {
+    var event;
+    
+    if (platform.name === 'IE') {
+        event = document.createEvent("MouseEvents");
+        event.initMouseEvent("click", true, true, "window", 0, 0, 0, 0, 0, false, false, false, false, 0, null);  
+    } else {    
+        event = new MouseEvent('click', {
         view:       window,
         bubbles:    true});
+    }
     getElement(element).dispatchEvent(event);
 }
 function setAttribute(element, id, value) {
@@ -31,8 +38,10 @@ function setAttribute(element, id, value) {
  */
 function createElement(document, tagName, options) {
     var elm = document.createElement(tagName);
-    
-    for (const name in options) {
+    /*
+     * Changed from const name to work in IE11.
+     */
+    for (name in options) {
         let value = options[name]; 
         
         if (value === undefined) continue;  //Ignore options with undefined values;
@@ -1434,7 +1443,7 @@ function getList(server, options, returnResponse) {
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {
-        loadListResponse(response, options);
+        if (options.name !== undefined)loadListResponse(response, options);
         
         if (returnResponse !== undefined && returnResponse) save = response;
     }

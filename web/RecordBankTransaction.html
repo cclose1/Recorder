@@ -6,7 +6,9 @@
         <link href="css/login.css" rel="stylesheet" type="text/css">
         <link href="css/recordbanktransaction.css" rel="stylesheet" type="text/css">
 
+        <script src="js/platform.js"></script>
         <script src="js/formutils.js"></script>  
+        <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
         <script src="js/recordbanktransaction.js"></script>
@@ -172,7 +174,7 @@
                             </div>
                             <div>
                                 <label for="showfilter">Show Filter</label>
-                                <input id="showfilter" type="checkbox" onclick="setFilter();">
+                                <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
                             </div>
                             <div id="mysqldiv" hidden>
                                 <label for="mysql">Use MySQL</label>
@@ -180,39 +182,7 @@
                             </div>
                         </div>
                     </fieldset>
-                    <fieldset id='filter' class='form' hidden="">                        
-                        <legend>Filter</legend>
-                        <div>
-                            <label for="faccounts">Accounts</label>
-                            <input type="text" id="faccounts" size='15' tabindex="0">
-                            <select id="faccount" tabindex="-1" onchange="addFilterField();">
-                                <option></option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="fcurrencies">Currencies</label>
-                            <input type="text" id="fcurrencies" size='15' tabindex="0">
-                            <select id="fcurrency" tabindex="-1" onchange="addFilterField();">
-                                <option></option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="fusagees">Usages</label>
-                            <input type="text" id="fusages" size='15' tabindex="0">
-                            <select id="fusage" tabindex="-1" onchange="addFilterField();">
-                                <option></option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="fdescription">Description</label>
-                            <input type="text" id="fdescription" size='15' tabindex="0">
-                        </div>
-                        <div>
-                            <label for="fapply"></label>
-                            <input id="fapply" type="button" value="Apply" onclick="addFilterField();" tabindex="0">
-                            <input id="fclear" type="button" value="Clear" onclick="addFilterField();" tabindex="0">
-                        </div>
-                                
+                    <fieldset id='filter' class='form'> 
                     </fieldset>
                 </div>
                 <div class="floatleft">
