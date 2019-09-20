@@ -117,8 +117,6 @@ public class RecordBankTransaction extends ApplicationServer {
             sql.setProtocol(ctx.getAppDb().getProtocol());
             sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
             
-            sql.addField("TXNId");
-            sql.addField("TXNDescription");
             sql.addField("Line");
             sql.addField("Timestamp");
             

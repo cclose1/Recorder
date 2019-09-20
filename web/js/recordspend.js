@@ -192,7 +192,8 @@ function initialize() {
     
     if (!serverAcceptingRequests('Spend')) return;
     
-    var x = platform.toString();
+    st.enableLog(true);
+    reporter.setFatalAction('console');
     enableMySql('Spend');
     hstFilter = getFilter('filter1', document.getElementById('filterframe'), requestHistory, {
         allowAutoSelect: true, 

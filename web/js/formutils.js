@@ -1,5 +1,108 @@
 'use strict';
+function randomString(len) {
+    var s = '';
+    
+    var randomchar = function () {
+        var n = Math.floor(Math.random() * 62);
+        
+        if (n < 10)  return n; //1-10
+        if (n < 36)  return String.fromCharCode(n + 55); //A-Z
+        return String.fromCharCode(n + 61); //a-z
+    };
+    while (s.length < len)  s += randomchar();
+    return s;
+}
+function lpad(text, length, pad) {
+    while (text.length < length)
+        text = pad + text;
 
+    return text;
+}
+function toNumber(text, low, high) {
+    if (isNaN(text))
+        throw text + " is not numeric";
+
+    if (text < low || text > high)
+        throw text + " is not in the range " + low + " to " + high;
+
+    return text;
+}
+function dateString(date) {
+    var fields = date.toString().split(" ");
+
+    return lpad(fields[2], 2, "0") + "-" + fields[1] + "-" + fields[3];
+}
+function timeString(date) {
+    var fields = date.toString().split(" ");
+
+    return fields[4];
+}   
+function getTime(date, milliseconds) {
+    if (date === undefined || date === null) date = new Date();
+    
+    var time = lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
+    
+    if (milliseconds !== undefined && milliseconds) time += '.' + lpad(date.getMilliseconds(), 3, '0');
+    
+    return time;
+}
+function getDateTime() {
+    var now = new Date();
+    var datetime =
+            now.getFullYear() + '-' +
+            lpad((now.getMonth() + 1), 2, '0') + '-' +
+            lpad(now.getDate(), 2, '0') + ' ' +
+            lpad(now.getHours(), 2, '0') + ':' +
+            lpad(now.getMinutes(), 2, '0') + ':' +
+            lpad(now.getSeconds(), 2, '0');
+    return datetime;
+}
+function toDate(text) {
+    var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+    var date = text.split(" ");
+    var time = new Array(0, 0, 0);
+
+    if (date.length === 2) {
+        time = date[1].split(":");
+
+        if (time.length === 1)
+            time[1] = 0;
+        if (time.length === 2)
+            time[2] = 0;
+        if (time.length > 3)
+            throw "Invalid time format";
+    }
+    ;
+    date = date[0].split(new RegExp("[/\-]"));
+
+    if (date.length !== 3 || isNaN(date[2])) {
+        throw "Invalid date format";
+    }
+
+    if (date[0].length > 2) {
+        /*
+         * If first field is more than 2 digits, assume it is the year and swap with date[2]
+         */
+        var y = date[0];
+
+        date[0] = date[2];
+        date[2] = y;
+    }
+
+    date[2] = (date[2].length <= 2) ? date[2] = "20" + lpad(date[2], 2, "0") : date[2];
+
+    for (var i = 0; i < months.length; i++) {
+        if (months[i].toLowerCase() === date[1].toLowerCase()) {
+            date[1] = i + 1;
+            break;
+        }
+    }
+    var datetime = new Date();
+
+    datetime.setFullYear(date[2], toNumber(date[1], 1, 12) - 1, date[0]);
+    datetime.setHours(toNumber(time[0], 0, 23), toNumber(time[1], 0, 59), toNumber(time[2], 0, 59), 0);
+    return datetime;
+}
 /*
  * If object is an element it is returned, otherwise it is assumed to be an element id and the element with that id from
  * the current document is returned.
@@ -19,6 +122,14 @@ function triggerClick(element) {
         bubbles:    true});
     }
     getElement(element).dispatchEvent(event);
+}
+function addIEFixClass(elements) {
+    if (platform.name !== 'IE') return;
+    
+    elements.forEach(function(element) {
+        element = element === 'body'? document.getElementsByTagName('body')[0] : getElement(element);
+        element.classList.add("iefix");
+    });
 }
 function setAttribute(element, id, value) {
     var name = id;
@@ -62,33 +173,61 @@ function createElement(document, tagName, options) {
     }
     return elm;
 }
-function statistics() {
-    var start;
-    var logEnabled = false;
+function Reporter() {
+    function output(action, message) {
+        switch (action) {
+            case 'console':
+                console.log(message);
+                break;
+            case 'alert':
+                alert(message);
+                break;
+            case 'throw':
+                throw message;
+                break;
+            default:
+                console.log('Unknown action-' + action + ' on report of ' + message);                    
+        }
+    }
+    this.fatalAction = 'throw';
     
-    this.enableLog  = enableLog;
-    this.setStart   = setStart;
-    this.elapsed    = elapsed;
-    this.log        = log;
-    this.logElapsed = logElapsed;
-    
-    function enableLog(yes) {
-        this.logEnabled = yes;
-    }            
-    function setStart() {
-        this.start = new Date();
-    }
-    function elapsed() {
-        return (new Date() - this.start) / 1000;
-    }
-    function log(message) {
-        if (this.logEnabled) console.log(message);
-    }
-    function logElapsed(action) {
-        this.log(action + ' took ' + this.elapsed() + ' ms');
-    }
+    this.setFatalAction = function(action) {
+        this.fatalAction = action;
+    };
+    this.fatalError = function(message) {
+        output(this.fatalAction, message);
+    };
+    this.log = function(message) {
+        output('console', message);
+    };        
 }
-var st = new statistics();
+var reporter = new Reporter();
+
+function Statistics(enabled) {
+    this.start;
+    this.id         = randomString(3);
+    this.logEnabled = enabled !== undefined && enabled;
+ 
+    this.enableLog = function(yes) {
+        this.logEnabled = yes;
+    };       
+    this.isEnabled = function() {
+        return this.logEnabled;
+    };
+    this.setStart = function() {
+        this.start = new Date();
+    };
+    this.elapsed = function() {
+        return (new Date() - this.start) / 1000;
+    };
+    this.log = function(message) {
+        if (this.logEnabled) console.log(getTime(this.start, true) + ' ' + this.id + ' ' + message);
+    };
+    this.logElapsed = function(action) {
+        this.log(action + ' took ' + this.elapsed() + ' ms');
+    };
+}
+var st = new Statistics();
 
 function resizeFrame(id) {
     var elm    = getElement(id);
@@ -270,88 +409,6 @@ function loadTable(table, data) {
                 addTableRow(table, fields[i]);
         }
     }
-}
-function lpad(text, length, pad) {
-    while (text.length < length)
-        text = pad + text;
-
-    return text;
-}
-function toNumber(text, low, high) {
-    if (isNaN(text))
-        throw text + " is not numeric";
-
-    if (text < low || text > high)
-        throw text + " is not in the range " + low + " to " + high;
-
-    return text;
-}
-function dateString(date) {
-    var fields = date.toString().split(" ");
-
-    return lpad(fields[2], 2, "0") + "-" + fields[1] + "-" + fields[3];
-}
-function timeString(date) {
-    var fields = date.toString().split(" ");
-
-    return fields[4];
-}
-function getDateTime() {
-    var now = new Date();
-    var datetime =
-            now.getFullYear() + '-' +
-            lpad((now.getMonth() + 1), 2, '0') + '-' +
-            lpad(now.getDate(), 2, '0') + ' ' +
-            lpad(now.getHours(), 2, '0') + ':' +
-            lpad(now.getMinutes(), 2, '0') + ':' +
-            lpad(now.getSeconds(), 2, '0');
-    return datetime;
-}
-function toDate(text) {
-    var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-    var date = text.split(" ");
-    var time = new Array(0, 0, 0);
-
-    if (date.length === 2) {
-        time = date[1].split(":");
-
-        if (time.length === 1)
-            time[1] = 0;
-        if (time.length === 2)
-            time[2] = 0;
-        if (time.length > 3)
-            throw "Invalid time format";
-    }
-    ;
-    date = date[0].split(new RegExp("[/\-]"));
-
-    if (date.length !== 3 || isNaN(date[2])) {
-        throw "Invalid date format";
-    }
-
-    if (date[0].length > 2) {
-        /*
-         * If first field is more than 2 digits, assume it is the year and swap with date[2]
-         */
-        var y = date[0];
-
-        date[0] = date[2];
-        date[2] = y;
-    }
-
-    date[2] = (date[2].length <= 2) ? date[2] = "20" + lpad(date[2], 2, "0") : date[2];
-
-    for (var i = 0; i < months.length; i++) {
-        if (months[i].toLowerCase() === date[1].toLowerCase()) {
-            date[1] = i + 1;
-            break;
-        }
-    }
-    var datetime = new Date();
-
-    datetime.setFullYear(date[2], toNumber(date[1], 1, 12) - 1, date[0]);
-    datetime.setHours(toNumber(time[0], 0, 23), toNumber(time[1], 0, 59), toNumber(time[2], 0, 59), 0);
-    return datetime;
 }
 function checkDate(id, required) {
     var ok = false;
@@ -1030,7 +1087,6 @@ function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, u
         clearTable(table);
         jObj.next("{");
         
-        st.enableLog(true);
         st.log("Loading table " + id);
         st.setStart();
         
@@ -1281,9 +1337,23 @@ function fieldHasValue(id, required) {
  * 
  * If the AJAX call fails, an alert is generated giving the reason for failure.
  */
+function parametersSummary(parameters) {
+    var ps  = parameters.split('&');
+    var smy = '';
+    
+    for (var i = 0; i < ps.length; i++) {
+        if (i > 3) break;
+        
+        if (/^mysql/.test(ps[i])) continue;
+        
+        smy += (smy === ''? '' : ',') + ps[i];
+    }
+    return smy;
+}
 function ajaxCall(destination, parameters, processResponse, async) {
+    var stm            = new Statistics(st.enableLog);
     var xmlHttpRequest = getXMLHttpRequest();
-    var params;
+    var params = parametersSummary(parameters);
 
     if (typeof parameters === "function")
         params = parameters();
@@ -1299,12 +1369,16 @@ function ajaxCall(destination, parameters, processResponse, async) {
     xmlHttpRequest.onreadystatechange = function () {
         if (xmlHttpRequest.readyState === 4) {
             if (xmlHttpRequest.status === 200) {
+                stm.logElapsed("Post");
                 processResponse(xmlHttpRequest.responseText);
             } else {
                 alert("HTTP error " + xmlHttpRequest.status + ": " + xmlHttpRequest.responseText);
             }
         }
     };
+    stm = new Statistics(st.enableLog);
+    stm.log("Post to " + destination + ' parameters ' + parametersSummary(parameters));
+    stm.setStart();
     xmlHttpRequest.open("POST", destination + "?" + params, async);
     xmlHttpRequest.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
     xmlHttpRequest.send(null);

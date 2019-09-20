@@ -1,4 +1,7 @@
-
+body.iefix {
+    margin: auto;
+    width: 800px;
+}
 #category, #type {
     width: 8.7em;
 }

@@ -15,7 +15,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Bank Transaction</title>
     </head>
-    <body onload="configureAlert(false, true, 'alertframe');configureLogin('BankTransaction', 'loginframe'); initialize();">
+    <body onload="addIEFixClass(['body']); configureAlert(false, true, 'alertframe');configureLogin('BankTransaction', 'loginframe'); initialize();">
         <div id="alertdiv" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
             <iframe id="alertframe" src="Alert.html" scrolling="no">
             </iframe>
@@ -26,7 +26,7 @@
         </div>  
         <form class="frame" id="appframe" autocomplete="off">
             <div>
-                <h1>Record Bank Transaction</h1>
+                <h1>Record Bank Transaction MS</h1>
             </div>
             <div id="innerfields">
                 <div class='floatleft'>

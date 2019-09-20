@@ -284,11 +284,12 @@ function btTransactionsRowClick(row) {
         var value = rdr.columnValue();
 
         switch (rdr.columnName()) {
-            case 'TXNId':
+            case 'TXN Id':
                 document.getElementById('txnid').value  = value;
                 break;
-            case 'TXNDescription':
+            case 'Description':
                 document.getElementById('tdescription').value  = value;
+                document.getElementById('pdescription').value = value;
                 break;
             case 'Line':
                 document.getElementById('line').value  = value;
@@ -328,11 +329,8 @@ function btTransactionsRowClick(row) {
             case 'Address':
                 document.getElementById('paddress').value = value;
                 break;
-            case 'Description':
-                document.getElementById('pdescription').value = value;
-                break;
         }
-        document.getElementById('optupdate').value = "update"
+        document.getElementById('optupdate').value = "update";
         setHidden("updateaction", false);
     }
     setCreate(false);
@@ -366,7 +364,7 @@ function requestTransactions(filter) {
     var parameters = createParameters('transactions');
 
     function processResponse(response) {
-        loadJSONArray(response, "transactions", 19, "rowClick(this)", true, null, false, true);
+        loadJSONArray(response, "transactions", 19, "btTransactionsRowClick(this)", true, null, false, true);
     }
     if (filter === undefined) filter = txnFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
@@ -395,7 +393,9 @@ function initialize() {
     addOption(action, 'Transfer');
     addOption(action, 'Exchange');
     setAction('Debit');
-            
+    
+    addIEFixClass(['transactions']);
+    
     if (!serverAcceptingRequests('BankTransaction')) return;
     
     enableMySql('BankTransaction');

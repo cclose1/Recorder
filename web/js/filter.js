@@ -214,7 +214,7 @@ function addFilterField(key, event) {
             break;
         case 'input':
             if (src.value === 'Apply')
-                filter.requestor(getWhere());
+                filter.requestor(filter.getWhere());
             else {
                 for (i = 0; i < fields.length; i++) {
                     var field = fields[i];

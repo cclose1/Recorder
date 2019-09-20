@@ -7,7 +7,17 @@ and open the template in the editor.
     Created on : 31-Mar-2015, 14:50:54
     Author     : Chris
 */
-
+body.iefix {
+    margin: auto;
+    width: 950px;
+}
+#innerfields {
+    margin: auto;
+    width: auto;
+} 
+#appframe {
+    display : inline-block;
+}
 #accounts > tbody {
     height: 280px;
 }
@@ -20,7 +30,7 @@ and open the template in the editor.
 #primaryaccount .nogap, #secondaryaccount .feegap {
     width : 60px;
 }
-#transactions [name='TXNId'], #transactions [name='TXNDescription'], #transactions [name='Line'], #transactions [name='Completed'], #transactions [name='Number'], #transactions [name='Card'], #transactions [name='AmountFull'], #transactions [name='FeeFull'], #transactions [name='Address'] {
+#transactions [name='Line'], #transactions [name='Completed'], #transactions [name='Number'], #transactions [name='Card'], #transactions [name='AmountFull'], #transactions [name='FeeFull'], #transactions [name='Address'] {
     display: none;
 }
 #exchangerate .narrowlabel {
@@ -34,3 +44,8 @@ and open the template in the editor.
         display: none;
     }
 } 
+@media screen and (min-width: 901px) {
+    #transactions.iefix {
+        min-width: 620px;
+    }
+}   

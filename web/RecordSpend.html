@@ -8,6 +8,7 @@
         <link href="css/recordspend.css" rel="stylesheet" type="text/css">
         <script src="js/platform.js"></script>
         <script src="js/formutils.js"></script>
+        <script src="js/csseditor.js"></script>
         <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
@@ -15,7 +16,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Spend Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Spend', 'loginfields'); initialize(true); setUser();">                  
+    <body onload="addIEFixClass(['body']); configureAlert(false, true); configureLogin('Spend', 'loginfields'); initialize(true); setUser();">                  
         <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
