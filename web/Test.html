@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/test.css" rel="stylesheet" type="text/css">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script src="js/platform.js"></script>
+        <script src="js/json.js"></script>
+        <script src="js/formutils.js"></script>
+        <script src="js/csseditor.js"></script>
+        <script src="js/test.js"></script>
+        <title>Display Message</title>
+    </head>
+    <body onload="initialize();">
+        <div id="ruleedit">
+            <fieldset>
+                <legend>Test Parameters</legend>
+                <div>
+                    <label>Sheet</label>
+                    <select id="sheet" onchange="setSheet();" tabindex="-1">
+                        <option></option>
+                    </select>
+                </div>
+                <div>
+                    <label>Media</label>
+                    <input id ="media" type="text" tabindex="-1">
+                </div>
+
+                <div>
+                    <label for="selector">Selector</label>
+                    <input id="selector" type="text" tabindex="-1">
+                    <label for="rule" class="nogap">Rule</label>
+                    <input type="text" id="rule" tabindex="-1">
+                </div>
+                <div>
+                    <label></label>
+                    <input type="button" value="Get" onclick="testAction('get');">
+                    <input type="button" value="Add" onclick="testAction('add');"> 
+                    <input type="button" value="Modify" onclick="testAction('modify');">
+                    <input type="button" value="Delete" onclick="testAction('delete');">
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Test Fields</legend>
+                <div>
+                    <label for="firstname">First Name</label>
+                    <input id="firstname" type="text" tabindex="-1">
+                    <label for="surname" class="nogap">Surname</label>
+                    <input type="text" id="surname" tabindex="-1">
+                </div>
+            </fieldset>
+        </div>
+        <table id="rules">
+            <caption>CSS Rules</caption>
+            <thead>
+                <tr><th></th></tr>
+            </thead>
+            <tr><td></td></tr>
+        </table>
+    </body>
+</html> 

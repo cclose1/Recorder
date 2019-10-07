@@ -1,7 +1,4 @@
 'use strict';
-function removeURLPath(url) {
-    return url.split('/').pop();
-}
 function randomString(len) {
     var s = '';
     
@@ -75,6 +72,7 @@ function toDate(text) {
         if (time.length > 3)
             throw "Invalid time format";
     }
+    ;
     date = date[0].split(new RegExp("[/\-]"));
 
     if (date.length !== 3 || isNaN(date[2])) {
@@ -711,37 +709,217 @@ function rowReader(row, throwError) {
         return ta.value;
     }
 }
+function jsonObject(text) {
+    this.text   = text;
+    this.index  = 0;
+    this.value  = null;
+    this.type   = null;
+    this.quoted = false;
+
+    this.next       = next;
+    this.throwError = throwError;
+    this.trace      = trace;
+    this.skipValue  = skipValue;
+    this.symbol     = symbol;
+
+    function throwError(reason) {
+        throw {
+            name: "JSON",
+            reason: reason,
+            index: this.index,
+            text: this.text,
+            message: "At " + this.index + " " + reason
+        };
+    }
+    function trace(message) {
+        if (message === undefined)
+            message = "Index ";
+        else
+            message += " index ";
+
+        alert(message + this.index + " type " + this.type + " value " + this.value);
+    }
+    function next(allowed) {
+        var inString = false;
+        var start = this.index;
+
+        this.type = null;
+        this.value = null;
+        this.quoted = false;
+
+        if (this.index >= this.text.length)
+            return false;
+
+        while (this.index < this.text.length) {
+            var ch = this.text.charAt(this.index++);
+
+            if (inString) {
+                if (ch === '"') {
+                    inString = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    ch = this.text.charAt(this.index++);
+
+                    switch (ch) {
+                        case 'r' :
+                            ch = '\r';
+                            break;
+                        case 'n' :
+                            ch = '\n';
+                            break;
+                        case 't' :
+                            ch = '\t';
+                            break;
+                        case 'b' :
+                            ch = '\b';
+                            break;
+                        case 'f' :
+                            ch = '\f';
+                            break;
+                    }
+                }
+                this.value += ch;
+            } else if ("{}[],:".indexOf(ch) !== -1) {
+                this.type = ch;
+
+                if (allowed !== undefined && allowed.indexOf(ch) === -1)
+                    this.throwError(ch + " is not in the allowed list " + allowed);
+                return true;
+            } else {
+                if (ch === '"') {
+                    if (this.value !== null)
+                        this.throwError("quoted string must have quote as first character");
+
+                    inString = true;
+                    this.quoted = true;
+                    this.value = "";
+                } else if (" \t\r\n\f".indexOf(ch) === -1) {
+                    if (this.quoted)
+                        this.throwError("quoted string not allowed characters after closing quote");
+
+                    if (this.value === null)
+                        this.value = ch;
+                    else
+                        this.value += ch;
+                }
+            }
+        }
+        if (inString)
+            this.throwError("Unterminated string starting at " + start);
+        return false;
+    }
+    function skipValue() {
+        var count = 1;
+        var start;
+        var end;
+
+        this.next();
+        start = this.type;
+
+        if (start === '{')
+            end = '}';
+        else if (start === '[')
+            end = ']';
+        else
+            return;
+
+        while (this.next()) {
+            if (this.type === start)
+                count++;
+            else if (this.type === end) {
+                count--;
+
+                if (count === 0)
+                    return;
+            }
+        }
+        this.throwError("Incomplete data on skip value");
+    }
+    function symbol() {
+        var name;
+        var value;
+        var separator;
+        
+        while (this.next('{}[]:,')) {
+            value     = this.value;
+            separator = this.type;
+            
+            if (separator !== ':') 
+                return {
+                    name      : name,
+                    value     : value,
+                    separator : separator};
+            
+            name  = value;
+            value = null;
+        }
+        return null;
+    }
+}
 /*
  * The json object must be set to the [ that starts the fields array.
  */
 function jsonAddHeader(json, columns, table, useInnerCell) {
-    var name;
     var header = table.createTHead();
     var row    = header.insertRow(0);
-    var jcol;
-    var cols   = 0;    
-    /*
-     * Iterate the array of column specifier objects.
-     */
-    json.setFirst();
-    
-    while (json.isNext()) {
-        jcol = json.next().value;
-        name = jcol.getMember('Name', true).value;
-        columns.setName(
-                cols,
-                name,
-                jcol.getMember('Type').value,
-                jcol.getMember('Optional').value);
+    var cols   = 0;
+
+    function addColumn() {
+        var name = null;
+        var type = null;
+        var optional = null;
+
+        while (json.next(":,}")) {
+            var pname = json.value;
+            var pvalue;
+
+            json.next(",}");
+            pvalue = json.value;
+
+            switch (pname) {
+                case "Name":
+                    name = pvalue;
+                    break;
+                case "Type":
+                    type = pvalue;
+                    break;
+                case "Optional":
+                    optional = pvalue;
+                    break;
+                default:    //Ignore unexpected attributes
+            }
+            if (json.type === ",")
+                continue;
+            if (json.type === "}") {
+                columns.setName(cols, name, type, optional);
+                /*
+                 * Now have all the attributes.
+                 */
+                if (useInnerCell === undefined || useInnerCell === false) {
+                    var cell = row.insertCell(cols);
+
+                    cell.innerHTML = name;
+                } else {
+                    row.innerHTML += "<th>" + name + "</th>";
+                }                
+                cols++;
                 
-        if (useInnerCell === undefined || useInnerCell === false) {
-            var cell = row.insertCell(cols);
-            
-            cell.innerHTML = name;
-        } else {
-            row.innerHTML += "<th>" + name + "</th>";
+                return;
+            }
         }
-        cols++;
+    }
+    json.next("[");
+
+    while (json.next("{],")) {
+        if (json.type === ",")
+            continue;
+        if (json.type === "]")
+            return;
+        /*
+         * Now iterate through the column specifications.
+         */
+        addColumn();
     }
 }
 /*
@@ -750,38 +928,36 @@ function jsonAddHeader(json, columns, table, useInnerCell) {
 function jsonAddData(json, columns, table, onClickFunction, nullNumberToSpace) {
     var body = table.tBodies[0];
     var rowNo = 0;
-    var dcol;
     var row;
-    
-    json.setFirst();
-    
-    /*
-     * Iterate the data rows.
-     */
-    while (json.isNext()) {
+
+    json.next("[");
+
+    while (json.next("[],")) {
         var cols = 0;
-        var drow = json.next().value;
-        var value;
-        var cell;
-        
+
+        if (json.type === ",")
+            continue;
+        if (json.type === "]")
+            return;
+
         row = body.insertRow(rowNo++);
 
-        if (onClickFunction !== undefined) row.setAttribute("onclick", onClickFunction);
-        /*
-         * Iterate the data columns.
-         */
-        drow.setFirst();
-        
-        while (drow.isNext()) {
-            dcol  = drow.next();
-            value = dcol.value === null ? "" : dcol.value;
+        if (onClickFunction !== undefined)
+            row.setAttribute("onclick", onClickFunction);
 
-            columns.setSize(cols, value.length);
-            cell = row.insertCell(cols++);
+        while (json.next(",]")) {
+            var value = json.value === null ? "" : json.value;
 
-            if (typeof dcol !== 'string' && nullNumberToSpace !== 'undefined' && nullNumberToSpace && value === 'null') value = '';
+            columns.setSize(cols, json.value.length);
+
+            var cell = row.insertCell(cols++);
+
+            if (!json.quoted && nullNumberToSpace !== 'undefined' && nullNumberToSpace && value === 'null') value = '';
             
             cell.innerHTML = value;
+
+            if (json.type === "]")
+                break; // Row is complete.
         }
     }
 }
@@ -839,73 +1015,103 @@ function setElementValue(field, value, type, scale) {
         field.value = value;
     }
 }
-function arrayToJSONTable(name) {
-    this.columns = [];
-    this.name   = name;
-    
-    this.addColumn = function(name, dataName, type, optional) {
-        this.columns.push({name: name, dataName: dataName, type: type, optional: optional === undefined? false : optional});
-    };
-    this.getJSON = function(data) {
-        var i       = 0;
-        var result  = new JSON();
-        var arr     = new JSON('array');
-        var row;
-        var col;
-        
-        result.addMember('Table', name);
-        result.addMember('Header', arr);
-        
-        for (i = 0; i < this.columns.length; i++) {
-            col = this.columns[i];
-            row = new JSON('object');
-            arr.addElement(row);
-            row.addMember('Name', col.name);
-            row.addMember('Type', col.type);
-            
-            if (col.optional) row.addMember('Optional', col.optional);
-        }
-        arr = new JSON('array');
-        result.addMember('Data', arr);
-        
-        for (i = 0; i < data.length; i++) {
-            var dr = data[i];
-            var cl;
-            var jcols = new JSON('array');
-            
-            arr.addElement(jcols);
-            
-            for (cl = 0; cl < this.columns.length; cl++) {
-                jcols.addElement(dr[this.columns[cl].dataName]);
+function loadJSONFields(json, exact) {
+    try {
+        var id;
+        var type;
+        var precision;
+        var scale;
+        var value;
+
+        var jObj = new jsonObject(json);
+
+        jObj.next("[");
+
+        while (jObj.next("{}:,]")) {
+            if (jObj.type === "]")
+                break;
+
+            if (jObj.type === ":") {
+                var name = jObj.value;
+
+                jObj.next(",}");
+
+                switch (name) {
+                    case "Name":
+                        id = jObj.value;
+                        break;
+                    case "Type":
+                        type = jObj.value;
+                        break;
+                    case "Precision":
+                        precision = jObj.value;
+                        break;
+                    case "Scale":
+                        scale = jObj.value;
+                        break;
+                    case "Value":
+                        value = jObj.value;
+                        break;
+                    default:
+                        jObj.throwError("Unexpected attibute " + name + " when loading fields");
+                }
+                if (jObj.type === "}") {
+                    var field = document.getElementById(id);
+
+                    if (field !== null) {
+                        setElementValue(field, value, type, scale);
+                    } else if (exact === undefined || exact === true) {
+                        jObj.throwError("There is no element for field " + id);
+                    }
+                    id = "";
+                    type = "";
+                    precision = "";
+                    scale = "";
+                    value = "";
+                }
             }
         }
-        return result;
-    };
+    } catch (e) {
+        alert(e.name + " " + e.message);
+    }
 }
-function loadJSONArray(jsonArray, id, maxField, onClickFunction, nullNumberToSpace, useInnerHTML, includeTag, addName) {
+
+function loadJSONArray(json, id, maxField, onClickFunction, nullNumberToSpace, useInnerHTML, includeTag, addName) {
     try {
         var width = 0;
         var table = document.getElementById(id);
-        var json  = jsonArray;
-        var jval;
+        var jObj  = new jsonObject(json);
         var cols  = new columns();
         var row;
 
         clearTable(table);
-        
-        if (typeof json === 'string') json = (new jsonReader(jsonArray)).getJSON();
+        jObj.next("{");
         
         st.log("Loading table " + id);
         st.setStart();
         
-        jval = json.getMember('Header', true);
-        jsonAddHeader(jval.value, cols, table, useInnerHTML === undefined || useInnerHTML);
-        jval = json.getMember('Data', true);
-        jsonAddData(jval.value, cols, table, onClickFunction, nullNumberToSpace);
+        while (jObj.next("}:,")) {
+            if (jObj.type === ",")
+                continue;
+            if (jObj.type === "}")
+                break;
 
+            switch (jObj.value) {
+                case "Header" :
+                    jsonAddHeader(jObj, cols, table, useInnerHTML === undefined || useInnerHTML);
+                    break;
+                case "Data":
+                    jsonAddData(jObj, cols, table, onClickFunction, nullNumberToSpace);
+                    break;
+                case "Table":
+                    jObj.next(",}");
+                    break;
+                default:
+                    jObj.throwError("Object " + jObj.value + " when expecting Data or Header");
+            }
+        }
         st.logElapsed("Loading rows");
         st.setStart();
-        
         for (var j = 0; j < table.rows.length; j++) {
             row = table.rows[j];
 
@@ -939,49 +1145,77 @@ function addOption(select, value) {
     else
         select.options[select.options.length] = new Option(value, value);
 }
-function loadOptionsJSON(jsonOptions, id, keepValue, defaultValue, firstValue, allowblank) {
+function loadOptionsJSON(json, id, keepValue, defaultValue, firstValue, allowblank) {
     try {
-        var json    = jsonOptions;
         var select  = getElement(id);
         var initial = keepValue !== undefined && keepValue ? select.value : defaultValue !== undefined ? defaultValue : "";
-        
-        if (initial === "" && defaultValue !== undefined) initial = defaultValue;
+
+        if (initial === "" && defaultValue !== undefined)
+            initial = defaultValue;
         /*
-         * For the Datalist options setting select.options = 0 has no effe
+         * For the Datalist options setting select.options = 0 has no effect.
          */
         select.innerHTML = "";
 
-        if (allowblank !== undefined && allowblank) addOption(select, '');
+        if (allowblank !== undefined && allowblank)
+            addOption(select, '');
         
-        if (Array.isArray(json)) {
-            for (var i = 0; i < json.length; i++) addOption(select, json[i]);
-        }
-        else if (typeof json === 'string' && json.charAt(0) !== '{') {
+        if (json.charAt(0) !== '{') {
             json.split(',').forEach(function (option) {
                 addOption(select, option);
             });
         } else {
-            if (typeof json === 'string') json = (new jsonReader(jsonOptions)).getJSON();
+            var jObj = new jsonObject(json);
             
-            var jopt = json.getMember('Data', true).value;
-            
-            /*
-             * Iterate over rows.                
-             */
-            while (jopt.isNext()) {
-                var jrow = jopt.next().value;
-                /*
-                 * Each row should only contain one column.
-                 */
-                jrow.setFirst();
-                
-                addOption(select, jrow.next().value);
+            jObj.next("{");
+
+            if (firstValue !== undefined && firstValue)
+                addOption(select, firstValue);
+
+            while (jObj.next("}:,")) {
+                if (jObj.type === ",")
+                    continue;
+                if (jObj.type === "}")
+                    break;
+
+                switch (jObj.value) {
+                    case "Header" :
+                        jObj.skipValue();
+                        break;
+                    case "Data":
+                        jObj.next("[");
+
+                        while (jObj.next("[],")) {
+                            if (jObj.type === ",")
+                                continue;
+                            if (jObj.type === "]")
+                                break;
+
+                            jObj.next('[],');
+                            /*
+                             * Allow row to be an array containing a single value, rather than just the value itself
+                             */
+                            if (jObj.type === '[')
+                                jObj.next(']');
+
+                            addOption(select, jObj.value);
+                        }
+                        break;
+                    case "Table":
+                        jObj.skipValue();
+                        break;
+                    default:
+                        jObj.throwError("Object " + jObj.value + " when expecting Data or Header");
+                }
             }
         }
         select.value = initial;
     } catch (e) {
         alert(e.name + " " + e.message);
     }
+}
+function arrayToJSONTable(name, rows, columns) {
+    
 }
 function lpad(value, length, pad) {
     value = value.toString();

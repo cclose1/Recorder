@@ -1,0 +1,26 @@
+
+@media screen and (max-width: 900px) {
+    #surname {
+        background-color: aqua;
+    }
+}  
+@media screen and (min-width: 901px) {
+    #surname {
+        background-color: beige;
+    }
+}   
+#ruleedit {
+    background-color:#f3f3f3;
+    border-style: solid;
+    border-color: black;
+    border-radius:3px;
+}
+#firstname {
+    background-color: beige;
+}
+#test1 {
+    background-color: beige;
+}
+#test1 {
+    background-color: red;
+}
