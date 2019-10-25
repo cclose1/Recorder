@@ -163,12 +163,12 @@ function requestHistory() {
     parameters = addParameterById(parameters, 'identifier');
     
     function processResponse(response) {
-        loadJSONArray(response, "history", 20, "bpHistoryRowClick(this)", null, null, false, true);
+        loadJSONArray(response, "history", {maxField: 19, onClick: "bpHistoryRowClick(this)"});
     }
     ajaxLoggedInCall("Record", processResponse, parameters);
 }
 function updateOrientationList(name, dbField) {
-    getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false}); 
+    getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowblank: true}); 
 }
 function initialize() {
     if (!serverAcceptingRequests('Record')) return;

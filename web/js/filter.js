@@ -7,6 +7,19 @@
 
 var filters = [];
 
+function FilterOptions(pOptions) {   
+    BaseOptions.call(this, false);
+    
+    this.addSpec({name: 'title',           type: 'string',  default: 'Filter', mandatory: true});
+    this.addSpec({name: 'allowAutoSelect', type: 'boolean', default: true,     mandatory: false});
+    this.addSpec({name: 'autoSelect',      type: 'boolean', default: true,     mandatory: false});
+    this.addSpec({name: 'forceGap',        type: 'string',  default: '4px',    mandatory: false});
+    this.addSpec({name: 'trigger',         type: 'object',                     mandatory: true});
+        
+    this.clear();
+    this.load(pOptions);
+}
+    
 function findFilter(key) {    
     var i;
      
@@ -32,7 +45,8 @@ function setVarByName(object, id, value) {
         value = id[name];
     }
     if (value !== undefined) object[name] = value;
-}
+}    
+    
 function Filter(key, element, requestor, options) {
     this.key             = key;
     this.element         = element;
@@ -41,17 +55,14 @@ function Filter(key, element, requestor, options) {
     this.requestor       = requestor;
     this.top             = undefined;
     this.fields          = undefined;
-    this.forceGap        = undefined;
-    this.allowAutoSelect = false;
-    this.autoSelect      = false;
     this.btnRequest      = undefined;
-    this.title           = 'Filter';
-    
+        
+    this.options         = undefined;
     var elm;
     var btns;
     
     this.getGap = function () {
-        return this.forceGap;
+        return this.options.forceGap;
     };
     this.setEventHandler = function(element, event, handler) {   
         element.setAttribute(event, "top." + handler  + "('" + this.key + "', event);");
@@ -81,11 +92,11 @@ function Filter(key, element, requestor, options) {
         return w;
     };
     this.callRequestor = function (force) {
-        if (this.autoSelect || force === undefined || force) {
+        if (options.autoSelect || force === undefined || force) {
             this.requestor(this.getWhere());
 
-            if (this.autoSelect && this.trigger !== undefined) {
-                triggerClick(this.trigger);
+            if (options.autoSelect && options.trigger !== undefined) {
+                triggerClick(options.trigger);
             }
         }
     };
@@ -99,26 +110,25 @@ function Filter(key, element, requestor, options) {
          * Fields added by code do not have a gap when display is inline-block, whereas those added in html do. Hence, the
          * reason for adding margin-right.
          */
-        elm = createElement(this.document, 'label', {append: div, forceGap: this.getGap(), text: label});
+        elm = createElement(this.document, 'label', {append: div, forceGap: this.options.forceGap, text: label});
         elm = createElement(this.document, 'input', {
             append: div,
             name: field[0],
             type: field.length > 1 ? trim(field[1]) : 'text',
             size: '15',
             tabindex: '0',
-            forceGap: response !== undefined ? this.getGap() : undefined});
+            forceGap: response !== undefined ? this.options.forceGap : undefined});
 
-        if (this.allowAutoSelect)
-            this.setEventHandler(elm, 'onchange', 'changeFilterValue');
+        if (options.allowAutoSelect) this.setEventHandler(elm, 'onchange', 'changeFilterValue');
 
         if (response !== undefined) {
             elm = createElement(this.document, 'select', {append: div});
             this.setEventHandler(elm, 'onchange', 'addFilterField');
             loadListResponse(response, {
-                name: elm,
-                keepValue: true,
-                async: false,
-                allowblank: true});
+                name:       elm,
+                keepValue:  true,
+                async:      false,
+                allowBlank: true});
         }
         fields.appendChild(div);
     };
@@ -132,7 +142,8 @@ function Filter(key, element, requestor, options) {
         setHidden(this.element, true);
     }    
     for (name in options) {
-        setVarByName(this, name, options[name]);
+        this.options = new FilterOptions(options);
+        setVarByName(this, name, options[name]); //To be removed when switch to this.options complete.
     }
     /*
      * Remove current fields.
@@ -143,22 +154,22 @@ function Filter(key, element, requestor, options) {
     /*
      * Create filter framework excluding the filter fields to be added later.
      */
-    createElement(this.document, 'legend', {append: this.top, text: this.title});
+    createElement(this.document, 'legend', {append: this.top, text: options.title});
     this.fields = createElement(this.document, 'div', {append: this.top});
     btns        = createElement(this.document, 'div', {append: this.top});
   
-    if (this.allowAutoSelect) {
+    if (options.allowAutoSelect) {
         elm = createElement(this.document, 'div', {append: btns});
-        createElement(this.document, 'label', {append: elm, text: 'Auto Select', forceGap: this.getGap()});
+        createElement(this.document, 'label', {append: elm, text: 'Auto Select', forceGap: this.options.forceGap});
         elm = createElement(this.document, 'input', {append: elm, type: 'checkbox'});
-        elm.checked = this.autoSelect;
+        elm.checked = options.autoSelect;
         this.setEventHandler(elm, 'onclick', 'changeAutoSelect');
 
     }
-    createElement(this.document, 'label', {append: btns, forceGap: this.getGap()});
-    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Apply', forceGap: this.getGap()});
+    createElement(this.document, 'label', {append: btns, forceGap: this.options.forceGap});
+    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Apply', forceGap: this.options.forceGap});
     this.btnRequest = elm;
-    setHidden(elm, this.autoSelect);
+    setHidden(elm, options.autoSelect);
     this.setEventHandler(elm, 'onclick', 'addFilterField');
     elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear'});
     this.setEventHandler(elm, 'onclick', 'addFilterField');

@@ -145,7 +145,9 @@ function loadActiveEvent() {
     parameters = addParameterById(parameters, 'time');
     
     function processResponse(response) {
-        loadJSONArray(response, 'activeeventtable', 19, 'detailsRowClick(this, "update")', null, null, false, true);
+        var options = new JSONArrayOptions({maxField: 13, onClick: 'detailsRowClick(this, "update")'});
+        
+        loadJSONArray(response, 'activeeventtable', options);
         setHidden('activeeventtable', false);
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);    
@@ -163,7 +165,11 @@ function getNutritionDetails() {
     parameters = addParameter(parameters, 'item',   item);
     
     function processResponse(response) {
-        loadJSONArray(response, 'itemdetailstable', 19, 'detailsRowClick(this, "add")', null, null, false, true);
+        var options = new JSONArrayOptions(
+                {maxField: 19, onClick: 'detailsRowClick(this, "add")', useInnerCell: false, 
+                 columns: [{name: 'Source', maxWidth: 10},{name: 'Type', maxWidth: 10}]});
+        
+        loadJSONArray(response, 'itemdetailstable', options);
         document.getElementById('itemdetailstable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
@@ -186,7 +192,7 @@ function requestEventHistory(historyOnly) {
     parameters = addParameter(parameters, 'day',         day);
 
     function processResponse(response) {
-        loadJSONArray(response, 'eventhistorytable', 19, 'rowEventHistoryClick(this)', true, null, false, true);
+        loadJSONArray(response, 'eventhistorytable', {maxField: 19, onClick: 'rowEventHistoryClick(this)'});
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
@@ -377,7 +383,13 @@ function deleteEvent() {
  * @returns {undefined}
  */
 function updateFilteredList(name, dbField, filter, dbFilter) {    
-    getList('Nutrition', {name: name, field: dbField, filter: addDBFilterField('', document.getElementById(filter), dbFilter), firstValue: ' ', async:false}); 
+    getList('Nutrition', 
+            {name:       name, 
+             field:      dbField, 
+             filter:     addDBFilterField('', document.getElementById(filter), dbFilter), 
+             firstValue: ' ', 
+             allowBlank: true, 
+             async:      false}); 
 }
 function updateFilteredLists() {
     updateFilteredList('iSourceList', 'source');

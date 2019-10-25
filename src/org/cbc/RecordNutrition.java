@@ -229,8 +229,8 @@ public class RecordNutrition extends ApplicationServer {
             sql.addDefaultedField("Type",        "");
             sql.addDefaultedField("Simple",      "");
             sql.addDefaultedField("DefaultSize", 0);
-            sql.addDefaultedField("Salt",        0);
-            sql.addDefaultedField("Calories",    0, 2);
+            sql.addField("Salt",     null, null, "DECIMAL(4,2)");
+            sql.addField("Calories", null, null, "DECIMAL(5,1)");
             sql.setOrderBy("Item");
 
             sql.addAnd("source", "=",    source);
@@ -405,14 +405,14 @@ public class RecordNutrition extends ApplicationServer {
             SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
 
             sql.addField("Item");
-            sql.addDefaultedField("ABV",       0, 1);
-            sql.addDefaultedField("Quantity",  0, 1);
+            sql.addField("ABV",       "ABV", 0);
+            sql.addField("Quantity",  "Quantity", 0);
             sql.addDefaultedField("Source",    "");
             sql.addDefaultedField("Type",      "");
-            sql.addDefaultedField("Calories",  0, 0);
-            sql.addDefaultedField("Saturated", 0, 1);
-            sql.addDefaultedField("Sugar",     0, 1);
-            sql.addDefaultedField("Salt",      0, 1);
+            sql.addField("Calories",  "Calories", 0);
+            sql.addField("Saturated", "Saturated", 0);
+            sql.addField("Sugar",     "Sugar", 0);
+            sql.addField("Salt",      "Salt", 0);
             sql.setOrderBy("Item");
 
             sql.setFrom("NutritionRecordFull");

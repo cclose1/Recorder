@@ -118,11 +118,11 @@ public class HeartMonitor extends ApplicationServer {
             
             if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
                 sql.addField("Date");
-                sql.addField("Week");
+                sql.addField("Week",         null,         null, "DECIMAL(2)");
                 sql.addField("Weekday");
             } else {
                 sql.addField("CAST(Timestamp AS Date)",          "Date");
-                sql.addField("Week(Timestamp) + 1",              "Week");
+                sql.addField("Week(Timestamp) + 1",              "Week", null, "DECIMAL(2)");
                 sql.addField("SubStr(DayName(Timestamp), 1, 3)", "Weekday");
             }
             sql.addField("Session");

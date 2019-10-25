@@ -16,8 +16,26 @@ function randomString(len) {
     return s;
 }
 function lpad(text, length, pad) {
+    text = text.toString();
+    
     while (text.length < length)
-        text = pad + text;
+        text = (pad === undefined? ' ' : pad) + text;
+
+    return text;
+}
+function lpad1(value, length, pad) {
+    value = value.toString();
+
+    while (value.length < length)
+        value = pad === undefined? ' ' : pad + value;
+
+    return value;
+}
+function rpad(text, length, pad) {
+    text = text.toString();
+    
+    while (text.length < length)
+        text = text + (pad === undefined? ' ' : pad);
 
     return text;
 }
@@ -185,7 +203,7 @@ function Reporter() {
                 alert(message);
                 break;
             case 'throw':
-                throw message;
+                throw new Error(message);
                 break;
             default:
                 console.log('Unknown action-' + action + ' on report of ' + message);                    
@@ -202,6 +220,11 @@ function Reporter() {
     this.log = function(message) {
         output('console', message);
     };        
+    this.logThrow = function(exception, showAlert) {
+        if (showAlert) alert(exception.name + '-' + exception.message);
+        
+        console.log(exception);
+    };
 }
 var reporter = new Reporter();
 
@@ -231,6 +254,272 @@ function Statistics(enabled) {
 }
 var st = new Statistics();
 
+/*
+ * Provides the base methods and storage for Options objects. An options object has one or more name value pairs. Child classes use addSpec
+ * in their constructors, to define the option name, type and default value if any.
+ * 
+ * pAccessByGet If this is true, the options are only accessible via the methods setValue and getValue, or by any getter and
+ *              setter functions defined on child options objects.
+ *              
+ *              Note: Users can always bypass the methods by directly accessing optSpecs.
+ * @returns {BaseOptions}
+ */
+function BaseOptions(pAccessByGet) {
+    this.optSpecs    = [];
+    this.accessByGet = pAccessByGet;
+    
+    function error(options, message) {
+        reporter.fatalError(options.constructor.name + ' ' + message);
+    }
+    function getSpec(options, name) {
+        for (var i = 0; i < options.optSpecs.length; i++) {
+            if (options.optSpecs[i].name === name) return options.optSpecs[i];
+        }
+        return null;
+    }
+    /*
+     * Reads or updates the current value for option name. If accessByGet is true the value is stored in optSpecs, otherwise it is
+     * stored as an attribute of the options object.
+     * 
+     * @param options Set to this for the options object being acted upon.
+     * @param name    The option name
+     * @param read    True if the value is to be read, otherwise, the option value is replaced with value.
+     * @param value   The value to be assigned. If read is true, a fatal error is reported and value is not undefined.
+     * 
+     * @returns The current value of the option.
+     */
+    function accessValue(options, name, read, value) {
+        var spec = null;
+        
+        for (var i = 0; i < options.optSpecs.length; i++) {
+            if (options.optSpecs[i].name === name) {
+                spec = options.optSpecs[i];
+                break;
+            }
+        }
+        if (spec === null) error(options, 'Option "' + name + '" is not defined');
+        
+        if (read) {
+            value = options.accessByGet? spec.value : options[name];
+        } else {
+            if (value === null && spec.mandatory) error(options, name + ' is mandatory and cannot be set to null');
+            /*
+             * Allow undefined, load check will validate that null values are errored, if not loaded with a value.
+             */
+            if (value === undefined) value = null;
+            
+            if (value !== null && spec.type !== null && typeof value !== spec.type)
+                 error(options, ' "' + name + '" type is ' + typeof value + ' but should be ' + spec.type);
+            else {
+                if (options.accessByGet)
+                    spec.value = value;
+                else
+                    options[name] = value;
+            }
+        }
+        return value;
+    }   
+    function loadOption(options, name, value) {     
+        /*
+         * Strictly value should not be null or undefined. While transition to using options, apply default.
+         */
+        if (value === null || value === undefined) return;
+        
+        accessValue(options, name, false, value);    
+    }     
+    this.setValue = function(name, value) {
+        accessValue(this, name, false, value);
+    };
+    this.getValue = function(name) {
+        return accessValue(this, name, true);
+    };
+    this.clear = function() {
+        for (var i = 0; i < this.optSpecs.length; i++) {
+            var spec = this.optSpecs[i];
+            
+            accessValue(this, spec.name, false, spec.default);
+        }
+    };
+    this.load = function(values, ignoreUndefined) {
+        for (name in values) {
+            if (ignoreUndefined !== undefined && ignoreUndefined) {
+                /*
+                 * Check if parameter not defined and return if it is. This prevents loadOption failing.
+                 */
+                if (getSpec(this, name) === null) continue;
+            }
+            loadOption(this, name, values[name]);
+        }
+        /*
+         * Check that mandatory options have a value.
+         */
+        for (var i = 0; i < this.optSpecs.length; i++) {
+            var spec = this.optSpecs[i];
+            
+            if ((this.accessByGet? spec.value : this[spec.name]) === null) {
+                if (spec.mandatory)
+                    error(this, 'Option "' + spec.name + ' is mandatory but does not have a default');
+                else
+                    this.accessByGet? spec.value = null : this[spec.name] = null;
+            }
+        }
+    };
+    this.addSpec = function(option) {
+        var spec = {};
+        
+        spec.name = option.name;
+        
+        if (spec.name === undefined || spec.name === null)  error(this, 'Option must have a name proprty');
+        
+        for (name in option) {
+            switch (name) {
+                case 'name':                    
+                    if (getSpec(this, spec.name) !== null)  error(this, 'Option "' + spec.name + '" is already defined');
+                    
+                    break;
+                case 'type':
+                    spec.type = option[name] === undefined? null : option[name];
+                    break;
+                case 'mandatory':
+                    spec.mandatory = option[name];
+                    break;
+                case 'default':
+                    spec.default = option[name];
+                    break;
+                default:
+                     error(this, 'Option "' + spec.name + ' property-' + name + ' is already defined');
+            }            
+        }
+        if (spec.type      === undefined) spec.type      = spec.default === undefined? null : typeof spec.default;
+        if (spec.mandatory === undefined) spec.mandatory = true;
+        
+        this.optSpecs.push(spec);
+    };
+    this.log = function() {
+        var spec;
+        
+        console.log(this.constructor.name);
+        
+        for (var i = 0; i < this.optSpecs.length; i++) {
+            spec = this.optSpecs[i];
+            
+            console.log(
+                    'Option '     + rpad(String(spec.name), 10)     + 
+                    ' type '      + rpad(String(spec.type),  8)     +  
+                    ' mandatory ' + lpad(String(spec.mandatory), 6) +
+                    ' default '   + lpad(String(spec.default), 10)  + 
+                    ' value '     + String(this.getValue(spec.name)));
+        }
+    };
+}
+function JSONArrayColumnOptions(pOptions) {  
+    BaseOptions.call(this, false);
+    
+    this.addSpec({name: 'name',     type: 'string',  mandatory: true});
+    this.addSpec({name: 'minWidth', type: 'number', mandatory: false});
+    this.addSpec({name: 'maxWidth', type: 'number', mandatory: false});
+        
+    this.clear();
+    this.load(pOptions);    
+}
+function JSONArrayOptions(pOptions) {    
+    BaseOptions.call(this, false);
+    
+    this.addSpec({name: 'maxField',      type: 'number',  default: 0});
+    this.addSpec({name: 'onClick',       type: 'string',  default: null,  mandatory: false});
+    this.addSpec({name: 'nullToEmpty',   type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'useInnerCell',  type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'addColNoClass', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'addName',       type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'usePrecision',  type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'columns',       type: 'object',  default: null,  mandatory: false});
+        
+    this.clear();
+    this.load(pOptions);
+    /*
+     * Validate the column specifications.
+     */
+    if (this.columns !== null) {
+        var cols = [];
+        
+        for (var i = 0; i < this.columns.length; i++) {
+            var col = new JSONArrayColumnOptions(this.columns[i]);
+            
+            cols.push(col);            
+        }
+        this.columns = cols;
+    }
+}
+function loadOptionsJSONOptions(pOptions){    
+    BaseOptions.call(this, true);
+    
+    this.addSpec({name: 'name',         type: null});   
+    this.addSpec({name: 'keepValue',    type: 'boolean', default: true});     
+    this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
+    this.addSpec({name: 'allowBlank',   type: 'boolean', default: false});
+        
+    this.clear();
+    this.load(pOptions, true);
+}
+loadOptionsJSONOptions.prototype = {    
+    get name()         {return this.getValue('name');},
+    get keepValue()    {return this.getValue('keepValue');},
+    get defaultValue() {return this.getValue('defaultValue');},
+    get allowBlank()   {return this.getValue('allowBlank');}};
+loadOptionsJSONOptions.prototype.constructor = loadOptionsJSONOptions;
+
+function JSONArrayOptionsO(options) {    
+    function clear(options) {
+        options.maxField      = 0;
+        options.onClick       = undefined;
+        options.nullToEmpty   = true;
+        options.useInnerCell  = false;
+        options.addColNoClass = false;
+        options.addName       = true;
+    }
+    function loadOption(options, name, value, required) {     
+        /*
+         * Strictly value should not be null or undefined. While transition to using options, apply default.
+         */
+        if (value === null || value === undefined) return;
+        
+        if (typeof value !== required)             
+            reporter.fatalError('JSONArrayOption "' + name + '" type is ' + typeof value + ' but should be ' + required);
+        else
+            options[name] = value;
+    }
+    function load(options, values) {
+        for (name in values) {
+            var required;
+
+            switch (name) {
+                case 'maxField':
+                    required = 'number';
+                    break;
+                case 'onClick':
+                    required = 'string';
+                    break;
+                case 'nullToEmpty':
+                    required = 'boolean';
+                    break;
+                case 'useInnerCell':
+                    required = 'boolean';
+                    break;
+                case 'addColNoClass':
+                    required = 'boolean';
+                    break;
+                case 'addName':
+                    required = 'boolean';
+                    break;
+                default:
+                    reporter.fatalError('JSONArrayOption ' + name + ' is not valid');
+            }
+            if (required !== undefined) loadOption(options, name, values[name], required);
+        }
+    }
+    clear(this);
+    load(this, options);
+}
 function resizeFrame(id) {
     var elm    = getElement(id);
     var width  = elm.contentWindow.document.body.scrollWidth;
@@ -582,53 +871,52 @@ function addParameterById(parameters, name, alias) {
 
     return addParameter(parameters, alias, getValue(name));
 }
-
-function columns() {
-    this.cols      = new Array();
-    this.getColumn = getColumn;
-    this.setName   = setName;
-    this.setSize   = setSize;
+function Column(name, no, type, precision, scale, optional) {
+    this.name      = name;
+    this.no        = no;
+    this.type      = type;    
+    this.precision = precision;
+    this.scale     = scale;
+    this.optional  = optional || false;
+    this.class     = '';
+    this.size      = name.length;
+    this.minWidth  = null;
+    this.maxWidth  = null;
     
-    function addClass(column, name) {
-        if (column.classValue !== '') column.classValue += ' ';
-        
-        column.classValue += name;
-    }
-    function setClass(column, includeTag) {
-        column.classValue = includeTag === undefined || includeTag? column.tag : '';
-        
-        if (column.optional !== undefined && column.optional) addClass(column, 'optional');
-        
-        if (column.type !== undefined && (column.type === "int" || column.type === "decimal")) addClass(column, 'number');
-        
-        return column;
-    }
-    function getColumn(column, includeTag) {
-        if (column >= this.cols.length || this.cols[column] === undefined)
-            this.cols[column] = {name: "", size: 0, tag: "tbcol" + (this.cols.length + 1)};
-
-        return setClass(this.cols[column], includeTag);
-    }
-    function setName(column, name, type, optional) {
-        var col = this.getColumn(column);
-        col.name = name;
-
-        if (col.size === null || name.length > col.size)
-            col.size = name.length;
-        if (type !== undefined)
-            col.type = type;
-        if (optional !== undefined)
-            col.optional = optional;
-    }
-    function setSize(column, size, type) {
-        var col = this.getColumn(column);
-
-        if (col.size === null || col.size < size)
-            col.size = size;
-        if (type !== undefined)
-            col.type = type;
-    }
+    if (this.no       !== undefined && this.no > 0) this.addClass('tbcol' + no);
+    if (this.optional !== undefined && this.optional) this.addClass('optional');
+    if (this.type     !== undefined && (this.type === "int" || this.type === "decimal")) this.addClass('number');
 }
+Column.prototype.addClass = function (tag) {
+    if (this.class !== '')
+        this.class += ' ';
+
+    this.class += tag;
+};
+Column.prototype.setSize = function (psize) {
+    if (this.size === null || this.size < psize)
+        this.size = psize;
+};
+Column.prototype.getClass = function () {
+    return this.class;
+};
+Column.prototype.getDisplayValue = function (value, nullToSpace) {
+    if (value === null || value === 'null') {
+        if (nullToSpace !== 'undefined' && nullToSpace) value = '';
+        
+        return value;
+    } 
+    if (this.type === 'decimal' && this.scale !== 0 && value !== '') {
+        try {
+            value = value.toFixed(this.scale);
+        } catch (e) {
+            reporter.logThrow(e, true);
+        }
+    }
+    this.setSize(value.length);
+    
+    return value;
+};
 /*
  * IE11 does not support classes.
  class RowReader {
@@ -671,34 +959,28 @@ function rowReader(row, throwError) {
     this.header = document.getElementById(this.row.parentNode.parentNode.id).rows[0];
     this.throwError = throwError === undefined ? false : throwError;
 
-    this.check = check;
-    this.reset = reset;
-    this.nextColumn = nextColumn;
-    this.columnName = columnName;
-    this.columnValue = columnValue;
-
-    function check() {
+    this.check = function() {
         if (this.index >= this.header.cells.length) {
             if (this.throwError)
                 throw Error("Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
             else
                 alert("Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
         }
-    }
-    function reset() {
+    };
+    this.reset = function() {
         this.index = -1;
-    }
-    function nextColumn() {
+    };
+    this.nextColumn = function() {
         this.check();
         this.index += 1;
 
         return this.index < this.header.cells.length;
-    }
-    function columnName() {
+    };
+    this.columnName = function() {
         this.check();
         return this.header.cells[this.index].innerHTML;
-    }
-    function columnValue() {
+    };
+    this.columnValue = function() {
         this.check();
 
         /*
@@ -709,81 +991,7 @@ function rowReader(row, throwError) {
         var ta = document.createElement('textarea');
         ta.innerHTML = trim(this.row.cells[this.index].innerHTML);
         return ta.value;
-    }
-}
-/*
- * The json object must be set to the [ that starts the fields array.
- */
-function jsonAddHeader(json, columns, table, useInnerCell) {
-    var name;
-    var header = table.createTHead();
-    var row    = header.insertRow(0);
-    var jcol;
-    var cols   = 0;    
-    /*
-     * Iterate the array of column specifier objects.
-     */
-    json.setFirst();
-    
-    while (json.isNext()) {
-        jcol = json.next().value;
-        name = jcol.getMember('Name', true).value;
-        columns.setName(
-                cols,
-                name,
-                jcol.getMember('Type').value,
-                jcol.getMember('Optional').value);
-                
-        if (useInnerCell === undefined || useInnerCell === false) {
-            var cell = row.insertCell(cols);
-            
-            cell.innerHTML = name;
-        } else {
-            row.innerHTML += "<th>" + name + "</th>";
-        }
-        cols++;
-    }
-}
-/*
- * The json object must be set to the [ that starts the fields array.
- */
-function jsonAddData(json, columns, table, onClickFunction, nullNumberToSpace) {
-    var body = table.tBodies[0];
-    var rowNo = 0;
-    var dcol;
-    var row;
-    
-    json.setFirst();
-    
-    /*
-     * Iterate the data rows.
-     */
-    while (json.isNext()) {
-        var cols = 0;
-        var drow = json.next().value;
-        var value;
-        var cell;
-        
-        row = body.insertRow(rowNo++);
-
-        if (onClickFunction !== undefined) row.setAttribute("onclick", onClickFunction);
-        /*
-         * Iterate the data columns.
-         */
-        drow.setFirst();
-        
-        while (drow.isNext()) {
-            dcol  = drow.next();
-            value = dcol.value === null ? "" : dcol.value;
-
-            columns.setSize(cols, value.length);
-            cell = row.insertCell(cols++);
-
-            if (typeof dcol !== 'string' && nullNumberToSpace !== 'undefined' && nullNumberToSpace && value === 'null') value = '';
-            
-            cell.innerHTML = value;
-        }
-    }
+    };
 }
 /*
  * Returns a width large enough to fit noOfChars.
@@ -817,10 +1025,8 @@ function getWidth(noOfChars, unit) {
     return (multiplier * noOfChars) + unit;
 }
 function setElementValue(field, value, type, scale) {
-    if (type !== 'varchar' && value.toLowerCase() === 'null') {
-        type = 'varchar';
-        value = '';
-    }
+    value = (new Column(field.id, -1, value, type, scale)).getDisplayValue(value, true);
+    
     if (type === 'varchar' || type === 'char') {
         if (field.type === "checkbox")
             field.checked =
@@ -830,26 +1036,29 @@ function setElementValue(field, value, type, scale) {
                     value.toLowerCase() === 'true';
         else
             field.value = value;
-    } else if (type === 'datetime') {
+    } else 
         field.value = value;
-    } else {
-        if (scale > 0)
-            value = parseFloat(value, 10).toFixed(scale);
-
-        field.value = value;
-    }
 }
 function arrayToJSONTable(name) {
     this.columns = [];
     this.name   = name;
     
     this.addColumn = function(name, dataName, type, optional) {
-        this.columns.push({name: name, dataName: dataName, type: type, optional: optional === undefined? false : optional});
+        var column = {};
+        
+        column.Name     = name;
+        column.DataName = dataName;
+        column.Type     = type;
+        
+        for (name in optional) {
+            column[name] = optional[name];
+        }
+        this.columns.push(column);
     };
     this.getJSON = function(data) {
-        var i       = 0;
-        var result  = new JSON();
-        var arr     = new JSON('array');
+        var i      = 0;
+        var result = new JSON();
+        var arr    = new JSON('array');
         var row;
         var col;
         
@@ -860,10 +1069,10 @@ function arrayToJSONTable(name) {
             col = this.columns[i];
             row = new JSON('object');
             arr.addElement(row);
-            row.addMember('Name', col.name);
-            row.addMember('Type', col.type);
             
-            if (col.optional) row.addMember('Optional', col.optional);
+            for (name in col) {
+                if (col.name !== 'DataName') row.addMember(name, col[name]);
+            }
         }
         arr = new JSON('array');
         result.addMember('Data', arr);
@@ -876,58 +1085,283 @@ function arrayToJSONTable(name) {
             arr.addElement(jcols);
             
             for (cl = 0; cl < this.columns.length; cl++) {
-                jcols.addElement(dr[this.columns[cl].dataName]);
+                jcols.addElement(dr[this.columns[cl].DataName]);
             }
         }
         return result;
     };
 }
-function loadJSONArray(jsonArray, id, maxField, onClickFunction, nullNumberToSpace, useInnerHTML, includeTag, addName) {
+function loadJSONFields(jsonData, exact) {
     try {
-        var width = 0;
-        var table = document.getElementById(id);
-        var json  = jsonArray;
+        var json;
+        var jfld;
+        var jattr;
+        var field;
+        var id;
+        var type;
+        var precision;
+        var scale;
+        var value;
+
+        if (typeof jsonData === 'string') json = (new JSONReader(jsonData)).getJSON();
+        
+        json.setFirst();
+
+        while (json.isNext()) {
+            jfld = json.next().value;
+            
+            jfld.setFirst();
+            
+            while (jfld.isNext()) {
+                jattr = jfld.next();
+                
+                switch (jattr.name) {
+                    case "Name":
+                        id = jattr.value;
+                        break;
+                    case "Type":
+                        type = jattr.value;
+                        break;
+                    case "Precision":
+                        precision = jattr.value;
+                        break;
+                    case "Scale":
+                        scale = jattr.value;
+                        break;
+                    case "Value":
+                        value = jattr.value;
+                        break;
+                    default:
+                        reporter.fatalError("Unexpected attibute " + jattr.name + " when loading fields");
+                }
+            }
+            field = document.getElementById(id);
+
+            if (field !== null)
+                setElementValue(field, value, type, scale);
+            else if (exact === undefined || exact === true) 
+                reporter.fatalError("There is no element for field " + id);
+            
+            id        = "";
+            type      = "";
+            precision = "";
+            scale     = "";
+            value     = "";
+        }
+    } catch (e) {
+        reporter.logThrow(e, true);
+    }
+}
+
+/*
+ * The json object must be set to the JSON array of column header objects.
+ */
+function jsonAddHeader(json, table, options) {
+    var name;
+    var header = table.createTHead();
+    var row    = header.insertRow(0);
+    var col;
+    var jcol;
+    var columns = [];
+    var colNo   = 0;
+    /*
+     * Iterate the array of column specifier objects.
+     */
+    json.setFirst();
+    
+    while (json.isNext()) {
+        jcol = json.next().value;
+        name = jcol.getMember('Name', true).value;
+        col  = new Column(
+                name,
+                options.addColNoClass? colNo + 1 : -1,
+                jcol.getMember('Type').value,
+                jcol.getMember('Precision', false).value,
+                jcol.getMember('Scale',     false).value,
+                jcol.getMember('Optional',  false).value);
+        columns.push(col);
+        
+        if (options.useInnerCell) {
+            var cell = document.createElement('th');
+            
+            cell.innerHTML = name;
+            row.appendChild(cell);
+        } else {
+            row.innerHTML += "<th>" + name + "</th>";
+        }
+        colNo++;
+    }
+    /*
+     * Set any column override options.
+     */
+    if (options.columns !== null) {        
+        for (var i = 0; i < options.columns.length; i++) {
+            var ocol = options.columns[i];
+            
+            for (var j = 0; j < columns.length; j++) {
+                col = columns[j];
+                
+                if (col.name === ocol.name) break;
+                
+                col = null;
+            }
+            if (col === null)
+                reporter.fatalError('There is no column "' + ocol.name + '" in table ' + table.id);
+            else {
+                col.minWidth = ocol.minWidth;
+                col.maxWidth = ocol.maxWidth;
+            }
+        }
+    }
+    return columns;
+}
+/*
+ * The json object must be set to the JSON array of rows the column values array.
+ */
+function jsonAddData(json, columns, table, options) {
+    var body = table.tBodies[0];
+    var rowNo = 0;
+    var dcol;
+    var row;
+    
+    json.setFirst();    
+    /*
+     * Iterate the data rows.
+     */
+    while (json.isNext()) {
+        var cols = 0;
+        var drow = json.next().value;
+        var value;
+        var cell;
+        
+        row = body.insertRow(rowNo++);
+
+        if (options.onClick !== null) row.setAttribute("onclick", options.onClick);
+        /*
+         * Iterate the data columns.
+         */
+        drow.setFirst();
+        
+        while (drow.isNext()) {
+            dcol  = drow.next();
+            value = columns[cols].getDisplayValue(dcol.value, options.nullToEmpty);
+            cell  = row.insertCell(cols++);            
+            cell.innerHTML = value;
+        }
+    }
+}
+/*
+ * @param {type} jsonArray Contains a JSON the table data. If this is an object it is assumed to be a json object as created by json.js.
+ *               If it is a string, it is expected to be a JSON string and it is converted to a json object using JSONReader.
+ *               
+ *               See below for the json object table definition.
+ *               
+ * @param {type} id The html element id of the table where the data will be stored.
+ * @param {type} maxField The max column field size. If the data field exceeds this size, it will be wrapped to fit within, i.e. requiring
+ *                        multiple lines.
+ * @param {type} onClickFunction The action that will be invoked if the table line is clicked. Set to undefined, if there is no action required.
+ * @param {type} useInnerHTML Determines how the table header th cells are created. If true, a th cell is created and appended to the header
+ *                            row. If false, <th>ColName</th> is appended to the header row innerHTML. If null, default is applied, which
+ *                            is the false option. Not sure if both are equivalent and if either is preferable.
+ * @param {type} includeColNoClass If true, a class is added constructed from "tbcol" + colNo. The column numbers start at 1.
+ * @param {type} addName If true, the column heading is added as the name attribute.
+ * @returns An array of the column specifications to be used to define the data cell formats and attributes, see Column definition.
+ * 
+ * The JSON table string format is
+ * 
+   {"Table"  : "Name",
+    "Header" : [{column object},.....]
+    "Data"   : [[columndata,...],...]}
+  
+  Currently only the Header and Data elements are used. 
+  
+  The array of column objects contain an object for each table column. The JSON elements of the column object are:
+      "Name" : name string
+      "Type" : type string  -- These are defined by JDBCType. The driver return the lower case value, although the JDBCType ENUM values are
+                            -- upper case.
+      "Precision" : precision integer -- The size of the database field.
+      "Scale"     : scale     integer -- The number of places after decimal point, e.g. DECIMAL(10, 5) would have Precision 10 and Scale 5.
+      "Optional"  : optional  boolean -- True if column can be omitted when displayed on small screens. Defaults to false is absent.
+  
+  Currently Type, Precision and Scale have no effect, apart from Type = Decimal, where scale is used to add trailing 0 when displayed, e.g.
+  if value is 12.1 and Scale is 3, the displayed value is 12.100.
+  
+  The array of data rows contains an array of data values for each row formatted as JSON values.
+  Example
+      {"Table"  : "Test",
+       "Header" : [{"Type":"varchar","Precision":10,"Name":"Item"},
+                   {"Type":"boolean","Name":"Available"},
+                   {"Type":"decimal","Precision":12,"Scale":2,"Name":"Price"}],
+        "Data"   : [["Spanner",null,12.1],["Hammer",true,20],["Wrench",false,25.39]]}
+  
+ */
+function loadJSONArray(jsonArray, id, options) {
+    
+    if (options.constructor.name !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
+    
+    try {
+        var maxRowSize = 0;
+        var table      = document.getElementById(id);
+        var json       = jsonArray;
         var jval;
-        var cols  = new columns();
+        var cols;
         var row;
 
         clearTable(table);
         
-        if (typeof json === 'string') json = (new jsonReader(jsonArray)).getJSON();
+        if (typeof json === 'string') json = (new JSONReader(jsonArray)).getJSON();
         
         st.log("Loading table " + id);
         st.setStart();
         
         jval = json.getMember('Header', true);
-        jsonAddHeader(jval.value, cols, table, useInnerHTML === undefined || useInnerHTML);
+        cols = jsonAddHeader(jval.value, table, options);
         jval = json.getMember('Data', true);
-        jsonAddData(jval.value, cols, table, onClickFunction, nullNumberToSpace);
+        jsonAddData(jval.value, cols, table, options);
 
         st.logElapsed("Loading rows");
         st.setStart();
-        
+        /*
+         * Set cell widths and class and name if required. 
+         */
         for (var j = 0; j < table.rows.length; j++) {
+            var rowSize = 0;
+            
             row = table.rows[j];
 
             for (var i = 0; i < row.cells.length; i++) {
-                var col  = cols.getColumn(i, includeTag);
-                var cell = row.cells[i];
+                var col      = cols[i];
+                var cell     = row.cells[i];
+                var minWidth = 0;
+                var maxWidth = options.maxField;
                 
-                if (maxField === undefined || col.size <= maxField) {
+                if (options.usePrecision)  minWidth = col.precision;
+                if (col.minWidth !== null) minWidth = col.minWidth;
+                if (col.maxWidth !== null) maxWidth = col.maxWidth;
+                if (minWidth > maxWidth)   minWidth = maxWidth;
+                
+                if (col.size <= minWidth && minWidth !== null) {
+                    rowSize += minWidth;
+                    cell.setAttribute("style", 'width:' + getWidth(minWidth, 'em'));
+                } else if (col.size < maxWidth) {
+                    rowSize += col.size;
                     cell.setAttribute("style", 'width:' + getWidth(col.size, 'em'));
                 } else {
-                    cell.setAttribute("style", 'width:' + getWidth(maxField, 'em') + ';overflow: hidden');
+                    rowSize += maxWidth;
+                    cell.setAttribute("style", 'width:' + getWidth(maxWidth, 'em') + ';overflow: hidden');
                 }
-                if (col.classValue !== '') cell.setAttribute('class', col.classValue);
-                if (addName) cell.setAttribute('name', col.name);
-
-                if (j === 0)
-                    width += col.size;
+                if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
+                if (options.addName)       cell.setAttribute('name',  col.name);
+                /*
+                 * Calculate total width. Only accessed in debugging.
+                 */
+                if (rowSize > maxRowSize) maxRowSize = rowSize;
             }
         }
+        reporter.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
         st.logElapsed("Set table sizes");
     } catch (e) {
-        alert(e.name + " " + e.message);
+        reporter.logThrow(e, true);;
     }
 }
 function addOption(select, value) {
@@ -939,19 +1373,18 @@ function addOption(select, value) {
     else
         select.options[select.options.length] = new Option(value, value);
 }
-function loadOptionsJSON(jsonOptions, id, keepValue, defaultValue, firstValue, allowblank) {
-    try {
+function loadOptionsJSON(jsonOptions, loadOptions) {
+    try {        
+        var options = new loadOptionsJSONOptions(loadOptions);        
         var json    = jsonOptions;
-        var select  = getElement(id);
-        var initial = keepValue !== undefined && keepValue ? select.value : defaultValue !== undefined ? defaultValue : "";
-        
-        if (initial === "" && defaultValue !== undefined) initial = defaultValue;
+        var select  = getElement(options.name);
+        var initial = options.keepValue ? select.value : options.defaultValue !== null ? options.defaultValue : "";
         /*
          * For the Datalist options setting select.options = 0 has no effe
          */
         select.innerHTML = "";
 
-        if (allowblank !== undefined && allowblank) addOption(select, '');
+        if (options.allowBlank) addOption(select, '');
         
         if (Array.isArray(json)) {
             for (var i = 0; i < json.length; i++) addOption(select, json[i]);
@@ -961,7 +1394,7 @@ function loadOptionsJSON(jsonOptions, id, keepValue, defaultValue, firstValue, a
                 addOption(select, option);
             });
         } else {
-            if (typeof json === 'string') json = (new jsonReader(jsonOptions)).getJSON();
+            if (typeof json === 'string') json = (new JSONReader(jsonOptions)).getJSON();
             
             var jopt = json.getMember('Data', true).value;
             
@@ -980,16 +1413,8 @@ function loadOptionsJSON(jsonOptions, id, keepValue, defaultValue, firstValue, a
         }
         select.value = initial;
     } catch (e) {
-        alert(e.name + " " + e.message);
+        reporter.logThrow(e, true);
     }
-}
-function lpad(value, length, pad) {
-    value = value.toString();
-
-    while (value.length < length)
-        value = pad + value;
-
-    return value;
 }
 function currentDate(date) {
     var mthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1178,8 +1603,6 @@ function getCookie(name) {
 function setHidden(name, yes) {
     var element = getElement(name);
     var show = element.type === 'button' ? 'inline-block' : '';
-//    var show    = element.type === 'button'? 'inline-block' : 'block';
-//    var show    = typeof element.type !== 'undefined' && element.type === 'button'? 'inline-block' : 'block';
 
     if (element.hasAttribute("hidden"))
         element.removeAttribute("hidden");
@@ -1270,8 +1693,8 @@ function addDBFilterField(filter, element, name, qualifier) {
     }
     return filter;
 }
-function loadListResponse(response, options) {    
-        loadOptionsJSON(response, options.name, options.keepValue, options.defaultValue, options.firstValue, options.allowblank);
+function loadListResponse(response, options) {  
+    loadOptionsJSON(response, options);
 }
 function getList(server, options, returnResponse) {
     var parameters = createParameters('getList');

@@ -53,6 +53,25 @@ and open the template in the editor.
                     <label for="surname" class="nogap">Surname</label>
                     <input type="text" id="surname" tabindex="-1">
                 </div>
+                <fieldset>
+                    <legend>Add Item</legend>
+                    <div>
+                        <label for="item">Item</label>
+                        <input id="item" type="text" value="Test" tabindex="-1">
+                    </div>
+                    <div>
+                        <label for="price">Price</label>
+                        <input id="price" type="number" value="100" tabindex="-1">
+                    </div>
+                    <div>
+                        <label for="comment">Comment</label>
+                        <input type="text" id="comment" value="Test comment" tabindex="-1">
+                    </div>
+                    <div>
+                        <label></label>
+                        <input type="button" value="Add" onclick="testAction('addItem');">
+                    </div>                    
+                </fieldset>
             </fieldset>
         </div>
         <table id="rules">

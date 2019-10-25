@@ -2,16 +2,20 @@
 /*
  * 
  * @param {type} text containing json formatted string.
- * @returns {jsonReader}
+ * @returns {JSONReader}
  * 
  * Contains methods for unpacking the json string.
  */
-function jsonReader(text) {
+function JSONReader(text) {
     this.text   = text;
     this.index  = 0;
     this.value  = null;
     this.type   = null;
     this.quoted = false;
+    
+    function reportError(reader, message) {
+        reporter.fatalError('JSONReader at offset ' + reader.index + 'Error-' + message);
+    }
     /*
      * 
      * @param {type} allowed
@@ -160,7 +164,14 @@ function jsonReader(text) {
                     if (!symbol.first) symbol.value = this.getJSON('object');
                     break;
                 case '[':
-                    symbol.value = this.getJSON('array');
+                    /*
+                     * Strictly speaking JSON data should start with {. This allows JSON data that omits
+                     * the enclosing {}.
+                     */
+                    if (symbol.first)
+                        result = new JSON('array');
+                    else
+                        symbol.value = this.getJSON('array');
                     break;
                 case '}':
                 case ']':
@@ -217,7 +228,7 @@ function JSON(type) {
                     result.value        = value;
                     break;
                 default:
-                    reporter.setFatalAction("Javascript type '" + typeof value + "' not supported");
+                    reporter.fatalError("Javascript type '" + typeof value + "' not supported");
             }
         }
         return result;
@@ -228,7 +239,7 @@ function JSON(type) {
         
         var valid = idx >= 0 && idx < json.values.length;
         
-        if (!valid && (error === undefined || error)) reporter.setFatalAction("Index " + idx + " not within values");
+        if (!valid && (error === undefined || error)) reporter.fatalError("Index " + idx + " not within values");
         
         return valid;
     };
@@ -236,31 +247,31 @@ function JSON(type) {
         this.index = -1;
     };
     this.isNext = function() {
-        return checkIndex(this, undefined, true);
+        return checkIndex(this, undefined, true, false);
     };
     this.next = function() {
-        checkIndex(this, undefined, true);
+        checkIndex(this, undefined, true, true);
         
         return getValue(this.values[++this.index], true);
     };
     this.addMember = function(name, value) {
-        if (this.type === 'array') reporter.setFatalAction('JSON addMember is not valid for an array');
+        if (this.type === 'array') reporter.fatalError('JSON addMember is not valid for an array');
         
         this.values.push({name: name, value: value});      
     };
     this.getMember = function(name, mustExist) {
-        if (this.type === 'array') reporter.setFatalAction('JSON getMember is not valid for an array');
+        if (this.type === 'array') reporter.fatalError('JSON getMember is not valid for an array');
         
         for (var i = 0; i < this.values.length; i++) {
             if (this.values[i].name === name) return getValue(this.values[i], true);
         };
-        if (mustExist !== undefined && mustExist) 
-            reporter.setFatalAction('JSON object does not have a member with name-' + 'name');
+        if (mustExist === undefined || mustExist) 
+            reporter.fatalError('JSON object does not have a member with name-' + name);
         else
             return {type: 'simple', name: name, value: null};
     };
     this.addElement = function(value) {
-        if (this.type === 'object') reporter.setFatalAction('JSON addElement is not valid for an object');
+        if (this.type === 'object') reporter.fatalError('JSON addElement is not valid for an object');
         
         this.values.push({value: value});      
     };
@@ -286,5 +297,5 @@ function JSON(type) {
         
         return string;
     };
-    if (this.type !== 'object' && this.type !== 'array') reporter.setFatalAction("JSON type '" + this.type + "' is invalid");    
+    if (this.type !== 'object' && this.type !== 'array') reporter.fatalError("JSON type '" + this.type + "' is invalid");    
 }

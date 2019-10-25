@@ -244,8 +244,8 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("SeqNo");
             sql.addField("Timestamp");
             sql.addField("Weekday");
-            sql.addField("Category");
-            sql.addField("Type");
+            sql.addField("Category", null, null, "VARCHAR(13)");
+            sql.addField("Type",     null, null, "VARCHAR(13)");
             sql.addDefaultedField("Description", "");
             sql.addDefaultedField("Location",    "");
             sql.addField("Period");

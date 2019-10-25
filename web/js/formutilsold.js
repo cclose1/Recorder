@@ -607,16 +607,15 @@ function columns() {
 
         return setClass(this.cols[column], includeTag);
     }
-    function setName(column, name, type, optional) {
+    function setName(column, name, type, precision, scale, optional) {
         var col = this.getColumn(column);
         col.name = name;
 
-        if (col.size === null || name.length > col.size)
-            col.size = name.length;
-        if (type !== undefined)
-            col.type = type;
-        if (optional !== undefined)
-            col.optional = optional;
+        if (col.size === null || name.length > col.size) col.size = name.length;
+        if (type      !== undefined) col.type     = type;
+        if (precision !== undefined) col.type     = precision;
+        if (scale     !== undefined) col.type     = scale;
+        if (optional  !== undefined) col.optional = optional;
     }
     function setSize(column, size, type) {
         var col = this.getColumn(column);
@@ -1520,7 +1519,7 @@ function getList(server, options, returnResponse) {
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {
-        if (options.name !== undefined)loadListResponse(response, options);
+        if (options.name !== undefined) loadListResponse(response, options);
         
         if (returnResponse !== undefined && returnResponse) save = response;
     }

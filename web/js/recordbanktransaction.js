@@ -364,7 +364,11 @@ function requestTransactions(filter) {
     var parameters = createParameters('transactions');
 
     function processResponse(response) {
-        loadJSONArray(response, "transactions", 19, "btTransactionsRowClick(this)", true, null, false, true);
+        loadJSONArray(response, "transactions", 
+            {maxField: 19, onClick: "btTransactionsRowClick(this)", columns: 
+             [{name: 'TXN Id', minWidth: 8, maxWidth: 8},
+              {name: 'Fee',    maxWidth: 4},
+              {name: 'Type',   maxWidth:10}]});
     }
     if (filter === undefined) filter = txnFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
@@ -375,7 +379,7 @@ function requestAccounts() {
     var parameters = createParameters('accounts');
     
     function processResponse(response) {
-        loadJSONArray(response, "accounts", 20, "btAccountsRowClick(this)", null, null, false, true);
+        loadJSONArray(response, "accounts",  {maxField: 20, onClick: "btAccountsRowClick(this)"});
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
 }
@@ -410,7 +414,7 @@ function initialize() {
         field:        "Code",
         keepValue:    true,
         async:        false,
-        allowblank:   true},
+        allowBlank:   true},
         true);
     txnFilter.addFilter('Accounts', 'Account', response);
     response = getList('BankTransaction', {
@@ -426,21 +430,21 @@ function initialize() {
         name:         "scurrency",
         keepValue:    true,
         async:        false,
-        allowblank:   true});
+        allowBlank:   true});
     getList('BankTransaction', {
         name:         "txntype",
         table:        "BankTransactionType",
         field:        "Code",
         keepValue:    true,
         async:        false,
-        allowblank:   true});
+        allowBlank:   true});
     response = getList('BankTransaction', {
         name:         "txnusage",
         table:        "AccountUsage",
         field:        "Code",
         keepValue:    true,
         async:        false,
-        allowblank:   true},
+        allowBlank:   true},
         true);
     txnFilter.addFilter('Usages', 'Usage', response);
     txnFilter.addFilter('Description', 'Description');
