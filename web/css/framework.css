@@ -104,7 +104,7 @@ th {
 td {
     text-align: left;
 }
-td.number {
+th.number, td.number {
     text-align: right;                
 }
 .moneyvalue {

@@ -63,7 +63,7 @@ public class RecordBankTransaction extends ApplicationServer {
     private int getNextTXNLine(Context ctx, String txnId) throws SQLException {
         SQLSelectBuilder sql = ctx.getSelectBuilder("TransactionLine");
         
-        sql.addDefaultedField("MAX(Line) + 1", "LineNum", 1);
+        sql.addField("LineNum", sql.setExpressionSource("MAX(Line) + 1"), sql.setValue(0));
         sql.addAnd("TXNId", "=", txnId);
         
         ResultSet rs = executeQuery(ctx, sql);
@@ -120,24 +120,25 @@ public class RecordBankTransaction extends ApplicationServer {
             sql.addField("Line");
             sql.addField("Timestamp");
             
+
             if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
-                sql.addField("SUBSTRING(DATENAME(WEEKDAY, Timestamp), 1, 3)", "Weekday");
+                sql.addField("Weekday", sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Timestamp), 1, 3)"));
             } else {
-                sql.addField("SubStr(DayName(Timestamp), 1, 3)", "Weekday");
+                sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"));
             }
             sql.addField("Completed");
-            sql.addDefaultedField("AccountNumber", "Number", "");
-            sql.addDefaultedField("CardNumber",    "Card",   "");
+            sql.addField("Number",     sql.setFieldSource("AccountNumber"), sql.setValue(""));
+            sql.addField("Card",       sql.setFieldSource("CardNumber"),    sql.setValue(""));
             sql.addField("Account");
-            sql.addDefaultedField("TXNId",    "'TXN Id'",   "");
-            sql.addField("Amount", null, null, "DECIMAL(10,2)");
-            sql.addField("Amount", "AmountFull");
-            sql.addField("Fee",    null, null, "DECIMAL(10,2)");
-            sql.addField("Fee",    "FeeFull");
+            sql.addField("'TXN Id'",   sql.setFieldSource("TXNId"),         sql.setValue(""));
+            sql.addField("Amount",     sql.setCast("DECIMAL", 10, 2));
+            sql.addField("AmountFull", sql.setFieldSource("Amount"));
+            sql.addField("Fee",        sql.setCast("DECIMAL", 10, 2));
+            sql.addField("FeeFull",    "Fee");
             sql.addField("Currency");
-            sql.addDefaultedField("Type",  "");
-            sql.addDefaultedField("Usage", "" );
-            sql.addDefaultedField("CryptoAddress", "Address",   "");
+            sql.addField("Type",       sql.setValue(""));
+            sql.addField("Usage",      sql.setValue(""));
+            sql.addField("Address",    sql.setFieldSource("CryptoAddress"), sql.setValue(""));
             sql.addField("Description");
             sql.setOrderBy("TXNCreated DESC, Timestamp, Line");
             
@@ -155,7 +156,7 @@ public class RecordBankTransaction extends ApplicationServer {
 
             sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
             
-            sql.addField("A.Code", "Account");
+            sql.addField("Account", "A.Code");
             sql.addField("B.Bank");
             sql.addField("A.Owner");
             sql.addField("A.Description");

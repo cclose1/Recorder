@@ -118,20 +118,20 @@ public class HeartMonitor extends ApplicationServer {
             
             if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
                 sql.addField("Date");
-                sql.addField("Week",         null,         null, "DECIMAL(2)");
+                sql.addField("Week", sql.setCast("DECIMAL", 2));
                 sql.addField("Weekday");
             } else {
-                sql.addField("CAST(Timestamp AS Date)",          "Date");
-                sql.addField("Week(Timestamp) + 1",              "Week", null, "DECIMAL(2)");
-                sql.addField("SubStr(DayName(Timestamp), 1, 3)", "Weekday");
+                sql.addField("Date",    sql.setFieldSource("Timestamp"), sql.setCast("Date"));
+                sql.addField("Week",    sql.setExpressionSource("Week(Timestamp) + 1"), sql.setCast("DECIMAL", 2));
+                sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"));
             }
             sql.addField("Session");
-            sql.addField("CAST(Timestamp AS Datetime)", "Timestamp");                
+            sql.addField("Timestamp", sql.setCast("Datetime"));             
             sql.addField("Side");
             sql.addField("Systolic");
             sql.addField("Diastolic");
             sql.addField("Pulse");
-            sql.addDefaultedField("O.Orientation", "Orientation", "");
+            sql.addField("Orientation", sql.setFieldSource("O.Orientation"), sql.setValue(""));
             sql.addField("Comment");
             sql.setOrderBy("Timestamp DESC");
             
