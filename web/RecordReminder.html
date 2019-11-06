@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/recordreminder.css" rel="stylesheet" type="text/css">
+        <script src="js/platform.js"></script>
+        <script src="js/json.js"></script>
+        <script src="js/formutils.js"></script>
+        <script src="js/csseditor.js"></script>
+        <script src="js/filter.js"></script>
+        <script src="js/alert.js"></script>
+        <script src="js/login.js"></script>
+        <script src="js/recordreminder.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Reminder Handler</title>
+    </head>
+    <body onload="addIEFixClass(['body']); configureAlert(false, true); configureLogin('Reminder', 'loginfields'); initialize(true); setUser();">                  
+        <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
+            <div>
+                <h1 id="alertTitle">Display Message</h1>
+            </div>
+            <div>
+                <label id="alertMessage" class="centre"></label>
+            </div>
+            <div id="alertDismiss">
+                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
+                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
+            </div>
+        </div>        
+        <div id="loginfields" hidden>
+            <fieldset>
+                <legend>Login Details</legend>
+                <div>
+                    <div hidden>
+                        <input id="secserver">
+                    </div>
+                    <label for="user">User</label>
+                    <input type="text" name="User" size ="10" id="user">
+                    <label for="saveuser" class="nogap">Save</label>
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" name="Password" size ="20" id="password" onkeypress="login(document.getElementById('secserver').value, event)">
+                </div>
+                <div>
+                    <label for="newpassword">New Password</label>
+                    <input type="password" name="NewPassword" size ="20" id="newpassword">
+                </div>
+                <div>
+                    <label for="confirmpassword">Confirm Password</label>
+                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
+                </div>
+                <div>
+                    <label for="requestlogin"></label>
+                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
+                </div>
+            </fieldset>
+        </div>  
+        <form class="frame" id="appframe" autocomplete="off">
+            <h1>Reminder Handler</h1>
+            <div id="innerfields">
+                <div class='floatleft'>
+                    <fieldset id="detailfields" class='form'>
+                        <legend>Reminder Details</legend>
+                        <div>
+                            <div>
+                                <input type="text" name="seqno" id="seqno" hidden>
+                            </div>
+                            <div>
+                                <label for="date">Date</label>
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
+                                <label for="time" class="nogap">Time</label>
+                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                            </div>
+                            <div>
+                                <label for="type">Type</label>
+                                <select id="type" tabindex="-1" onchange="setTime();">
+                                    <option></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="warndays">Warn Days</label>
+                                <input type="text" size ="3" id="warndays" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">                            
+                            </div>
+                            <div>
+                                <label for="showall">Show All</label>
+                                <input id="showall" type="checkbox" onclick="requestReminders();">
+                            </div>
+                            <div>
+                                <label for="frequency">Frequency</label>
+                                <select id="frequency" tabindex="-1" onchange="setTime();">
+                                    <option></option>
+                                    <option>M</option>
+                                    <option>Y</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="description">Description</label>
+                                <input type= "text" name="description" id="description" oninput="setTime();">
+                            </div>
+                            <div>
+                                <label for="suspended">Suspended</label>
+                                <select id="suspended" tabindex="-1" onchange="setTime();">
+                                    <option></option>
+                                    <option>Y</option>
+                                    <option>N</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="save"></label>
+                                <input id="save" name="save" type="button" value="Create" onclick="send();">
+                                <input id="clone" name="clone" type="button" hidden value="Clone" onclick="clonedata();">
+                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="deleteData();">
+                            </div>
+                            <div id="logoff" hidden>
+                                <label for="logoffbtn"></label>
+                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff(document.getElementById('secserver').value);">
+                            </div>
+                            <div id="mysqldiv" hidden>
+                                <label for="mysql">Use MySQL</label>
+                                <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestReminders()">
+                            </div>
+                            <div>
+                                <label for="showfilter">Show Filter</label>
+                                <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div id="filter">
+                    <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
+                    </iframe>
+                </div>  
+            </div> 
+
+            <table id="reminders">
+                <caption>Reminders</caption>
+                <thead>
+                    <tr><th></th></tr>
+                </thead>
+                <tr><th></th></tr>
+            </table>
+        </form>
+    </body>
+</html>

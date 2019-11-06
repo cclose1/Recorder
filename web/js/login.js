@@ -13,8 +13,8 @@ function addLoginParameter(parameters, id) {
     return addParameter(parameters, id, pu.getValueById(id));
 }
 function setUser() {
-    document.getElementById("user").value       = getCookie("userid");
-    document.getElementById("saveuser").checked = getCookie("userid") !== "";
+    pu.getElementById("user").value       = getCookie("userid");
+    pu.getElementById("saveuser").checked = getCookie("userid") !== "";
 }
 function displayLogOn(yes) {
     pu.display(yes, true);
@@ -52,7 +52,7 @@ function loggedIn(response) {
 function ajaxLoggedInCall(server, processResponse, parameters, async) {
     function ajaxProcess(response) {
         if (!loggedIn(response)) return;
-
+        
         processResponse(response);
     }
     if (loggingIn()) return;
@@ -83,6 +83,11 @@ function login(server, event) {
     if (event !== undefined) {
         if (event.keyCode !== 13) return;
     }
+    if (pu.getElementById('browserlog').checked)
+        localStorage.setItem('browserlog', 'Y');
+    else
+        localStorage.setItem('browserlog', 'N');
+    
     var parameters = addParameter("", "action", "login");
 
     function processResponse(response) {

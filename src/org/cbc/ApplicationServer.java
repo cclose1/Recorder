@@ -40,7 +40,8 @@ import org.cbc.utils.system.SecurityConfiguration;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet { 
-
+    protected Reminder reminder = null;
+    
     protected String getListSql(Context ctx, String table, String field) throws ParseException, SQLException {
         SQLSelectBuilder sql          = ctx.getSelectBuilder(table);
         String[]         filterFields = ctx.getParameter("filter").split(",");
@@ -99,6 +100,7 @@ public abstract class ApplicationServer extends HttpServlet {
             }
             protected Login application = new Login();
             protected Login security    = new Login();
+            protected Login reminder    = new Login();
             
             public void setApplication(String name, String user, String password) {
                 Trace t = new Trace("setApplication");
@@ -111,6 +113,16 @@ public abstract class ApplicationServer extends HttpServlet {
                 
                 t.report('C', "Database " + name + " user " + user);
                 security.load(name, user, password);
+            }
+            public void setReminder(String name, String user, String password) {
+                Trace t = new Trace("setReminder");
+                
+                if (name     == null) name     = config.getProperty("remdatabase");                
+                if (user     == null) user     = config.getProperty("remuser");              
+                if (password == null) password = config.getProperty("rempassword");
+
+                t.report('C', "Database " + name + " user " + user);
+                reminder.load(name, user, password);
             }
         }
         protected Databases databases = new Databases();
@@ -230,6 +242,7 @@ public abstract class ApplicationServer extends HttpServlet {
     protected class Context {
         private DatabaseSession     appDb = null;
         private DatabaseSession     secDb = null;
+        private DatabaseSession     remDb = null;
         private HTTPRequestHandler  handler;
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
@@ -273,6 +286,10 @@ public abstract class ApplicationServer extends HttpServlet {
         public DatabaseSession getSecDb() {
             return secDb == null? appDb : secDb;
         }
+        public DatabaseSession getRemDb() {
+            return remDb;
+        }
+
         private HTTPRequestHandler getHandler() {
             return handler;
         }
@@ -320,6 +337,11 @@ public abstract class ApplicationServer extends HttpServlet {
                 secDb = openDatabase(config.databases.security, useMySql);
             else
                 secDb = null;
+            
+            if (!config.databases.application.equals(config.databases.reminder))
+                remDb = openDatabase(config.databases.reminder, useMySql);
+            else
+                remDb = appDb;
         }
         public SQLSelectBuilder getSelectBuilder(String table) {
             SQLSelectBuilder builder = table == null? new SQLSelectBuilder() : new SQLSelectBuilder(table);
@@ -445,7 +467,17 @@ public abstract class ApplicationServer extends HttpServlet {
                 ctx.setStatus(200);        
             } else if (action.equals("")) {
                 ctx.getHandler().dumpRequest("No action parameter"); 
-            } else {
+            } else {                
+                if (!config.getAppName().equals("Reminder")) {
+                    Reminder.State state = reminder.alert();
+                    
+                    if (state.alerts()) {
+                        ctx.getReplyBuffer().append(state.getImmediate() != 0? "!ReminderImmediate" : "!ReminderAlert");
+                        ctx.getReplyBuffer().append(',');
+                        ctx.getReplyBuffer().append(state.getAlertFrequency());
+                        ctx.getReplyBuffer().append(';');                        
+                    }
+                }
                 processAction(ctx, action);
             }
         } catch (NoSuchAlgorithmException ex) {
@@ -482,6 +514,9 @@ public abstract class ApplicationServer extends HttpServlet {
                         this.config.getProperty("secdatabase"),
                         this.config.getProperty("secuser"),
                         this.config.getProperty("secpassword"));
+            }
+            if (this.config.databases.reminder.name == null) {
+                this.config.databases.setReminder(null, null, null);
             }
         } catch (IOException ex) {
             Report.error(null, "IOException reading servlet properties", ex);
@@ -523,6 +558,14 @@ public abstract class ApplicationServer extends HttpServlet {
             ctx.openDatabases(useMySql || !config.isSqlServerAvailable());
             
             Security security = new Security(ctx.getSecDb(), request, config);
+            
+            if (reminder == null) {
+                reminder = new Reminder(ctx.getRemDb());                
+                reminder.setAlertOptions(
+                        this.config.getIntProperty("reminderalertrepeat",    0),
+                        this.config.getIntProperty("reminderalertimmediate", 1));
+            } else
+                reminder.changeDatabase(ctx.getRemDb());
             
             while (repeat <= maxRepeats) {
                 try {

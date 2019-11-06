@@ -168,14 +168,13 @@ function requestHistory() {
     ajaxLoggedInCall("Record", processResponse, parameters);
 }
 function updateOrientationList(name, dbField) {
-    getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowblank: true}); 
+    getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowBlank: true}); 
 }
 function initialize() {
     if (!serverAcceptingRequests('Record')) return;
     
     enableMySql('Record');
     newSession();
-//    setInterval(updateTimer, 1000);
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');
     requestHistory();

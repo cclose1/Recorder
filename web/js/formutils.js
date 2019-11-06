@@ -231,8 +231,15 @@ var reporter = new Reporter();
 function Statistics(enabled) {
     this.start;
     this.id         = randomString(3);
-    this.logEnabled = enabled !== undefined && enabled;
- 
+    this.logEnabled = false;
+    
+    if (enabled === undefined) {
+        var flag = localStorage.getItem('browserlog');
+        
+        if (flag !== null) this.logEnabled = flag === 'Y'; 
+    } else
+        this.logEnabled = enabled;
+    
     this.enableLog = function(yes) {
         this.logEnabled = yes;
     };       
@@ -412,6 +419,40 @@ function BaseOptions(pAccessByGet) {
         }
     };
 }
+function reportReminder(options) {
+    var opts = options.split(',');
+    
+    
+    if (opts.length > 2)
+        reporter.fatalError('Invalid reminder options-' + options);
+    else {
+        var interval = localStorage.getItem('remInterval');
+        var last     = localStorage.getItem('remLast');
+        var lastDt   = null;
+        
+        if (interval === null) {
+            st.log('Local storage initialised');
+            interval = opts.length === 2? opts[1] : 10;
+            localStorage.setItem('remInterval', interval);
+        } else {
+            lastDt = new Date(last);
+            st.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
+        }
+        /*
+         * Set to options interval if one provided.
+         */
+        if (opts.length === 2) interval = opts[1];
+        
+        if (lastDt === null || ((new Date()).getTime() - lastDt.getTime()) / 60000 > interval) {
+            var state = opts[0] === '!ReminderImmediate'? 'URGENT' : 'current';
+            
+            st.log('Alert displayed');
+            displayAlert('Warning',  'There are ' + state + ' reminders');
+            localStorage.setItem('remInterval', interval);
+            localStorage.setItem('remLast',     (new Date()).toString());
+        }
+    }    
+}
 function JSONArrayColumnOptions(pOptions) {  
     BaseOptions.call(this, false);
     
@@ -468,58 +509,6 @@ loadOptionsJSONOptions.prototype = {
     get allowBlank()   {return this.getValue('allowBlank');}};
 loadOptionsJSONOptions.prototype.constructor = loadOptionsJSONOptions;
 
-function JSONArrayOptionsO(options) {    
-    function clear(options) {
-        options.maxField      = 0;
-        options.onClick       = undefined;
-        options.nullToEmpty   = true;
-        options.useInnerCell  = false;
-        options.addColNoClass = false;
-        options.addName       = true;
-    }
-    function loadOption(options, name, value, required) {     
-        /*
-         * Strictly value should not be null or undefined. While transition to using options, apply default.
-         */
-        if (value === null || value === undefined) return;
-        
-        if (typeof value !== required)             
-            reporter.fatalError('JSONArrayOption "' + name + '" type is ' + typeof value + ' but should be ' + required);
-        else
-            options[name] = value;
-    }
-    function load(options, values) {
-        for (name in values) {
-            var required;
-
-            switch (name) {
-                case 'maxField':
-                    required = 'number';
-                    break;
-                case 'onClick':
-                    required = 'string';
-                    break;
-                case 'nullToEmpty':
-                    required = 'boolean';
-                    break;
-                case 'useInnerCell':
-                    required = 'boolean';
-                    break;
-                case 'addColNoClass':
-                    required = 'boolean';
-                    break;
-                case 'addName':
-                    required = 'boolean';
-                    break;
-                default:
-                    reporter.fatalError('JSONArrayOption ' + name + ' is not valid');
-            }
-            if (required !== undefined) loadOption(options, name, values[name], required);
-        }
-    }
-    clear(this);
-    load(this, options);
-}
 function resizeFrame(id) {
     var elm    = getElement(id);
     var width  = elm.contentWindow.document.body.scrollWidth;
@@ -1358,7 +1347,7 @@ function loadJSONArray(jsonArray, id, options) {
                 if (rowSize > maxRowSize) maxRowSize = rowSize;
             }
         }
-        reporter.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
+        st.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
         st.logElapsed("Set table sizes");
     } catch (e) {
         reporter.logThrow(e, true);;
@@ -1545,7 +1534,7 @@ function parametersSummary(parameters) {
     return smy;
 }
 function ajaxCall(destination, parameters, processResponse, async) {
-    var stm            = new Statistics(st.enableLog);
+    var stm            = new Statistics(st.isEnabled());
     var xmlHttpRequest = getXMLHttpRequest();
     var params = parametersSummary(parameters);
 
@@ -1563,14 +1552,27 @@ function ajaxCall(destination, parameters, processResponse, async) {
     xmlHttpRequest.onreadystatechange = function () {
         if (xmlHttpRequest.readyState === 4) {
             if (xmlHttpRequest.status === 200) {
+                var response =xmlHttpRequest.responseText;
+                
                 stm.logElapsed("Post");
-                processResponse(xmlHttpRequest.responseText);
+                
+                if (response.startsWith('!Reminder')) {
+                    var i = response.indexOf(';');
+                    
+                    if (i === -1) reporter.fatalError('Reminder response not terminated by ;');
+                    else {
+                        var reminder = response.substring(0, i);
+                        response = response.substring(i + 1);
+                        reportReminder(reminder);
+                    }
+                }
+                processResponse(response);
             } else {
                 alert("HTTP error " + xmlHttpRequest.status + ": " + xmlHttpRequest.responseText);
             }
         }
     };
-    stm = new Statistics(st.enableLog);
+    stm = new Statistics(st.isEnabled());
     stm.log("Post to " + destination + ' parameters ' + parametersSummary(parameters));
     stm.setStart();
     xmlHttpRequest.open("POST", destination + "?" + params, async);

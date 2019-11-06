@@ -1,0 +1,21 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 02-Nov-2019, 16:53:20
+    Author     : chris
+*/
+
+#reminders [name='SeqNo'] {
+    display: none;
+}
+
+/*
+ * resizeFrame seemed to set height OK, but the width was too short. Use this work around while trying
+ * to find a better solution.
+ */
+#filterframe {
+    width: 375px;
+}

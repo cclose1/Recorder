@@ -16,7 +16,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Nutrition Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Nutrition', 'loginfields'); initialize(true); setUser();">                      
+    <body onload="configureAlert(false, true); configureLogin('Nutrition', 'loginframe'); initialize(true); setUser();">                      
             <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
@@ -29,35 +29,9 @@
                 <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
             </div>
         </div>
-        <div id="loginfields" hidden>
-            <fieldset>
-                <legend>Login Details</legend>
-                <div>
-                    <div hidden>
-                        <input id="secserver">
-                    </div>
-                    <label for="user">User</label>
-                    <input type="text" name="User" size ="10" id="user">
-                    <label for="saveuser" class="nogap">Save</label>
-                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
-                </div>
-                <div>
-                    <label for="password">Password</label>
-                    <input type="password" name="Password" size ="20" id="password" onkeypress="login(document.getElementById('secserver').value, event)">
-                </div>
-                <div>
-                    <label for="newpassword">New Password</label>
-                    <input type="password" name="NewPassword" size ="20" id="newpassword">
-                </div>
-                <div>
-                    <label for="confirmpassword">Confirm Password</label>
-                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
-                </div>
-                <div>
-                    <label for="requestlogin"></label>
-                    <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="login(document.getElementById('secserver').value);" tabindex="3">
-                </div>
-            </fieldset>
+        <div id="loginfields" hidden >
+            <iframe id="loginframe" src="Login.html" scrolling="no">
+            </iframe>
         </div>  
         <form class="frame" id="appframe" autocomplete="off">
             <h1>Record Nutrition Details</h1>
@@ -239,7 +213,7 @@
                                 </div>
                                 <div id="logoff" hidden>
                                     <label for="logoffbtn"></label>
-                                    <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff(document.getElementById('secserver').value);">
+                                    <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
                                 </div>
                                 <div>
                                     <label for="showitem">Show Item</label>

@@ -111,20 +111,10 @@ public class RecordNutrition extends ApplicationServer {
                 super.config.getProperty("ntuser"),
                 super.config.getProperty("ntpassword"));
     }
-    void Test(Context ctx) throws SQLException {
-        String sqltxt;
-
-        SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
-        sql.addField("Fld1", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"));
-        sql.addField("Fld2", sql.setFieldSource("Name"), sql.setCast("Varchar", 10));
-        sql.addField("Fld3", sql.setFieldSource("String"), sql.setCast("Varchar", 20), sql.setValue("NullDefault"));
-        sql.addField("Fld4", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"), sql.setValue("NullDefault"), null);
-        sqltxt = sql.build();
-    }
     public void processAction(
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
-Test(ctx);
+        
         if (action.equals("getweight")) {
             Date date = ctx.getDate("date");
 
