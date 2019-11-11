@@ -23,6 +23,7 @@ function reset() {
     document.getElementById("frequency").value   = "";
     document.getElementById("suspended").value   = "";
     document.getElementById("description").value = "";
+    document.getElementById("comment").value     = "";
     document.getElementById("save").value        = "Create";
     document.getElementById("type").focus();
     setHidden("clone", true);
@@ -35,9 +36,9 @@ function clonedata() {
     document.getElementById("save").value = "Create";
     document.getElementById("date").value = currentDate(new Date());
 }
-function checkTimestamp() {
+function checkRefId() {
     var valid      = true;
-    var parameters = createParameters('checktimestamp');
+    var parameters = createParameters('checkrefid');
 
     function processResponse(response) {
         if (!loggedIn) return;
@@ -51,19 +52,29 @@ function checkTimestamp() {
             valid = false;
         }
     }
-    parameters = addParameterById(parameters, 'date');
-    parameters = addParameterById(parameters, 'time');
+    parameters = addParameterById(parameters, 'refid');
 
     ajaxLoggedInCall('Reminder', processResponse, parameters, false);
     return valid;
 }
 function send() {
+    var parameters;
+    
     if (!fieldHasValue("date"))   return;
-    if (document.getElementById("seqno").value === '' && !checkTimestamp()) return;
+    
+    if (document.getElementById("save").value === 'Create') {
+        if (document.getElementById("refid").value === '') {
+            document.getElementById("refid").value = createUID(4, 'AG');
+            displayAlert('Warning', 'Ref Id auto generated. Resubmit to continue');
+            return;
+        } 
+        if (!checkRefId()) return;
+        
+        parameters = createParameters('createreminder');
+    } else
+        parameters = createParameters('savereminder');
 
-    var parameters = createParameters('savereminder');
-
-    parameters = addParameterById(parameters, 'seqno');
+    parameters = addParameterById(parameters, 'refid');
     parameters = addParameterById(parameters, 'date');
     parameters = addParameterById(parameters, 'time');
     parameters = addParameterById(parameters, 'type');
@@ -71,13 +82,14 @@ function send() {
     parameters = addParameterById(parameters, 'warndays');
     parameters = addParameterById(parameters, 'suspended');
     parameters = addParameterById(parameters, 'description');
+    parameters = addParameterById(parameters, 'comment');
 
     ajaxLoggedInCall('Reminder', reset, parameters);
 }
 function deleteData() {
     var parameters = createParameters('deletereminder');
 
-    parameters = addParameterById(parameters, 'seqno');
+    parameters = addParameterById(parameters, 'refid');
 
     ajaxLoggedInCall('Reminder', reset, parameters);
 }
@@ -101,8 +113,8 @@ function rowClick(row) {
         var value   = rdr.columnValue();
         
         switch (rdr.columnName()) {
-            case 'SeqNo':
-                document.getElementById("seqno").value = value;
+            case 'RefId':
+                document.getElementById("refid").value = value;
                 break;            
             case 'Timestamp':
                 var fields = value.split(" ");
@@ -126,6 +138,9 @@ function rowClick(row) {
                 break;
             case 'Description':
                 document.getElementById("description").value = value;
+                break;
+            case 'Comment':
+                document.getElementById("comment").value = value;
                 break;
         }
     }

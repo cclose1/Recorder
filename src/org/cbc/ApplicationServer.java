@@ -557,7 +557,7 @@ public abstract class ApplicationServer extends HttpServlet {
 
             ctx.openDatabases(useMySql || !config.isSqlServerAvailable());
             
-            Security security = new Security(ctx.getSecDb(), request, config);
+            Security security = new Security(ctx.getSecDb(), ctx.handler, config);
             
             if (reminder == null) {
                 reminder = new Reminder(ctx.getRemDb());                

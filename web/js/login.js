@@ -12,12 +12,23 @@ var pu;
 function addLoginParameter(parameters, id) {
     return addParameter(parameters, id, pu.getValueById(id));
 }
-function setUser() {
-    pu.getElementById("user").value       = getCookie("userid");
-    pu.getElementById("saveuser").checked = getCookie("userid") !== "";
+function saveUser() {
+    if (pu.getElementById("saveuser").checked && pu.getElementById("user").value !== '')
+        localStorage.setItem('recuser', pu.getElementById("user").value);
+    else
+        localStorage.removeItem('recuser');
+}
+function restoreUser() {
+    var user = localStorage.getItem('recuser');
+    
+    if (user === null || user === '' || pu.getElementById("user").value !== '') return;
+    
+    pu.getElementById("user").value = user;
 }
 function displayLogOn(yes) {
     pu.display(yes, true);
+    pu.getElementById("user").focus();
+    
 }
 function loggingIn() {
     var el = document.getElementById(pu.getContainerId());
@@ -75,14 +86,24 @@ function serverAcceptingRequests(server) {
     ajaxLoggedInCall(server, processResponse, parameters, false);
     return isLoggedIn;
 }
-
-function saveUser() {
-    setCookie('userid', pu.getElementById('saveuser').checked? pu.getValueById('user') : '');
-}
 function login(server, event) {
+    function processResponse(response) {
+        var params = response.split(';');
+
+        if (params[0] === 'yes') {
+            displayLogOn(false);
+            
+            pu.getElementById("user").value = '';
+            setHidden("logoff", false);
+            initialize();
+        } else
+            displayAlert("Security Failure", params[0]);
+    }
     if (event !== undefined) {
         if (event.keyCode !== 13) return;
     }
+    restoreUser();
+    
     if (pu.getElementById('browserlog').checked)
         localStorage.setItem('browserlog', 'Y');
     else
@@ -90,22 +111,12 @@ function login(server, event) {
     
     var parameters = addParameter("", "action", "login");
 
-    function processResponse(response) {
-        var params = response.split(';');
-
-        if (params[0] === 'yes') {
-            displayLogOn(false);
-
-            if (params.length >= 2)
-                setCookie("sessionid", params[1].replace(/(\r\n|\n|\r)/gm,""));
-
-            setHidden("logoff", false);
-            initialize();
-        } else
-            displayAlert("Security Failure", params[0]);
+    if (pu.getValueById("user") === "") {
+        displayAlert("Validation Failure", "Must enter a user");
+        return;
     }
     if (pu.getValueById("password") === "") {
-        displayAlert("Validation Failure", "Must enter the password");
+        displayAlert("Validation Failure", "Must enter a password");
         return;
     }
     if (pu.getValueById("newpassword") !== "" && pu.getValueById("confirmpassword") !== "") {
@@ -121,17 +132,16 @@ function login(server, event) {
     parameters = addLoginParameter(parameters, "user");
     parameters = addLoginParameter(parameters, "password");
     parameters = addLoginParameter(parameters, "newpassword");
+    saveUser();
     pu.getElementById("password").value        = "";
     pu.getElementById("newpassword").value     = "";
     pu.getElementById("confirmpassword").value = "";
-    saveUser();
     ajaxCall(server, parameters, processResponse, false);
 }
 function logOff() {
     var parameters = addParameter("", "action", "logoff");
 
     function processResponse(response) {
-        document.cookie = 'sessionid=; expires=01-Jan-70 00:00:01 GMT;';
         displayLogOn(true);
     }
     parameters = addParameterById(parameters, "mysql");

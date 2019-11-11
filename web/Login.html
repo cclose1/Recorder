@@ -13,7 +13,7 @@ and open the template in the editor.
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body>
-        <div id="loginfields">
+        <form id="loginfields" autocomplete="on" onload="top.restoreUser()">
             <fieldset>
                 <legend>Login Details</legend>
                 <div>
@@ -21,29 +21,29 @@ and open the template in the editor.
                         <input id="secserver">
                     </div>
                     <label for="user">User</label>
-                    <input type="text" name="User" size ="10" id="user">
+                    <input type="text" name="User" size ="10" id="user" onfocus="top.restoreUser()">
                     <label for="saveuser" class="nogap">Save</label>
-                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="saveUser()">
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="top.saveUser()">
                     <label for="browserlog" class="nogap">Browser Log</label>
                     <input id="browserlog" tabindex="-1" value="log" type="checkbox" checked="checked">
                 </div>
                 <div>
                     <label for="password">Password</label>
-                    <input type="password" name="Password" size ="20" id="password" onkeypress="top.login(document.getElementById('secserver').value, event)">
+                    <input type="password" name="Password" size ="20" id="password" autocomplete="on" onkeypress="top.login(document.getElementById('secserver').value, event)">
                 </div>
                 <div>
                     <label for="newpassword">New Password</label>
-                    <input type="password" name="NewPassword" size ="20" id="newpassword">
+                    <input type="password" name="NewPassword" size ="20" id="newpassword" autocomplete="on">
                 </div>
                 <div>
                     <label for="confirmpassword">Confirm Password</label>
-                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword">
+                    <input type="password" name="ConfirmPassword" size ="20" id="confirmpassword" autocomplete="on">
                 </div>
                 <div>
                     <label for="requestlogin"></label>
                     <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="top.login(document.getElementById('secserver').value);" tabindex="3">
                 </div>
             </fieldset>
-        </div>  
+        </form>  
     </body>
 </html>

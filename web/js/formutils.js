@@ -197,7 +197,7 @@ function Reporter() {
     function output(action, message) {
         switch (action) {
             case 'console':
-                console.log(message);
+                console.log(getTime(null, true) + ' ' + message);
                 break;
             case 'alert':
                 alert(message);
@@ -209,7 +209,11 @@ function Reporter() {
                 console.log('Unknown action-' + action + ' on report of ' + message);                    
         }
     }
+    var flag = localStorage.getItem('browserlog');
+
     this.fatalAction = 'throw';
+    this.logEnabled  = flag === null || flag === 'Y';
+    
     
     this.setFatalAction = function(action) {
         this.fatalAction = action;
@@ -218,7 +222,7 @@ function Reporter() {
         output(this.fatalAction, message);
     };
     this.log = function(message) {
-        output('console', message);
+        if (this.logEnabled) output('console', message);
     };        
     this.logThrow = function(exception, showAlert) {
         if (showAlert) alert(exception.name + '-' + exception.message);
@@ -228,9 +232,12 @@ function Reporter() {
 }
 var reporter = new Reporter();
 
+function createUID(length, prefix) {
+    return (prefix === undefined? '' : prefix) + randomString(length);
+}
 function Statistics(enabled) {
     this.start;
-    this.id         = randomString(3);
+    this.id         = createUID(3);
     this.logEnabled = false;
     
     if (enabled === undefined) {
@@ -431,12 +438,12 @@ function reportReminder(options) {
         var lastDt   = null;
         
         if (interval === null) {
-            st.log('Local storage initialised');
+            reporter.log('Local storage initialised');
             interval = opts.length === 2? opts[1] : 10;
             localStorage.setItem('remInterval', interval);
         } else {
             lastDt = new Date(last);
-            st.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
+            reporter.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
         }
         /*
          * Set to options interval if one provided.
@@ -446,7 +453,7 @@ function reportReminder(options) {
         if (lastDt === null || ((new Date()).getTime() - lastDt.getTime()) / 60000 > interval) {
             var state = opts[0] === '!ReminderImmediate'? 'URGENT' : 'current';
             
-            st.log('Alert displayed');
+            reporter.log('Alert displayed');
             displayAlert('Warning',  'There are ' + state + ' reminders');
             localStorage.setItem('remInterval', interval);
             localStorage.setItem('remLast',     (new Date()).toString());

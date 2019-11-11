@@ -7,7 +7,7 @@ package org.cbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Date;
+import java.util.Date; 
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLBuilder;
@@ -21,10 +21,13 @@ import org.cbc.utils.data.DatabaseSession;
  * @author chris
  */
 public class Reminder {
-    private DatabaseSession db;
-    private int             alertFrequency = 10;
-    private int             immediateDays  = 1;
-    private Date            lastAlert      = null;
+    private static final int MSINDAY            = 24*60*60*1000;
+    private static final int MSINMINUTE         = 60*1000;
+    private DatabaseSession  db;
+    private int              alertFrequency      = 10;
+    private int              immediateDays       = 1;
+    private Date             lastAlert           = null;
+    private Date             lastFrequencyUpdate = new Date((new Date()).getTime() - MSINDAY);
     
     public class State {
         private int  active    = 0;
@@ -63,11 +66,31 @@ public class Reminder {
     public void changeDatabase(DatabaseSession session) {
         db = session;
     }
+    public void updatebyFrequency(boolean force) throws SQLException {
+        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder");
+        /*
+         * Return if not force and last update was less than a day ago; 
+         */
+        if (!force && (new Date()).getTime() - lastFrequencyUpdate.getTime() < MSINDAY) return;
+        
+        sql.addField(
+                "Timestamp", 
+                db.getProtocol().equals("sqlserver")? 
+                        "CASE WHEN Frequency = 'Y' THEN DATEADD(yy, 1, Timestamp) WHEN Frequency = 'M' THEN  DATEADD(mm, 1, Timestamp) END" :
+                        "CASE WHEN Frequency = 'Y' THEN TIMESTAMPADD(year, 1, Timestamp) WHEN Frequency = 'M' THEN  TIMESTAMPADD(month, 1, Timestamp) END",
+                false);
+        sql.addAnd("Frequency = 'Y'|'M'", ',', '=', '|');
+        sql.addAndClause("Timestamp < CURRENT_TIMESTAMP");
+        db.executeUpdate(sql.build());
+        lastFrequencyUpdate = new Date();
+    }
     public State alert() throws SQLException {
         Date  now   = new Date();
         State state = new State();
         
-        int  min = lastAlert == null? alertFrequency : (int)((now.getTime() - lastAlert.getTime()) / 60000);
+        int  min = lastAlert == null? alertFrequency : (int)((now.getTime() - lastAlert.getTime()) / MSINMINUTE);
+        
+        updatebyFrequency(false);
         
         if (min <= alertFrequency && lastAlert != null) return state;
         
@@ -97,13 +120,14 @@ public class Reminder {
         SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder");
         
         sql.setProtocol(db.getProtocol());
-        sql.addField("SeqNo");
+        sql.addField("RefId");
         sql.addField("Timestamp");
         sql.addField("Type");
         sql.addField("Frequency");
         sql.addField("WarnDays");
         sql.addField("Suspended");
         sql.addField("Description");
+        sql.addField("Comment");
         sql.setOrderBy("Timestamp DESC");
         
         filter = setFilter(filter);
@@ -117,33 +141,45 @@ public class Reminder {
         
         return data;
     }
-    public boolean exists(Date timestamp) throws SQLException {
+    public boolean exists(String refid) throws SQLException {
         
         SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder");
         
         sql.addField("Timestamp");
-        sql.addAnd("Timestamp", "=", timestamp);
+        sql.addAnd("RefId", "=", refid);
             
         ResultSet rs = db.executeQuery(sql.build());
         
         return rs.next();
     }
-    public void update(String seqNo, Date timestamp, String type, String frequency, String warnDays, String suspended, String description) throws SQLException {
-        SQLBuilder sql;
+    
+    public void create(String refId, Date timestamp, String type, String frequency, String warnDays, String suspended, String description, String comment) throws SQLException {
+        SQLInsertBuilder sql = new SQLInsertBuilder("Reminder");
         
-        if (seqNo == null || seqNo.length() == 0) {
-            sql = new SQLInsertBuilder("Reminder");
-        } else {
-            sql = new SQLUpdateBuilder("Reminder");
-            
-            sql.addAnd("SeqNo", "=", seqNo, false);
-        }
+        sql.addField("RefId",       refId);
         sql.addField("Timestamp",   timestamp);
         sql.addField("Type",        type);
         sql.addField("Frequency",   frequency);
         sql.addField("WarnDays",    warnDays.length() == 0? null : warnDays, false);
         sql.addField("Suspended",   suspended);
         sql.addField("Description", description);
+        sql.addField("Comment",     comment);
+        
+        db.executeUpdate(sql.build());
+    }
+
+    public void update(String refId, Date timestamp, String type, String frequency, String warnDays, String suspended, String description, String comment) throws SQLException {
+        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder");
+        
+        sql.addField("Timestamp",   timestamp);
+        sql.addField("Type",        type);
+        sql.addField("Frequency",   frequency);
+        sql.addField("WarnDays",    warnDays.length() == 0? null : warnDays, false);
+        sql.addField("Suspended",   suspended);
+        sql.addField("Description", description);
+        sql.addField("Comment",     comment);
+        
+        sql.addAnd("RefId", "=", refId);
         
         db.executeUpdate(sql.build());
     }

@@ -35,6 +35,9 @@ public class HTTPRequestHandler {
         this.request  = request;
         this.response = response;
     }
+    public HttpServletRequest getRequest() {
+        return request;
+    }
     public HttpServletResponse getResponse() {
         return response;
     }
@@ -76,12 +79,12 @@ public class HTTPRequestHandler {
         return getParameter(name, "");
     }
 
-    public String getCookie(String name) {
-        if (request.getCookies() == null) return "";
+    public Cookie getCookie(String name) {
+        if (request.getCookies() == null) return null;
         
         for (Cookie cookie : request.getCookies()) {
-            if (cookie.getName().equals(name)) return cookie.getValue();
+            if (cookie.getName().equals(name)) return cookie;
         }
-        return "";
+        return null;
     }
 }

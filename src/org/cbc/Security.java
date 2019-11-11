@@ -13,7 +13,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
 import java.util.Date;
-import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpSession;
 import org.cbc.application.reporting.Report;
 import org.cbc.application.reporting.Trace;
 import org.cbc.sql.SQLInsertBuilder;
@@ -34,7 +35,6 @@ class Security {
     private String                sessionId       = "";
     private StringBuilder         reply           = new StringBuilder();
     private DatabaseSession       db;
-    private HttpServletRequest    request;
     private String                host            = null;
     private String                protocol        = null;
     private String                origin          = null;
@@ -43,25 +43,38 @@ class Security {
     private HTTPRequestHandler    handler;
     private SecurityConfiguration config;
     
-    public Security(DatabaseSession db, HttpServletRequest request, SecurityConfiguration configuration) {
+    public Security(DatabaseSession db, HTTPRequestHandler handler, SecurityConfiguration configuration) {
         Trace t = new Trace("Security");
         
-        handler      = new HTTPRequestHandler(request);
+        Cookie session = handler.getCookie("sessionid");
+        
+        this.handler = handler;
         config       = configuration;
         this.db      = db;
-        this.request = request;
-        sessionId    = handler.getCookie("sessionid");
-        host         = request.getServerName();
-        protocol     = request.getProtocol();
-        origin       = request.getHeader("origin");
-        referrer     = request.getHeader("referer");
+        sessionId    = session == null? "" : handler.getCookie("sessionid").getValue();
+        host         = handler.getRequest().getServerName();
+        protocol     = handler.getRequest().getProtocol();
+        origin       = handler.getRequest().getHeader("origin");
+        referrer     = handler.getRequest().getHeader("referer");
         t.exit();
     }
 
     private String getUserTable() {
         return db.getProtocol().equals("mysql") ? "Expenditure.User" : "\"User\"";
     }
-
+    private void setSessionCookie(boolean add) {
+        Cookie cookie;
+        
+        if (add) {
+            cookie = new Cookie("sessionid", sessionId);
+        } else {
+            cookie = handler.getCookie("sessionid");
+            cookie.setValue(null);
+            cookie.setMaxAge(0);
+        }
+        cookie.setPath(handler.getRequest().getPathInfo());
+        handler.getResponse().addCookie(cookie);
+    }
     public void checkSession(int deadlocks) throws SQLException, ParseException {
         Trace t = new Trace("checkSession");
         
@@ -240,7 +253,8 @@ class Security {
             }
         }
         Connection c = db.getConnection();
-        SQLInsertBuilder insert = new SQLInsertBuilder("Session");
+        SQLInsertBuilder insert = new SQLInsertBuilder("Session"); 
+        HttpSession session = handler.getRequest().getSession();
         sessionId = hash.getRandomString(20);
         insert.addField("SessionId", sessionId);
         insert.addField("UserId", user);
@@ -254,7 +268,8 @@ class Security {
          */
         PreparedStatement st = c.prepareStatement(insert.build(), Statement.RETURN_GENERATED_KEYS);
         st.executeUpdate();
-        getReply().append("yes;" + sessionId);
+        setSessionCookie(true);
+        getReply().append("yes;");
         upd.addIncrementField("Logins", 1);
         upd.addField("State", "Active");
         upd.addField("ConsecutiveFails", 0);
@@ -267,6 +282,7 @@ class Security {
         sql.addField(db.getProtocol().equals("mysql") ? "`End`" : "\"End\"", df.format(new Date()));
         sql.setWhere("SessionId = '" + sessionId + '\'');
         db.executeUpdate(sql.build());
+        setSessionCookie(false);
         loggedIn = false;
     }
 

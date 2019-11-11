@@ -8,7 +8,7 @@ and open the template in the editor.
     Author     : chris
 */
 
-#reminders [name='SeqNo'] {
+#reminders [name='RefId'] {
     display: none;
 }
 

@@ -77,20 +77,35 @@ public class RecordReminder extends ApplicationServer {
         if (action.equals("deletereminder")) {
             SQLDeleteBuilder sql = ctx.getDeleteBuilder("Reminder");
             
-            sql.addAnd("SeqNo", "=", ctx.getParameter("seqno"));
+            sql.addAnd("RefId", "=", ctx.getParameter("refid"));
             executeUpdate(ctx, sql.build());
             ctx.setStatus(200);
-        } else if (action.equals("savereminder")) {           
+        } else if (action.equals("createreminder")) {           
             Date date  = ctx.getTimestamp("date", "time");
             
-            reminder.update(
-                    ctx.getParameter("seqno"), 
+            reminder.create(
+                    ctx.getParameter("refid"), 
                     date, 
                     ctx.getParameter("type"), 
                     ctx.getParameter("frequency"), 
                     ctx.getParameter("warndays"), 
                     ctx.getParameter("suspended"), 
-                    ctx.getParameter("description"));
+                    ctx.getParameter("description"), 
+                    ctx.getParameter("comment"));
+            ctx.setStatus(200);
+            ctx.getAppDb().commit();
+        } else if (action.equals("savereminder")) {           
+            Date date  = ctx.getTimestamp("date", "time");
+            
+            reminder.update(
+                    ctx.getParameter("refid"), 
+                    date, 
+                    ctx.getParameter("type"), 
+                    ctx.getParameter("frequency"), 
+                    ctx.getParameter("warndays"), 
+                    ctx.getParameter("suspended"), 
+                    ctx.getParameter("description"), 
+                    ctx.getParameter("comment"));
             ctx.setStatus(200);
             ctx.getAppDb().commit();
         } else if (action.equals("getreminders")) { 
@@ -98,11 +113,11 @@ public class RecordReminder extends ApplicationServer {
             
             data.append(ctx.getReplyBuffer(), "");
             ctx.setStatus(200);
-        } else if (action.equals("checktimestamp")) {
-            Date timestamp = ctx.getTimestamp("date", "time");
+        } else if (action.equals("checkrefid")) {
+            String refId = ctx.getParameter("refid");
             
-            if (reminder.exists(timestamp)) {                
-                ctx.getReplyBuffer().append("Change time as reminder already recorded for " + timestamp);
+            if (reminder.exists(refId)) {                
+                ctx.getReplyBuffer().append("Change RefId as reminder already recorded for " + refId);
             }
             ctx.setStatus(200);
         } else {
