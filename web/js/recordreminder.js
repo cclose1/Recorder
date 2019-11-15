@@ -145,10 +145,12 @@ function rowClick(row) {
         }
     }
     document.getElementById("save").value = "Update";
-    setHidden("clone", false);
+    setHidden("clone",  false);
     setHidden("remove", false);
 }
 function initialize() {
+    addIEFixClass([document.getElementsByTagName('body')[0]]);
+    
     var types = 
             'Anniversary,' +
             'Birthday,'    +

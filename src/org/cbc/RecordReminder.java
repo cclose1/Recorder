@@ -4,9 +4,7 @@
  */
 package org.cbc;
 
-import org.cbc.sql.SQLSelectBuilder;
 import java.io.IOException;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
@@ -14,13 +12,9 @@ import java.util.Properties;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import org.cbc.application.reporting.Report;
-import org.cbc.application.reporting.Trace;
-import org.cbc.json.JSONArray;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
-import org.cbc.utils.system.Calendar;
 
 /**
  *

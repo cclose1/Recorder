@@ -7,15 +7,17 @@ package org.cbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.util.Date; 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
-import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.data.DatabaseSession;
-
+import org.cbc.utils.system.DateFormatter;
 /**
  *
  * @author chris
@@ -31,7 +33,9 @@ public class Reminder {
     
     public class State {
         private int  active    = 0;
-        private int  immediate = 0;
+        private int  immediate = 0;        
+        private Date earliest  = null;
+
         private Date lastCheck = lastAlert;
         
         public boolean alerts() {
@@ -49,14 +53,19 @@ public class Reminder {
         public int getAlertFrequency() {
             return alertFrequency;
         }
+        public Date getEarliest() {
+            return earliest;
+        }
     }
-    private String setFilter(String filter) {
+    private String getActiveFilter(String filter) {
         if (filter.length() != 0) filter += " AND ";
         
         if (db.getProtocol().equalsIgnoreCase("sqlserver"))
             filter += "CURRENT_TIMESTAMP BETWEEN DATEADD(DAY,-COALESCE(Warndays, 5), Timestamp) AND Timestamp";
         else
             filter += "CURRENT_TIMESTAMP BETWEEN DATE_ADD(Timestamp, INTERVAL -COALESCE(Warndays, 5) DAY) AND Timestamp";
+        
+        filter += " AND Suspended <> 'Y'";
         
         return filter;
     }
@@ -84,9 +93,10 @@ public class Reminder {
         db.executeUpdate(sql.build());
         lastFrequencyUpdate = new Date();
     }
-    public State alert() throws SQLException {
+    public State alert() throws SQLException, ParseException {
         Date  now   = new Date();
         State state = new State();
+        
         
         int  min = lastAlert == null? alertFrequency : (int)((now.getTime() - lastAlert.getTime()) / MSINMINUTE);
         
@@ -99,6 +109,7 @@ public class Reminder {
         SQLSelectBuilder sql = new SQLSelectBuilder("ReminderState");
         
         sql.addField("Count",     sql.setFieldSource("Count(*)"));
+        sql.addField("Earliest",  sql.setFieldSource("MIN(Timestamp)"));
         sql.addField("Immediate", sql.setFieldSource("COUNT(CASE WHEN Remaining <= " + immediateDays + " THEN 1 ELSE NULL END)"));
         
         sql.addAnd("Alert", "=", "Y");       
@@ -108,6 +119,7 @@ public class Reminder {
         if (rs.next()) {
             state.active    = rs.getInt("Count");
             state.immediate = rs.getInt("Immediate");
+            state.earliest  = DateFormatter.parseDate(rs.getDate("Earliest") + " " + rs.getTime("Earliest"));
         }
         return  state;
     }
@@ -121,7 +133,13 @@ public class Reminder {
         
         sql.setProtocol(db.getProtocol());
         sql.addField("RefId");
-        sql.addField("Timestamp");
+        sql.addField("Timestamp"); 
+
+        if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
+            sql.addField("Weekday", sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Timestamp), 1, 3)"));
+        } else {
+            sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"));
+        }
         sql.addField("Type");
         sql.addField("Frequency");
         sql.addField("WarnDays");
@@ -129,13 +147,10 @@ public class Reminder {
         sql.addField("Description");
         sql.addField("Comment");
         sql.setOrderBy("Timestamp DESC");
+        sql.addAnd(filter);
         
-        filter = setFilter(filter);
+        if (!showall) sql.addAndClause(getActiveFilter(""));    
         
-        if (!showall && filter.length() != 0) {
-            sql.addAndClause(filter);
-            sql.addAnd("Suspended", "<>", "Y");            
-        }        
         ResultSet rs = db.executeQuery(sql.build());
         data.add("Reminders", rs);
         

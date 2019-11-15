@@ -8,10 +8,6 @@ and open the template in the editor.
     Author     : chris
 */
 
-#reminders [name='RefId'] {
-    display: none;
-}
-
 /*
  * resizeFrame seemed to set height OK, but the width was too short. Use this work around while trying
  * to find a better solution.

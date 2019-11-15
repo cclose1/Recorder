@@ -9,7 +9,7 @@ and open the template in the editor.
 */
 body.iefix {
     margin: auto;
-    width: 950px;
+    width: 1000px;
 }
 #innerfields {
     margin: auto;
@@ -43,9 +43,18 @@ body.iefix {
     #transactions [name='TXN Id'], #transactions [name='Weekday'], #transactions [name='Type'], #transactions [name='Fee'] {
         display: none;
     }
+    #detailfields.iefix {
+        width: 320px;
+        margin: auto;
+    }
+    #filter.iefix {
+        width: 300px;
+        margin: auto;
+    }
 } 
 @media screen and (min-width: 901px) {
     #transactions.iefix {
-        min-width: 620px;
+        float: left;
+        margin: 40px;
     }
 }   

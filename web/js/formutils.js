@@ -48,6 +48,43 @@ function toNumber(text, low, high) {
 
     return text;
 }
+/*
+ * If date is undefined or null returns the current date. If date is not a Date object it is converted to one.
+ */
+function getDate(date) {
+    if (date === undefined || date === null)
+        date = new Date();
+    else if (!(date instanceof Date))
+        date = new Date(date);
+    
+    return date;
+}
+function dateDiff(from, to, units) {
+    var scale;
+    
+    if (units === undefined) units = 'Seconds';
+    
+    switch (units.toLowerCase()) {
+        case 'ms':
+            scale = 1;
+            break;
+        case 'seconds':
+            scale = 1000.0;
+            break;
+        case 'minutes':
+            scale = 60000.0;
+            break;
+        case 'hours':
+            scale = 60 * 60000.0;
+            break;
+        case 'days':
+            scale = 24 * 60 * 60000.0;
+            break;
+        default:
+            reporter.fatalError('dateDiff interval ' + units + ' is invalid');
+    }
+    return (getDate(to).getTime() - getDate(from).getTime()) / scale;
+}
 function dateString(date) {
     var fields = date.toString().split(" ");
 
@@ -59,7 +96,7 @@ function timeString(date) {
     return fields[4];
 }   
 function getTime(date, milliseconds) {
-    if (date === undefined || date === null) date = new Date();
+    date = getDate();
     
     var time = lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
     
@@ -67,15 +104,16 @@ function getTime(date, milliseconds) {
     
     return time;
 }
-function getDateTime() {
-    var now = new Date();
+function getDateTime(date) {
+    date = getDate();
+    
     var datetime =
-            now.getFullYear() + '-' +
-            lpad((now.getMonth() + 1), 2, '0') + '-' +
-            lpad(now.getDate(), 2, '0') + ' ' +
-            lpad(now.getHours(), 2, '0') + ':' +
-            lpad(now.getMinutes(), 2, '0') + ':' +
-            lpad(now.getSeconds(), 2, '0');
+            date.getFullYear() + '-' +
+            lpad((date.getMonth() + 1), 2, '0') + '-' +
+            lpad(date.getDate(), 2, '0') + ' ' +
+            lpad(date.getHours(), 2, '0') + ':' +
+            lpad(date.getMinutes(), 2, '0') + ':' +
+            lpad(date.getSeconds(), 2, '0');
     return datetime;
 }
 function toDate(text) {
@@ -147,8 +185,7 @@ function addIEFixClass(elements) {
     if (platform.name !== 'IE') return;
     
     elements.forEach(function(element) {
-        element = element === 'body'? document.getElementsByTagName('body')[0] : getElement(element);
-        element.classList.add("iefix");
+        getElement(element).classList.add("iefix");
     });
 }
 function setAttribute(element, id, value) {
@@ -267,7 +304,17 @@ function Statistics(enabled) {
     };
 }
 var st = new Statistics();
-
+/*
+ * The following 2 function provide a workaround for the older versions of javascript that don't support the constuctor object element.
+ */
+function getObjectName(obj) {
+    var name = obj.constructor.name;
+    
+    return name === undefined? obj.fixedName : name;
+}
+function setObjectName(obj, name) {
+    if (obj.constructor.name === undefined) obj['fixedName'] = name;
+}
 /*
  * Provides the base methods and storage for Options objects. An options object has one or more name value pairs. Child classes use addSpec
  * in their constructors, to define the option name, type and default value if any.
@@ -283,7 +330,7 @@ function BaseOptions(pAccessByGet) {
     this.accessByGet = pAccessByGet;
     
     function error(options, message) {
-        reporter.fatalError(options.constructor.name + ' ' + message);
+        reporter.fatalError(getObjectName(options) + ' ' + message);
     }
     function getSpec(options, name) {
         for (var i = 0; i < options.optSpecs.length; i++) {
@@ -412,7 +459,7 @@ function BaseOptions(pAccessByGet) {
     this.log = function() {
         var spec;
         
-        console.log(this.constructor.name);
+        console.log(getObjectName(this));
         
         for (var i = 0; i < this.optSpecs.length; i++) {
             spec = this.optSpecs[i];
@@ -430,39 +477,52 @@ function reportReminder(options) {
     var opts = options.split(',');
     
     
-    if (opts.length > 2)
+    if (opts.length !== 3)
         reporter.fatalError('Invalid reminder options-' + options);
     else {
         var interval = localStorage.getItem('remInterval');
         var last     = localStorage.getItem('remLast');
+        var earliest = null;
         var lastDt   = null;
+        var days;
+        var hours;
         
         if (interval === null) {
             reporter.log('Local storage initialised');
-            interval = opts.length === 2? opts[1] : 10;
             localStorage.setItem('remInterval', interval);
         } else {
-            lastDt = new Date(last);
+            lastDt = getDate(last);
             reporter.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
         }
-        /*
-         * Set to options interval if one provided.
-         */
-        if (opts.length === 2) interval = opts[1];
-        
-        if (lastDt === null || ((new Date()).getTime() - lastDt.getTime()) / 60000 > interval) {
+        interval = opts[1];
+        earliest = getDate(opts[2]);
+        hours    = dateDiff(null, earliest, 'Hours');
+
+        if (lastDt === null || dateDiff(lastDt, null, 'Minutes') > interval) {
+            var due;
             var state = opts[0] === '!ReminderImmediate'? 'URGENT' : 'current';
             
-            reporter.log('Alert displayed');
-            displayAlert('Warning',  'There are ' + state + ' reminders');
+            days  = Math.floor(hours / 24);
+            hours = Math.floor(hours - 24 * days)
+            
+            if (days === 0)
+                due = hours + ' hours';
+            else if (days === 1)
+                due = days + ' day ' + hours + ' hours';
+            else
+                due = days + ' days';
+            
+            displayAlert('Warning',  'There are ' + state + ' reminders. Next due ' + due);
+            reporter.log('Alert displayed. Earliest ' + getDateTime(earliest) + ' days ' + days + ' hours ' + hours);
             localStorage.setItem('remInterval', interval);
-            localStorage.setItem('remLast',     (new Date()).toString());
+            localStorage.setItem('remLast',     getDate().toString());
         }
     }    
 }
 function JSONArrayColumnOptions(pOptions) {  
     BaseOptions.call(this, false);
     
+    setObjectName(this, 'JSONArrayColumnOptions');
     this.addSpec({name: 'name',     type: 'string',  mandatory: true});
     this.addSpec({name: 'minWidth', type: 'number', mandatory: false});
     this.addSpec({name: 'maxWidth', type: 'number', mandatory: false});
@@ -473,6 +533,7 @@ function JSONArrayColumnOptions(pOptions) {
 function JSONArrayOptions(pOptions) {    
     BaseOptions.call(this, false);
     
+    setObjectName(this, 'JSONArrayOptions');
     this.addSpec({name: 'maxField',      type: 'number',  default: 0});
     this.addSpec({name: 'onClick',       type: 'string',  default: null,  mandatory: false});
     this.addSpec({name: 'nullToEmpty',   type: 'boolean', default: true,  mandatory: false});
@@ -501,6 +562,7 @@ function JSONArrayOptions(pOptions) {
 function loadOptionsJSONOptions(pOptions){    
     BaseOptions.call(this, true);
     
+    setObjectName(this, 'loadOptionsJSONOptions');
     this.addSpec({name: 'name',         type: null});   
     this.addSpec({name: 'keepValue',    type: 'boolean', default: true});     
     this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
@@ -1293,7 +1355,7 @@ function jsonAddData(json, columns, table, options) {
  */
 function loadJSONArray(jsonArray, id, options) {
     
-    if (options.constructor.name !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
+    if (getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
     
     try {
         var maxRowSize = 0;
@@ -1421,14 +1483,12 @@ function currentDate(date) {
     return lpad(date.getDate(), 2, '0') + '-' + mthNames[date.getMonth()] + '-' + lpad(date.getFullYear(), 2, '0');
 }
 function currentTime(date) {
-    if (date === undefined)
-        date = new Date();
+    date = getDate();
 
     return lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
 }
 function currentDateTime(date) {
-    if (date === undefined)
-        date = new Date();
+    date = getDate();
 
     return currentDate(date) + ' ' + currentTime(date);
 }
@@ -1563,7 +1623,7 @@ function ajaxCall(destination, parameters, processResponse, async) {
                 
                 stm.logElapsed("Post");
                 
-                if (response.startsWith('!Reminder')) {
+                if (response.indexOf('!Reminder') === 0) {
                     var i = response.indexOf(';');
                     
                     if (i === -1) reporter.fatalError('Reminder response not terminated by ;');

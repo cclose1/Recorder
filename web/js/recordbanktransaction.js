@@ -398,7 +398,11 @@ function initialize() {
     addOption(action, 'Exchange');
     setAction('Debit');
     
-    addIEFixClass(['transactions']);
+    addIEFixClass([
+        document.getElementsByTagName('body')[0],
+        'transactions',
+        'detailfields',
+        'filter']);
     
     if (!serverAcceptingRequests('BankTransaction')) return;
     

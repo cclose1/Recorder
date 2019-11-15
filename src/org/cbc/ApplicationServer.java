@@ -475,6 +475,8 @@ public abstract class ApplicationServer extends HttpServlet {
                         ctx.getReplyBuffer().append(state.getImmediate() != 0? "!ReminderImmediate" : "!ReminderAlert");
                         ctx.getReplyBuffer().append(',');
                         ctx.getReplyBuffer().append(state.getAlertFrequency());
+                        ctx.getReplyBuffer().append(',');
+                        ctx.getReplyBuffer().append(ctx.getTimestamp(state.getEarliest(), "yyyy-MM-dd HH:mm"));
                         ctx.getReplyBuffer().append(';');                        
                     }
                 }

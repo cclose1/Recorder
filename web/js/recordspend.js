@@ -190,6 +190,8 @@ function loadOption(options, type, defaultValue) {
 function initialize() {
     var response;
     
+    addIEFixClass([document.getElementsByTagName('body')[0]]);
+    
     if (!serverAcceptingRequests('Spend')) return;
     
     reporter.setFatalAction('console');
