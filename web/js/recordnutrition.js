@@ -1,5 +1,7 @@
 'use strict';
 
+var mysql;
+
 function setHiddenLabelField(name, yes) {
     setHidden(name, yes);
     setHidden(name + 'lab', yes);
@@ -58,7 +60,6 @@ function getWeight(date) {
         
         weight = response;
     }
-    parameters = addParameterById(parameters, 'mysql');
     parameters = addParameter(parameters, 'date', date);
     
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
@@ -83,7 +84,6 @@ function checkTimestamp(fldDate, fldTime) {
             valid = false;
         }
     }
-    parameters = addParameterById(parameters, 'mysql');
     parameters = addParameterById(parameters, fldDate);
     parameters = addParameterById(parameters, fldTime);
 
@@ -235,7 +235,6 @@ function cloneEvent(action) {
                 
             var parameters = createParameters('copyevent');
             
-            parameters = addParameterById(parameters, 'mysql');
             parameters = addParameterById(parameters, 'sdate');
             parameters = addParameterById(parameters, 'stime');
             parameters = addParameterById(parameters, 'cdate');
@@ -338,7 +337,6 @@ function modifyItemData(isDelete) {
     
     function processResponse(response) {
     }
-    parameters = addParameterById(parameters, 'mysql');
     parameters = addParameterById(parameters, 'item');
     parameters = addParameterById(parameters, 'source');
     parameters = addParameterById(parameters, 'date');
@@ -481,7 +479,7 @@ function setUpdateItem(item, source) {
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
 }
 function applyItemUpdate() {
-    var parameters = addParameterById("", "mysql");
+    var parameters = addParameter('', 'action', 'applyitemupdate');
 
     parameters = addParameter(parameters, 'action', 'applyitemupdate');
     parameters = addParameterById(parameters, 'icreate',       'command');
@@ -554,7 +552,6 @@ function confirmListCreate(field) {
         
         parameters = addParameter(parameters, 'field', field.name);
         parameters = addParameter(parameters, 'item',  field.value);
-        parameters = addParameterById(parameters, 'mysql');
     
         function processResponse(response) {
         }
@@ -576,6 +573,7 @@ function checkExists() {
 function initialize() {    
     if (!serverAcceptingRequests('Nutrition')) return;
     
-    enableMySql('Nutrition');
+    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reload);
+    
     reload();
 }

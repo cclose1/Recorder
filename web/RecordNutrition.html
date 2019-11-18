@@ -16,7 +16,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Nutrition Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Nutrition', 'loginframe'); initialize(true); restoreUser();">                      
+    <body onload="configureAlert(false, true); configureLogin('Nutrition', 'loginframe'); initialize(true);">                      
             <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
@@ -220,8 +220,8 @@
                                     <input id="showitem" name="Show Item" value="false" type="checkbox" onclick="displayUpdateItem()">
                                 </div>
                                 <div id="mysqldiv" hidden>
-                                    <label for="mysql">Use MySQL</label>
-                                    <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="reload()">
+                                    <label class="nogap"></label>
+                                    <input readonly size="20" tabindex="-1" value="Using MySQL">
                                 </div>
                             </div>
                         </fieldset>

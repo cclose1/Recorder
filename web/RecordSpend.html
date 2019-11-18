@@ -17,7 +17,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Spend Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Spend', 'loginframe'); initialize(true); restoreUser();">                  
+    <body onload="configureAlert(false, true); configureLogin('Spend', 'loginframe'); initialize(true);">                  
         <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
@@ -107,8 +107,8 @@
                                 <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
                             </div>
                             <div id="mysqldiv" hidden>
-                                <label for="mysql">Use MySQL</label>
-                                <input id="mysql" name="mysql" value="mysql" type="checkbox" onclick="requestHistory();requestSummary();">
+                                <label class="nogap"></label>
+                                <input readonly size="20" tabindex="-1" value="Using MySQL">
                             </div>
                             <div>
                                 <label for="showfilter">Show Filter</label>

@@ -1,29 +1,61 @@
 'use strict';
 
-
 var pu;
 
+function setMYSQL(flag) {
+    setLocalStorage('usingMYSQL', flag);
+}
+function getMYSQL() {
+    return getLocalStorage('usingMYSQL');
+}
+function checkMySQL(updater, initializer) {
+    this.isMySQL     = getMYSQL();
+    this.updater     = updater;
+    this.initializer = initializer;
+    
+    function setLabel(obj) {
+        if (obj.updater !== undefined) setHidden(obj.updater, !getMYSQL());
+    }
+    this.check = function() {
+        var changed = this.isMySQL !== getMYSQL();
+        
+        if (changed) {
+            setLabel(this);
+            
+            if (this.initializer !== undefined) this.initializer();
+        }
+        this.isMySQL = getMYSQL();
+        return;
+    };
+    if (getLocalStorage('multipleDBs')) setInterval(() => {this.check();}, 5000);
+    
+    setLabel(this);
+}
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 function addLoginParameter(parameters, id) {
     return addParameter(parameters, id, pu.getValueById(id));
 }
 function saveUser() {
     if (pu.getElementById("saveuser").checked && pu.getElementById("user").value !== '')
-        localStorage.setItem('recuser', pu.getElementById("user").value);
+        setLocalStorage('recuser', pu.getElementById("user").value);
     else
-        localStorage.removeItem('recuser');
+        setLocalStorage('recuser', null);
 }
 function restoreUser() {
-    var user = localStorage.getItem('recuser');
+    if (pu.getElementById("user").value !== '') return;
     
-    if (user === null || user === '' || pu.getElementById("user").value !== '') return;
+    var user = getLocalStorage.getItem('recuser');
     
-    pu.getElementById("user").value = user;
+    if (user === null || user === '') 
+        pu.getElementById("saveuser").checked = false;
+    else {
+        pu.getElementById("saveuser").checked = true;
+        pu.getElementById("user").value = user;
+    }
 }
 function displayLogOn(yes) {
     pu.display(yes, true);
@@ -82,7 +114,7 @@ function serverAcceptingRequests(server) {
         setHidden("logoff", !isLoggedIn);
         isLoggedIn = true; //If we get to this point either loggedIn or logins not required
     }
-    parameters = addParameterById(parameters, "mysql");
+    parameters = addParameter(parameters, "mysql", getMYSQL());
     ajaxLoggedInCall(server, processResponse, parameters, false);
     return isLoggedIn;
 }
@@ -95,7 +127,6 @@ function login(server, event) {
             
             pu.getElementById("user").value = '';
             setHidden("logoff", false);
-            initialize();
         } else
             displayAlert("Security Failure", params[0]);
     }
@@ -103,11 +134,9 @@ function login(server, event) {
         if (event.keyCode !== 13) return;
     }
     restoreUser();
+    setMYSQL(pu.getElementById('mysql').checked);
     
-    if (pu.getElementById('browserlog').checked)
-        localStorage.setItem('browserlog', 'Y');
-    else
-        localStorage.setItem('browserlog', 'N');
+    setLocalStorage('browserlog', pu.getElementById('browserlog').checked);
     
     var parameters = addParameter("", "action", "login");
 
@@ -128,7 +157,7 @@ function login(server, event) {
         displayAlert("Validation Failure", "Must enter a value for both New Password and Confirm Password or neither");
         return;
     }
-    parameters = addParameterById(parameters, "mysql");
+    parameters = addParameter(parameters, "mysql", getMYSQL());
     parameters = addLoginParameter(parameters, "user");
     parameters = addLoginParameter(parameters, "password");
     parameters = addLoginParameter(parameters, "newpassword");
@@ -144,10 +173,9 @@ function logOff() {
     function processResponse(response) {
         displayLogOn(true);
     }
-    parameters = addParameterById(parameters, "mysql");
+    parameters = addParameter(parameters, "mysql", getMYSQL());
     ajaxCall(pu.getValueById('secserver'), parameters, processResponse, false);
 }
-
 function configureLogin(secserver, homeElementId) {    
     try {
         pu = new popUp();
@@ -159,4 +187,12 @@ function configureLogin(secserver, homeElementId) {
         
     pu.initialise(homeElementId);
     pu.getElementById('secserver').value = secserver;
+    
+    if (pu.getElementById('mysqldiv')) {
+        function processResponse(response) {
+            setLocalStorage('multipleDBs', response.indexOf('yes') === 0);
+            setHidden(pu.getElementById('mysqldiv'), !getLocalStorage('multipleDBs'));
+        }
+        ajaxLoggedInCall(secserver, processResponse, addParameter('', 'action', 'enablemysql'), false);
+    }
 }

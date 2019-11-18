@@ -1,9 +1,10 @@
 'use strict';
 
 var timer = setInterval(function(){ updateTimer();}, 1000);
+var mysql;
 
 function showUpdate(yes) {
-    setHidden('insertfields',    yes);
+    setHidden('insertfields', yes);
     setHidden('updatefields', !yes);
 }
 function newSession() {
@@ -173,7 +174,8 @@ function updateOrientationList(name, dbField) {
 function initialize() {
     if (!serverAcceptingRequests('Record')) return;
     
-    enableMySql('Record');
+    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), initialize);
+    
     newSession();
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');

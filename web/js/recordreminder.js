@@ -1,6 +1,7 @@
 'use strict';
 
 var hstFilter;
+var mysql;
 
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
@@ -161,8 +162,9 @@ function initialize() {
             'Social';
     if (!serverAcceptingRequests('Reminder')) return;
     
+    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), requestReminders);
+    
     reporter.setFatalAction('console');
-    enableMySql('Reminder');
     
     loadListResponse(types, {
         name:         "type",

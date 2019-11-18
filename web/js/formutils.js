@@ -230,6 +230,20 @@ function createElement(document, tagName, options) {
     }
     return elm;
 }
+function setLocalStorage(id, value) {
+    if (value === undefined || value === null)
+        localStorage.removeItem(id);
+    else
+        localStorage.setItem(id, value);
+}
+function getLocalStorage(id) {
+    var val = localStorage.getItem(id);
+    
+    if (val === 'true')  return true;
+    if (val === 'false') return false;
+    
+    return val;
+}
 function Reporter() {
     function output(action, message) {
         switch (action) {
@@ -246,12 +260,9 @@ function Reporter() {
                 console.log('Unknown action-' + action + ' on report of ' + message);                    
         }
     }
-    var flag = localStorage.getItem('browserlog');
-
     this.fatalAction = 'throw';
-    this.logEnabled  = flag === null || flag === 'Y';
-    
-    
+    this.logEnabled  = getLocalStorage('browserlog');
+   
     this.setFatalAction = function(action) {
         this.fatalAction = action;
     };
@@ -480,8 +491,8 @@ function reportReminder(options) {
     if (opts.length !== 3)
         reporter.fatalError('Invalid reminder options-' + options);
     else {
-        var interval = localStorage.getItem('remInterval');
-        var last     = localStorage.getItem('remLast');
+        var interval = getLocalStorage('remInterval');
+        var last     = getLocalStorage('remLast');
         var earliest = null;
         var lastDt   = null;
         var days;
@@ -489,7 +500,7 @@ function reportReminder(options) {
         
         if (interval === null) {
             reporter.log('Local storage initialised');
-            localStorage.setItem('remInterval', interval);
+            setLocalStorage('remInterval', interval);
         } else {
             lastDt = getDate(last);
             reporter.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
@@ -514,8 +525,8 @@ function reportReminder(options) {
             
             displayAlert('Warning',  'There are ' + state + ' reminders. Next due ' + due);
             reporter.log('Alert displayed. Earliest ' + getDateTime(earliest) + ' days ' + days + ' hours ' + hours);
-            localStorage.setItem('remInterval', interval);
-            localStorage.setItem('remLast',     getDate().toString());
+            setLocalStorage('remInterval', interval);
+            setLocalStorage('remLast',     getDate().toString());
         }
     }    
 }
@@ -1603,7 +1614,7 @@ function parametersSummary(parameters) {
 function ajaxCall(destination, parameters, processResponse, async) {
     var stm            = new Statistics(st.isEnabled());
     var xmlHttpRequest = getXMLHttpRequest();
-    var params = parametersSummary(parameters);
+    var params         = parametersSummary(parameters);
 
     if (typeof parameters === "function")
         params = parameters();
@@ -1723,10 +1734,9 @@ function enableMySql(server) {
 }
 function createParameters(action) {
     var parameters = addParameter('', 'action', action);
-
-    if (document.getElementById('mysqldiv')) {
-        parameters = addParameterById(parameters, 'mysql');
-    }
+    
+    parameters = addParameter(parameters, 'mysql', getMYSQL());
+    
     return parameters;
 }
 function addDBFilterField(filter, element, name, qualifier) {

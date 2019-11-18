@@ -2,6 +2,7 @@
 
 var txnFilter;
 var selectedAccount;
+var mysql;
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -387,6 +388,8 @@ function initialize() {
     var action = document.getElementById('action');
     var response;
     
+    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reset);
+    
     action.innerHTML = "";
     /*
      * Setting the options in the HTML action element seems to disable setting the value by doing the following assignment.
@@ -406,7 +409,6 @@ function initialize() {
     
     if (!serverAcceptingRequests('BankTransaction')) return;
     
-    enableMySql('BankTransaction');
     txnFilter = getFilter('filter1', document.getElementById('filter'), requestTransactions, {
         allowAutoSelect: true, 
         autoSelect:      true,

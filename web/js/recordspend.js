@@ -1,6 +1,7 @@
 'use strict';
 
 var hstFilter;
+var mysql;
 
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
@@ -194,8 +195,10 @@ function initialize() {
     
     if (!serverAcceptingRequests('Spend')) return;
     
+    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reset);
+    
     reporter.setFatalAction('console');
-    enableMySql('Spend');
+    
     hstFilter = getFilter('filter1', document.getElementById('filterframe'), requestHistory, {
         allowAutoSelect: true, 
         autoSelect:      true,
