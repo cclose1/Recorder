@@ -286,14 +286,7 @@ function createUID(length, prefix) {
 function Statistics(enabled) {
     this.start;
     this.id         = createUID(3);
-    this.logEnabled = false;
-    
-    if (enabled === undefined) {
-        var flag = localStorage.getItem('browserlog');
-        
-        if (flag !== null) this.logEnabled = flag === 'Y'; 
-    } else
-        this.logEnabled = enabled;
+    this.logEnabled = enabled === undefined? getLocalStorage('browserlog') : enabled;
     
     this.enableLog = function(yes) {
         this.logEnabled = yes;
