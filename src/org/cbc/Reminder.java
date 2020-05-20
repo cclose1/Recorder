@@ -9,8 +9,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date; 
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLInsertBuilder;
@@ -119,7 +117,8 @@ public class Reminder {
         if (rs.next()) {
             state.active    = rs.getInt("Count");
             state.immediate = rs.getInt("Immediate");
-            state.earliest  = DateFormatter.parseDate(rs.getDate("Earliest") + " " + rs.getTime("Earliest"));
+            
+            if (state.active != 0) state.earliest  = DateFormatter.parseDate(rs.getDate("Earliest") + " " + rs.getTime("Earliest"));
         }
         return  state;
     }

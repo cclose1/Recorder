@@ -1,10 +1,16 @@
 
 @media screen and (max-width: 900px) {
+    #middlename {
+        background-color: yellow;
+    }
     #surname {
         background-color: aqua;
     }
 }  
 @media screen and (min-width: 901px) {
+    #firstname {
+        background-color: red;
+    }
     #surname {
         background-color: beige;
     }

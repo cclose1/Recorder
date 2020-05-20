@@ -14,26 +14,41 @@ function FilterOptions(pOptions) {
     this.addSpec({name: 'allowAutoSelect', type: 'boolean', default: true,     mandatory: false});
     this.addSpec({name: 'autoSelect',      type: 'boolean', default: true,     mandatory: false});
     this.addSpec({name: 'forceGap',        type: 'string',  default: '4px',    mandatory: false});
-    this.addSpec({name: 'trigger',         type: 'object',                     mandatory: true});
+    this.addSpec({name: 'initialDisplay',  type: 'boolean', default: false,    mandatory: false});
+    this.addSpec({name: 'trigger',         type: 'object',                     mandatory: false});
         
     this.clear();
     this.load(pOptions);
 }
     
-function findFilter(key) {    
+function findFilter(key, allowNotFound, index) {    
     var i;
      
     for (i = 0; i < filters.length; i++) {
-        if (filters[i].key === key) return filters[i];
+        if (filters[i].key === key) return index != undefined && index? i : filters[i];
     }
-    return undefined;
-}
-function getFilter(pKey, pFilter, pRequestor, pOptions) {
-    var filter = findFilter(pKey);
+    if ((allowNotFound !== undefined || allowNotFound !== null) && allowNotFound) return undefined;
     
-    if (filter === undefined) {
-        filter = new Filter(pKey, pFilter, pRequestor, pOptions);
+    reporter.fatalError('Filter for key ' + key + ' not found');
+}
+/*
+ * 
+ * @param {type} pKey       Key uniquely identifying the filter.
+ * @param {type} pFilter    The HTML element to hold the filter form.
+ * @param {type} pRequestor The function that gets the filter data from the server and actions it.
+ * @param {type} pOptions
+ * @returns {Filter}
+ * 
+ * If a filter with pKey exists it is replaced with a new, otherwise, one is created and appended to filters.
+ */
+function getFilter(pKey, pFilter, pRequestor, pOptions) {
+    var index  = findFilter(pKey, true, true);
+    var filter = new Filter(pKey, pFilter, pRequestor, pOptions);
+    
+    if (index === undefined) {
         filters.push(filter);
+    } else {
+        filters[index] = filter;
     }
     return filter;
 }
@@ -56,6 +71,7 @@ function Filter(key, element, requestor, options) {
     this.top             = undefined;
     this.fields          = undefined;
     this.btnRequest      = undefined;
+    this.autoSelect      = false;
         
     this.options         = undefined;
     var elm;
@@ -92,18 +108,20 @@ function Filter(key, element, requestor, options) {
         return w;
     };
     this.callRequestor = function (force) {
-        if (options.autoSelect || force === undefined || force) {
+        if (this.autoSelect || force === undefined || force) {
             this.requestor(this.getWhere());
 
-            if (options.autoSelect && options.trigger !== undefined) {
+            if (this.autoSelect && options.trigger !== undefined) {
                 triggerClick(options.trigger);
             }
         }
     };
-    this.addFilter = function (label, qualifiedfield, response) {
+    this.addFilter = function (label, qualifiedfield, values, single) {
         var fields = this.fields;
-        var div = this.document.createElement('div');
-        var field = qualifiedfield.split(',');
+        var div    = this.document.createElement('div');
+        var field  = qualifiedfield.split(',');
+        var lstelm;
+        var inpelm;
         var elm;
 
         /*
@@ -111,40 +129,55 @@ function Filter(key, element, requestor, options) {
          * reason for adding margin-right.
          */
         elm = createElement(this.document, 'label', {append: div, forceGap: this.options.forceGap, text: label});
-        elm = createElement(this.document, 'input', {
-            append: div,
-            name: field[0],
-            type: field.length > 1 ? trim(field[1]) : 'text',
-            size: '15',
-            tabindex: '0',
-            forceGap: response !== undefined ? this.options.forceGap : undefined});
-
-        if (options.allowAutoSelect) this.setEventHandler(elm, 'onchange', 'changeFilterValue');
-
-        if (response !== undefined) {
-            elm = createElement(this.document, 'select', {append: div});
-            this.setEventHandler(elm, 'onchange', 'addFilterField');
-            loadListResponse(response, {
-                name:       elm,
+        
+        if (values !== undefined && single !== undefined && single) {
+            /*
+             * There are values, but only single values are allowed. So create the input element as a selectable list.
+             */
+            inpelm = createElement(this.document, 'select', {
+                append:   div,
+                name:     field[0]});
+            lstelm = inpelm;            
+        } else
+            inpelm = createElement(this.document, 'input', {
+                append:   div,
+                name:     field[0],
+                type:     field.length > 1 && field[1].length !== 0? trim(field[1]) : 'text',
+                size:     '15',
+                tabindex: '0'});
+        
+        if (field.length > 2) setAttribute(inpelm, 'id', field[2]);
+        if (options.allowAutoSelect) this.setEventHandler(inpelm, 'onchange', 'changeFilterValue');
+        
+        if (values !== undefined && lstelm === undefined) {
+            /*
+             * This is the case where multiple values can be selected. So create a select values list
+             * and add an onchange event to append the value to the input field.
+             */
+            setAttribute(inpelm, 'style', 'margin-right: ' + this.options.forceGap);            
+            lstelm = createElement(this.document, 'select', {append: div});
+            this.setEventHandler(lstelm, 'onchange', 'addFilterField');
+        }
+        if (lstelm !== undefined)
+            loadListResponse(values, {
+                name:       lstelm,
                 keepValue:  true,
                 async:      false,
                 allowBlank: true});
-        }
         fields.appendChild(div);
     };
+    
+    this.options = new FilterOptions(options);
+    
     if (this.isiFrame) {
         this.document = this.element.contentDocument || this.element.contentWindow.document;
         this.top      = this.document.getElementsByTagName("fieldset")[0];
-        setHidden(this.element.parentElement, true);
+        setHidden(this.element.parentElement, !this.options.initialDisplay);
     } else {
         this.document = element.ownerDocument;
         this.top      = this.element;
-        setHidden(this.element, true);
+        setHidden(this.element, !this.options.initialDisplay);
     }    
-    for (name in options) {
-        this.options = new FilterOptions(options);
-        setVarByName(this, name, options[name]); //To be removed when switch to this.options complete.
-    }
     /*
      * Remove current fields.
      */
@@ -153,18 +186,19 @@ function Filter(key, element, requestor, options) {
     }
     /*
      * Create filter framework excluding the filter fields to be added later.
-     */
-    createElement(this.document, 'legend', {append: this.top, text: options.title});
+     */    
+    if (options.title !== null) createElement(this.document, 'legend', {append: this.top, text: options.title});
+    
     this.fields = createElement(this.document, 'div', {append: this.top});
     btns        = createElement(this.document, 'div', {append: this.top});
   
     if (options.allowAutoSelect) {
         elm = createElement(this.document, 'div', {append: btns});
         createElement(this.document, 'label', {append: elm, text: 'Auto Select', forceGap: this.options.forceGap});
-        elm = createElement(this.document, 'input', {append: elm, type: 'checkbox'});
-        elm.checked = options.autoSelect;
+        elm             = createElement(this.document, 'input', {append: elm, type: 'checkbox'});
+        elm.checked     = options.autoSelect;
+        this.autoSelect = options.autoSelect;
         this.setEventHandler(elm, 'onclick', 'changeAutoSelect');
-
     }
     createElement(this.document, 'label', {append: btns, forceGap: this.options.forceGap});
     elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Apply', forceGap: this.options.forceGap});
@@ -201,6 +235,23 @@ function changeAutoSelect(key, event) {
     filter.autoSelect = event.target.checked;
     
     if (filter.btnRequest !== undefined) setHidden(filter.btnRequest, event.target.checked);
+}
+function setFilterValue(key, name, value) {    
+    var filter = findFilter(key);
+    var fields = filter.fields.children;
+    var field;
+    
+    for (var i = 0; i < fields.length; i++) {
+        field = fields[i].childNodes[1];
+        
+        if (field.name === name) {
+            field.value = value;
+            
+            filter.requestor(filter.getWhere());
+            return;
+        }
+    }
+    filter.options.error(name + ' is not a field for filter key ' + key);
 }
 function addFilterField(key, event) {
     var filter = findFilter(key);

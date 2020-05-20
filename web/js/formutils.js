@@ -1,4 +1,20 @@
 'use strict';
+
+function ErrorObject(name, message) {
+    this.name    = name;
+    this.message = message;
+    
+    this.getName = function() {
+        return this.name;
+    };
+    this.getMessage = function() {
+        return this.message;
+    };
+    if (message === undefined) {
+        this.message = name;
+        this.name    = null;
+    }
+}
 function removeURLPath(url) {
     return url.split('/').pop();
 }
@@ -96,7 +112,7 @@ function timeString(date) {
     return fields[4];
 }   
 function getTime(date, milliseconds) {
-    date = getDate();
+    date = getDate(date);
     
     var time = lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
     
@@ -105,16 +121,48 @@ function getTime(date, milliseconds) {
     return time;
 }
 function getDateTime(date) {
-    date = getDate();
+    date = getDate(date);
     
     var datetime =
-            date.getFullYear() + '-' +
+            date.getFullYear()                  + '-' +
             lpad((date.getMonth() + 1), 2, '0') + '-' +
-            lpad(date.getDate(), 2, '0') + ' ' +
-            lpad(date.getHours(), 2, '0') + ':' +
-            lpad(date.getMinutes(), 2, '0') + ':' +
-            lpad(date.getSeconds(), 2, '0');
+            lpad(date.getDate(),        2, '0') + ' ' +
+            lpad(date.getHours(),       2, '0') + ':' +
+            lpad(date.getMinutes(),     2, '0') + ':' +
+            lpad(date.getSeconds(),     2, '0');
     return datetime;
+}
+function getDayText(date, long) {
+    var value = 'Invalid';
+    
+    switch (getDate(date).getDay()) {
+        case 0:
+            value = 'Sunday';
+            break;
+        case 1:
+            value = 'Monday';
+            break;
+        case 2:
+            value = 'Tuesday';
+            break;
+        case 3:
+            value = 'Wednesday';
+            break;
+        case 4:
+            value = 'Thursday';
+            break;
+        case 5:
+            value = 'Friday';
+            break;
+        case 6:
+            value = 'Saturday';
+            break;         
+        default:
+            return value;
+    }
+    if (long === undefined || !long) return value.substring(0, 3);
+    
+    return value;
 }
 function toDate(text) {
     var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
@@ -159,6 +207,9 @@ function toDate(text) {
 
     datetime.setFullYear(date[2], toNumber(date[1], 1, 12) - 1, date[0]);
     datetime.setHours(toNumber(time[0], 0, 23), toNumber(time[1], 0, 59), toNumber(time[2], 0, 59), 0);
+    
+    if (isNaN(datetime.getTime())) throw "Invalid datetime format";
+    
     return datetime;
 }
 /*
@@ -283,6 +334,32 @@ var reporter = new Reporter();
 function createUID(length, prefix) {
     return (prefix === undefined? '' : prefix) + randomString(length);
 }
+function Timer(counter, previous) {
+    this.current  = counter;
+    this.previous = previous;
+    this.startTime;
+    this.upd      = setInterval(updateTimer, 1000, this);
+    
+    function updateTimer(obj) {
+        if (obj.current !== undefined && obj.current.value !== '') {
+            var count = parseInt(obj.current.value) + 1;
+            var gap   = dateDiff(obj.startTime, null);
+            
+            if (gap - count > 3) {
+                reporter.log('Timer update slow count is ' + count + ' gap ' + gap);
+                count = gap;
+            }
+            obj.current.value = count;
+        }
+    };
+    this.start = function() {
+        if (this.previous !== undefined) this.previous.value = this.current.value;
+        
+        this.current.value = 0;
+        this.startTime     = new Date();
+    };
+    
+}
 function Statistics(enabled) {
     this.start;
     this.id         = createUID(3);
@@ -406,14 +483,17 @@ function BaseOptions(pAccessByGet) {
         }
     };
     this.load = function(values, ignoreUndefined) {
-        for (name in values) {
-            if (ignoreUndefined !== undefined && ignoreUndefined) {
-                /*
-                 * Check if parameter not defined and return if it is. This prevents loadOption failing.
-                 */
-                if (getSpec(this, name) === null) continue;
+        if (values !== undefined) {
+            for (name in values) {
+                if (ignoreUndefined !== undefined && ignoreUndefined) {
+                    /*
+                     * Check if parameter not defined and return if it is. This prevents loadOption failing.
+                     */
+                    if (getSpec(this, name) === null)
+                        continue;
+                }
+                loadOption(this, name, values[name]);
             }
-            loadOption(this, name, values[name]);
         }
         /*
          * Check that mandatory options have a value.
@@ -459,6 +539,9 @@ function BaseOptions(pAccessByGet) {
         if (spec.mandatory === undefined) spec.mandatory = true;
         
         this.optSpecs.push(spec);
+    };
+    this.error = function(msg) {
+        error(this, msg);
     };
     this.log = function() {
         var spec;
@@ -527,9 +610,11 @@ function JSONArrayColumnOptions(pOptions) {
     BaseOptions.call(this, false);
     
     setObjectName(this, 'JSONArrayColumnOptions');
-    this.addSpec({name: 'name',     type: 'string',  mandatory: true});
-    this.addSpec({name: 'minWidth', type: 'number', mandatory: false});
-    this.addSpec({name: 'maxWidth', type: 'number', mandatory: false});
+    this.addSpec({name: 'name',      type: 'string',  mandatory: true});
+    this.addSpec({name: 'minWidth',  type: 'number',  mandatory: false});
+    this.addSpec({name: 'maxWidth',  type: 'number',  mandatory: false});    
+    this.addSpec({name: 'forceWrap', type: 'boolean', default: false, mandatory: false});
+
         
     this.clear();
     this.load(pOptions);    
@@ -538,7 +623,7 @@ function JSONArrayOptions(pOptions) {
     BaseOptions.call(this, false);
     
     setObjectName(this, 'JSONArrayOptions');
-    this.addSpec({name: 'maxField',      type: 'number',  default: 0});
+    this.addSpec({name: 'maxField',      type: 'number',  default: null,  mandatory: false});
     this.addSpec({name: 'onClick',       type: 'string',  default: null,  mandatory: false});
     this.addSpec({name: 'nullToEmpty',   type: 'boolean', default: true,  mandatory: false});
     this.addSpec({name: 'useInnerCell',  type: 'boolean', default: false, mandatory: false});
@@ -546,6 +631,7 @@ function JSONArrayOptions(pOptions) {
     this.addSpec({name: 'addName',       type: 'boolean', default: true,  mandatory: false});
     this.addSpec({name: 'usePrecision',  type: 'boolean', default: true,  mandatory: false});
     this.addSpec({name: 'columns',       type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'widthAllRows',  type: 'boolean', default: false, mandatory: false});
         
     this.clear();
     this.load(pOptions);
@@ -742,6 +828,7 @@ function addTableHeader(table, header)
     addSectionRow(table.tHead, header);
 }
 function clearTable(table) {
+    table = getElement(table);
     deleteRows(table.tHead);
     deleteRows(table.tBodies[0]);
 }
@@ -763,34 +850,65 @@ function loadTable(table, data) {
         }
     }
 }
-function checkDate(id, required) {
+function checkDate(elm, required) {
     var ok = false;
-
-    if (fieldHasValue(id, required)) {
+    
+    if (elm === null || elm === undefined) elm = event.target;
+    
+    elm = getElement(elm);
+    
+    if (fieldHasValue(elm, required)) {
         try
         {
-            var d = toDate(document.getElementById(id).value);
-            document.getElementById(id).value = dateString(d);
+            var d = toDate(elm.value);
+            elm.value = dateString(d);
             ok = true;
         } catch (err)
         {
-            displayAlert('Validation Error', err, {focus: document.getElementById(id)});
+            displayAlert('Validation Error', err, {focus: elm});
         }
     }
     return ok;
 }
-function checkTime(id, required) {
+function checkTime(elm, required) {
     var ok = false;
+    
+    if (elm === null || elm === undefined)
+        elm = event.target;
+    else
+        elm = getElement(elm);
 
-    if (fieldHasValue(id, required)) {
+    if (fieldHasValue(elm, required)) {
         try
         {
-            var d = toDate("01/01/2000 " + document.getElementById(id).value);
-            document.getElementById(id).value = timeString(d);
+            var d = toDate("01/01/2000 " + elm.value);
+            elm.value = timeString(d);
             ok = true;
         } catch (err)
         {
-            displayAlert('Validation Error', err, {focus: document.getElementById(id)});
+            displayAlert('Validation Error', err, {focus: elm});
+        }
+    }
+    return ok;
+}
+
+function checkTimestamp(elm, required) {
+    var ok = false;
+    
+    if (elm === null || elm === undefined)
+        elm = event.target;
+    else
+        elm = getElement(elm);
+
+    if (fieldHasValue(elm, required)) {
+        try
+        {
+            var d = toDate(elm.value);
+            elm.value = getDateTime(d);
+            ok = true;
+        } catch (err)
+        {
+            displayAlert('Validation Error', err, {focus: elm});
         }
     }
     return ok;
@@ -847,27 +965,6 @@ function getValue(id) {
         return input.checked;
 
     return input.value.trim();
-}
-function getValueNew(id) {
-    var input = document.getElementByName(id);
-    var type = input.type;
-
-    if (type === "radio") {
-        for (var i = 0; i < input.length; i++)
-        {
-            if (input[i].checked)
-                return input[i].value;
-        }
-        return "";
-    }
-    input = document.getElementByName(id);
-
-    if (type === "radio")
-        return getRadioValue(input.name);
-    if (type === "checkbox")
-        return input.checked;
-
-    return input.value;
 }
 function getNameValue(id) {
     return id + "=" + document.getElementById(id).type + "," + getValue(id);
@@ -944,6 +1041,7 @@ function Column(name, no, type, precision, scale, optional) {
     this.size      = name.length;
     this.minWidth  = null;
     this.maxWidth  = null;
+    this.forceWrap = false;
     
     if (this.no       !== undefined && this.no > 0) this.addClass('tbcol' + no);
     if (this.optional !== undefined && this.optional) this.addClass('optional');
@@ -1041,6 +1139,9 @@ function rowReader(row, throwError) {
     this.columnName = function() {
         this.check();
         return this.header.cells[this.index].innerHTML;
+    };
+    this.valueAttribute = function(name) {
+        return this.row.cells[this.index].getAttribute(name);
     };
     this.columnValue = function() {
         this.check();
@@ -1270,8 +1371,9 @@ function jsonAddHeader(json, table, options) {
             if (col === null)
                 reporter.fatalError('There is no column "' + ocol.name + '" in table ' + table.id);
             else {
-                col.minWidth = ocol.minWidth;
-                col.maxWidth = ocol.maxWidth;
+                col.minWidth  = ocol.minWidth;
+                col.maxWidth  = ocol.maxWidth;
+                col.forceWrap = ocol.forceWrap;
             }
         }
     }
@@ -1357,7 +1459,7 @@ function jsonAddData(json, columns, table, options) {
         "Data"   : [["Spanner",null,12.1],["Hammer",true,20],["Wrench",false,25.39]]}
   
  */
-function loadJSONArray(jsonArray, id, options) {
+function loadJSONArrayOld(jsonArray, id, options) {
     
     if (getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
     
@@ -1394,13 +1496,14 @@ function loadJSONArray(jsonArray, id, options) {
             for (var i = 0; i < row.cells.length; i++) {
                 var col      = cols[i];
                 var cell     = row.cells[i];
-                var minWidth = 0;
+                var minWidth = null;
                 var maxWidth = options.maxField;
                 
                 if (options.usePrecision)  minWidth = col.precision;
                 if (col.minWidth !== null) minWidth = col.minWidth;
                 if (col.maxWidth !== null) maxWidth = col.maxWidth;
-                if (minWidth > maxWidth)   minWidth = maxWidth;
+                
+                if (minWidth !== null && maxWidth !== null && minWidth > maxWidth) minWidth = maxWidth;
                 
                 if (col.size <= minWidth && minWidth !== null) {
                     rowSize += minWidth;
@@ -1412,6 +1515,92 @@ function loadJSONArray(jsonArray, id, options) {
                     rowSize += maxWidth;
                     cell.setAttribute("style", 'width:' + getWidth(maxWidth, 'em') + ';overflow: hidden');
                 }
+                if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
+                if (options.addName)       cell.setAttribute('name',  col.name);
+                /*
+                 * Calculate total width. Only accessed in debugging.
+                 */
+                if (rowSize > maxRowSize) maxRowSize = rowSize;
+            }
+        }
+        st.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
+        st.logElapsed("Set table sizes");
+    } catch (e) {
+        reporter.logThrow(e, true);;
+    }
+}
+function cellReplace(cell, from, to) {
+    cell.innerHTML = cell.innerHTML.split(from).join(to);
+}
+function stringToJSON(jsonData) {
+    if (typeof jsonData === 'string') jsonData = (new JSONReader(jsonData)).getJSON();
+    
+    return jsonData;
+}
+function loadJSONArray(jsonArray, id, options) {    
+    if (options === undefined || getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
+    
+    try {
+        var maxRowSize = 0;
+        var table      = document.getElementById(id);
+        var json       = stringToJSON(jsonArray);
+        var jval;
+        var cols;
+        var row;
+
+        clearTable(table);
+                
+        st.log("Loading table " + id);
+        st.setStart();
+        
+        jval = json.getMember('Header', true);
+        cols = jsonAddHeader(jval.value, table, options);
+        jval = json.getMember('Data', true);
+        jsonAddData(jval.value, cols, table, options);
+
+        st.logElapsed("Loading rows");
+        st.setStart();
+        /*
+         * Set cell widths and class and name if required. 
+         */
+        for (var j = 0; j < table.rows.length; j++) {
+            var rowSize = 0;
+            
+            row = table.rows[j];
+
+            for (var i = 0; i < row.cells.length; i++) {
+                var col        = cols[i];
+                var cell       = row.cells[i];
+                var width      = null;
+                var minWidth   = null;
+                var maxWidth   = options.maxField;
+                var forceWidth = false;
+                var value      = cell.innerHTML;
+                var style      = null;
+                    
+                if (options.usePrecision)  minWidth = col.precision;
+                if (col.minWidth !== null) minWidth = col.minWidth;
+                if (col.maxWidth !== null) maxWidth = col.maxWidth;
+
+                if (minWidth !== null && maxWidth !== null && minWidth > maxWidth) minWidth = maxWidth;
+
+                if (col.size <= minWidth && minWidth !== null) {
+                    width    = minWidth;
+                } else if (col.size < maxWidth || maxWidth === null) {
+                    width    = col.size;
+                } else {
+                    width    = maxWidth;
+                }
+                rowSize += width;
+                style    = 'width:' + getWidth(width, 'em');
+                
+                if (value.length > width) {
+                    forceWidth = true;
+                    
+                    if (col.forceWrap || value.indexOf(' ') === -1) style += ';word-break: break-all';
+                }
+                if (j <= 1 || options.widthAllRows || forceWidth) cell.setAttribute("style", style);
+                
                 if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
                 if (options.addName)       cell.setAttribute('name',  col.name);
                 /*
@@ -1569,15 +1758,34 @@ function checkIntegerField(id, low, high) {
     }
     return true;
 }
-
-function fieldHasValue(id, required) {
-    var field = document.getElementById(id);
-    var value = trim(field.value);
+/*
+ * Returns the label for HTML element elm.
+ * 
+ * If the preceding element is a label and it is for elm.id return its value, otherwise, return elm.name as label.
+ */
+function getElementLabel(elm) {
+    var prelm;
+    
+    elm   = getElement(elm);    
+    prelm = elm.previousElementSibling;
+    
+    if (prelm.tagName === "LABEL" && prelm.htmlFor === elm.id) return prelm.innerHTML;
+    
+    return elm.name;
+}
+function getFloatValue(elm, defaultValue) {  
+    var value = parseFloat(getElement(elm).value);
+    
+    return isNaN(value) && defaultValue !== undefined && defaultValue !== null? defaultValue : value;
+}
+function fieldHasValue(elm, required) {
+    elm = getElement(elm);
+    
+    var value = trim(elm.value);
 
     if (value === "") {
         if (required === undefined || required) {
-            field.focus();
-            displayAlert('Field Validation', "Enter a value for " + field.name);
+            displayAlert('Field Validation', "Enter a value for " + getElementLabel(elm), {focus: elm});
         }
         return false;
     }
@@ -1600,7 +1808,7 @@ function parametersSummary(parameters) {
         
         if (/^mysql/.test(ps[i])) continue;
         
-        smy += (smy === ''? '' : ',') + ps[i];
+        smy += (smy === ''? '' : ',') + decodeURIComponent(ps[i]);
     }
     return smy;
 }
@@ -1735,11 +1943,12 @@ function createParameters(action) {
 function addDBFilterField(filter, element, name, qualifier) {
     if (name === undefined) return filter;
     
-    var fields = element.value.split(',');
+    var value  = typeof element === 'object'? element.value : element;
+    var fields = value.split(',');
     var i;
     
-    if (filter        === undefined) filter = '';
-    if (element.value === '') return filter;
+    if (filter === undefined) filter = '';
+    if (value  === '') return filter;
     
     for (i = 0; i < fields.length; i++) {
         if (i === 0) {
@@ -1764,6 +1973,9 @@ function addDBFilterField(filter, element, name, qualifier) {
         filter += fields[i];
     }
     return filter;
+}
+function addDBFilterTodayField(filter, name) {
+    return addDBFilterField(filter, getDayText(), name);
 }
 function loadListResponse(response, options) {  
     loadOptionsJSON(response, options);

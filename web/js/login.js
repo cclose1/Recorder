@@ -1,6 +1,8 @@
 'use strict';
 
 var pu;
+var appMYSQLUpdater = undefined;
+var appReset        = undefined;
 
 function setMYSQL(flag) {
     setLocalStorage('usingMYSQL', flag);
@@ -8,6 +10,9 @@ function setMYSQL(flag) {
 function getMYSQL() {
     return getLocalStorage('usingMYSQL');
 }
+/*
+ * 
+ * No longer used
 function checkMySQL(updater, initializer) {
     this.isMySQL     = getMYSQL();
     this.updater     = updater;
@@ -31,6 +36,7 @@ function checkMySQL(updater, initializer) {
     
     setLabel(this);
 }
+*/
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -48,7 +54,7 @@ function saveUser() {
 function restoreUser() {
     if (pu.getElementById("user").value !== '') return;
     
-    var user = getLocalStorage.getItem('recuser');
+    var user = getLocalStorage('recuser');
     
     if (user === null || user === '') 
         pu.getElementById("saveuser").checked = false;
@@ -127,6 +133,9 @@ function login(server, event) {
             
             pu.getElementById("user").value = '';
             setHidden("logoff", false);
+            
+            if (appMYSQLUpdater !== undefined) setHidden(appMYSQLUpdater, !getMYSQL());
+            if (appReset        !== undefined) appReset();
         } else
             displayAlert("Security Failure", params[0]);
     }
@@ -195,4 +204,11 @@ function configureLogin(secserver, homeElementId) {
         }
         ajaxLoggedInCall(secserver, processResponse, addParameter('', 'action', 'enablemysql'), false);
     }
+}
+function connectToServer(server, homeElementId, reset) {
+    configureLogin(server, homeElementId);
+    appMYSQLUpdater = document.getElementById('mysqldiv');
+    appReset        = reset;
+    
+    if (serverAcceptingRequests(server) && reset !== undefined) appReset();
 }

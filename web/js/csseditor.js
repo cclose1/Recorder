@@ -133,24 +133,47 @@ function CSSEditor(pDocument) {
         error(reporter, 'No style sheet found for ' + script, mustExist);
         return false;
     };
-    this.selectRule = function(selector, media, mustExist) {
+    this.getRule = function(selector, media, mustExist) {
         var result;
+        var value = {};
         var rules = this.getRules();
         
         media = media === undefined || media === null? '' : media;
         
         if (media !== '') {
             result = findRule(rules, media, true);
-            this.mIndex = result.index;
-            this.mRules = result.rules;
+            value.mIndex = result.index;
+            value.mRules = result.rules;
             result = findRule(result.rules, selector, false);
         } else
             result = findRule(rules, selector, false);
         
-        this.media = media;
-        this.index = result.index;
-        this.rule  = result.rule;
+        value.media = media;
+        value.index = result.index;
+        value.rule  = result.rule;
         
         if (result.index === -1) error(reporter, 'No rule found for ' + selector + (media === ''? '' : ' in media ' + media), mustExist);
+        
+        return value;
+    };
+    this.selectRule = function(selector, media, mustExist) {
+        var result = this.getRule(selector, media, mustExist);
+        
+        this.mIndex = result.index;
+        this.mRules = result.rules;
+        this.media  = media;
+        this.index  = result.index;
+        this.rule   = result.rule;
+    };
+    this.addRule = function(media, selector, rule, index) {
+        var rtext = selector + '{' + rule + '}';
+        
+        if (media !== '') rtext = '@media ' + media + '{' + rtext + '}';
+        if (index === undefined) index = this.sheet.length;
+        
+        this.sheet.insertRule(rtext, index);
+    };
+    this.deleteRule = function(index) {       
+        this.sheet.deleteRule(index);
     };
 };

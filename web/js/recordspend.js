@@ -1,7 +1,6 @@
 'use strict';
 
 var hstFilter;
-var mysql;
 
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
@@ -41,7 +40,7 @@ function clonedata() {
     document.getElementById("seqno").value = "";
     document.getElementById("date").value = currentDate(new Date());
 }
-function checkTimestamp() {
+function checkServerTimestamp() {
     var valid      = true;
     var parameters = createParameters('checktimestamp');
 
@@ -67,7 +66,7 @@ function checkTimestamp() {
 function send() {
     if (!fieldHasValue("date"))   return;
     if (!fieldHasValue("amount")) return;
-    if (!checkTimestamp())        return;
+    if (!checkServerTimestamp())  return;
 
     var parameters = createParameters('savespend');
 
@@ -192,10 +191,6 @@ function initialize() {
     var response;
     
     addIEFixClass([document.getElementsByTagName('body')[0]]);
-    
-    if (!serverAcceptingRequests('Spend')) return;
-    
-    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reset);
     
     reporter.setFatalAction('console');
     

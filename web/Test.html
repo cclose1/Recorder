@@ -29,11 +29,15 @@ and open the template in the editor.
                 <div>
                     <label>Media</label>
                     <input id ="media" type="text" tabindex="-1">
+                    <label for="mindex" class="nogap">Index</label>
+                    <input type="text" size="2" id="mindex" tabindex="-1">
                 </div>
 
                 <div>
                     <label for="selector">Selector</label>
                     <input id="selector" type="text" tabindex="-1">
+                    <label for="index" class="nogap">Index</label>
+                    <input type="text" size="2" id="index" tabindex="-1">
                     <label for="rule" class="nogap">Rule</label>
                     <input type="text" id="rule" tabindex="-1">
                 </div>
@@ -43,6 +47,7 @@ and open the template in the editor.
                     <input type="button" value="Add" onclick="testAction('add');"> 
                     <input type="button" value="Modify" onclick="testAction('modify');">
                     <input type="button" value="Delete" onclick="testAction('delete');">
+                    <input type="button" value="Test" onclick="testCSSEdit();">
                 </div>
             </fieldset>
             <fieldset>

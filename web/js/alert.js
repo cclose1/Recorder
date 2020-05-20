@@ -165,7 +165,7 @@ function dismissAlert(clearValue) {
     }
     focusElement = undefined;
     confirm      = undefined;
-}    
+}
 function displayAlert(title, text, options) {
     if (options !== undefined) {
         confirm      = options.confirm;

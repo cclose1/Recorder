@@ -252,7 +252,7 @@ public class RecordSpend extends ApplicationServer {
             sql.addField("Payment");
             sql.addField("Amount",      sql.setCast("DECIMAL", 10, 2));
             sql.addField("Correction",  sql.setExpressionSource("BankCorrection"),  sql.setCast("DECIMAL", 10, 2));
-            sql.addAnd( ctx.getParameter("filter"));
+            sql.addAnd(ctx.getParameter("filter"));
             sql.setOrderBy("Timestamp DESC");
             ResultSet rs = executeQuery(ctx, sql);
             data.add("SpendData", rs, config.getOptionalColumns());

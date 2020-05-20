@@ -73,10 +73,13 @@ public class HTTPRequestHandler {
     }
     public String getParameter(String name, String nullDefault) {
         String value = request.getParameter(name);
-        return value == null || value == "" ? nullDefault : value;
+        return value == null || "".equals(value) ? nullDefault : value;
     }
     public String getParameter(String name) {
         return getParameter(name, "");
+    }
+    public boolean existsParameter(String name) {
+        return request.getParameter(name) != null;
     }
 
     public Cookie getCookie(String name) {

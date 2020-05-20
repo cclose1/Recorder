@@ -14,7 +14,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Blood Pressure</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Record', 'loginframe'); initialize();">                    
+    <body onload="configureAlert(false, true); connectToServer('Record', 'loginframe', initialize);">                    
         <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>

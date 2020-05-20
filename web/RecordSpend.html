@@ -17,7 +17,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Spend Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Spend', 'loginframe'); initialize(true);">                  
+    <body onload="configureAlert(false, true); connectToServer('Spend', 'loginframe', initialize)">                  
         <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
@@ -114,6 +114,10 @@
                                 <label for="showfilter">Show Filter</label>
                                 <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
                             </div>
+                            <div>
+                                <label></label>
+                                <input id="today" type="button" value = "Today" onclick="setFilterValue('filter1', 'Weekday', getDayText());">
+                            </div>
                         </div>
                     </fieldset>
                 </div>
@@ -151,7 +155,7 @@
                 <div id="filter">
                     <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
                     </iframe>
-                </div>  
+                </div>
             </div> 
 
             <table id="history">

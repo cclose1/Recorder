@@ -10,13 +10,14 @@
         <script src="js/json.js"></script>
         <script src="js/formutils.js"></script>
         <script src="js/csseditor.js"></script>
+        <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
         <script src="js/recordnutrition.js"></script>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Nutrition Details</title>
     </head>
-    <body onload="configureAlert(false, true); configureLogin('Nutrition', 'loginframe'); initialize(true);">                      
+    <body onload="configureAlert(false, true); connectToServer('Nutrition', 'loginframe', initialize);">                      
             <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
@@ -41,33 +42,41 @@
                         <legend>Update Item</legend>
                         <div>
                             <label for='iitem'>Item</label>
-                            <input id='iitem' type='text' name='Item' size ='25' maxlength='50'>
+                            <input id='iitem' type='text' name='Item' maxlength='50'>
                         </div>
                         <div>
                             <label for="isource">Source</label>
-                            <input type="text" name="Source" list="iSourceList" id="isource" onchange="checkExists()">
+                            <input type="text" name="Source" list="iSourceList" id="isource" size='10' onchange="checkExists()">
                             <datalist id="iSourceList">
                                 <option></option>
                             </datalist>
                             <label for="itype">Type</label>
-                            <input type="text" name="Type" list="iTypeList" id="itype" onchange="checkExists()">
+                            <input type="text" name="Type" list="iTypeList" id="itype" size="7" onchange="checkExists()">
                             <datalist id="iTypeList">
                                 <option></option>
                             </datalist> 
                         </div>
                         <div>
                             <label for="istart">Start</label>
-                            <input type="text" name="Start" id="istart">
-                            <label for="iend">End</label>
-                            <input type="text" name="End" id="iend">
+                            <input type="text" id="istart" class='datetime' onchange="valItem.checkTime();">
+                            <label for="iend" class="gap71ar">End</label>
+                            <input type="text" id="iend" class='datetime' onchange="valItem.checkTime();">
+                        </div>
+                        <div>
+                            <label for='icomment'>Comment</label>
+                            <textarea id='icomment' rows='2'></textarea>
                         </div>
                         <div>
                             <label for='icalories'>Calories</label>
-                            <input id='icalories' type='text' name='Calories' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='icalories' type='text' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <label for='icalculated'>Calculated</label>
+                            <input id='icalculated' type='text' maxlength='6' readonly class='number' tabindex="-1">
+                            <label for='ipcdiff'>%Diff</label>
+                            <input id='ipcdiff' type='text' maxlength='6' readonly class='number' tabindex="-1">
                         </div>
                         <div>
                             <label for='iprotein'>Protein</label>
-                            <input id='iprotein' type='text' name='Protein' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='iprotein' type='text' name='Protein' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.updateCalculated();'>
                         </div>
                         <div>
                             <label for='icholesterol'>Cholesterol</label>
@@ -75,17 +84,17 @@
                         </div>
                         <div>
                             <label for='ifat'>Fat</label>
-                            <input id='ifat' type='text' name='Fat' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='ifat' type='text' name='Fat' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.crossCheck(); valItem.updateCalculated();'>
                             <label for='isaturated'>Saturated</label>
-                            <input id='isaturated' type='text' name='Saturated' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='isaturated' type='text' name='Saturated' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.crossCheck();'>
                         </div>
                         <div>
                             <label for='icarbohydrate'>Carbohydrate</label>
-                            <input id='icarbohydrate' type='text' name='Carbohydrate' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='icarbohydrate' type='text' name='Carbohydrate' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.crossCheck(); valItem.updateCalculated();'>
                             <label for='isugar'>Sugar</label>
-                            <input id='isugar' type='text' name='Sugar' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='isugar' type='text' name='Sugar' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.crossCheck();'>
                             <label for='ifibre'>Fibre</label>
-                            <input id='ifibre' type='text' name='Fibre' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='ifibre' type='text' name='Fibre' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.crossCheck();'>
                         </div>
                         <div>
                             <label for='isalt'>Salt</label>
@@ -95,13 +104,13 @@
                             <input id='isodium' type='text' name='Sodium' maxlength='6' onkeypress='allowedInNumberField();' onchange='setSalt(false);'>
                             <label class='nogap'>mg</label>                                    
                             <label id='iabvlab' for='iabv' class='gap61ar'>ABV</label>
-                            <input id='iabv' type='text' name='iabv' maxlength='4' onkeypress='allowedInNumberField();'>
+                            <input id='iabv' type='text' name='iabv' maxlength='4' onkeypress='allowedInNumberField();' onchange='valItem.updateCalculated();'>
                         </div>
                         <div>
                             <label for="isimple">Simple</label>
                             <input id="isimple" name="Simple" value="Simple" type="checkbox" onclick="setSimple()">
                             <label id='isizelab' for='isize' class='gap106ar'>Size</label>
-                            <input id='isize' type='text' name='Size' maxlength='4' onkeypress='allowedInNumberField();'>
+                            <input id='isize' type='text' name='Size' maxlength='4' onkeypress='allowedInNumberField();' onchange='valItem.updateCalculated();'>
                             <label id='idefaultlab' for='idefault'>Default</label>
                             <input id='idefault' type='text' name='Default' maxlength='4' onkeypress='allowedInNumberField();'>
                             <label id='ipacksizelab' for='ipacksize'>Pack Size</label>
@@ -109,8 +118,9 @@
                         </div>
                         <div>
                             <label for="icreate"></label>
-                            <input id="icreate" name="CreateItem" type="button" value="Create" onclick="applyItemUpdate();">
-                            <input id="inew"    name="NewItem"    type="button" value="New"    onclick="setCreateItem('start');">
+                            <input id="icreate"     type="button" value="Create"       onclick="valItem.updateItem();">
+                            <input id="inew"        type="button" value="New"          onclick="setCreateItem('start');">
+                            <input id="inewversion" type="button" value="New Version"  onclick="valItem.newVersion();">
                         </div>
                     </fieldset>
                     <div class="floatleft">
@@ -134,51 +144,18 @@
                                     <label for="comment">Comment</label>
                                     <input type= "text" name="comment"     id="comment"     onchange="updateEvent();">
                                 </div>
-                                <fieldset id='eventfilter'>
+                                <fieldset>
                                     <legend>Event Filter</legend>
-                                    <div><label for="efday">Day</label>
-                                        <select id="efday" tabindex="-1" onchange="requestEventHistory(true);">
-                                            <option></option>
-                                            <option>Sun</option>
-                                            <option>Mon</option>
-                                            <option>Tue</option>
-                                            <option>Wed</option>
-                                            <option>Thu</option>
-                                            <option>Fri</option>
-                                            <option>Sat</option>
-                                        </select>
-                                        <div>
-                                            <label for='efdescription'>Description</label>
-                                            <input id='efdescription' type='text' name='description' size ='15' tabindex='-1' onchange='requestEventHistory(true);'>
-                                        </div>
-                                        <div id="efreset" hidden>
-                                            <label for="efresetbtn"></label>
-                                            <input id="efresetbtn" name="resetbutton" type="button" value="Reset" onclick="setEventFilterReset();">                                                
-                                        </div>
+                                    <div id='eventfilter'> 
+                                    </div>
+                                    <div>
+                                        <label></label>
+                                        <input id="today" type="button" value = "Today" onclick="setFilterValue('filter1', 'Weekday', getDayText());">
                                     </div>
                                 </fieldset>
-
-                                <fieldset id="itemfilter">
+                                <fieldset>
                                     <legend>Item Filter</legend>
-                                    <div>
-                                        <label for="fsource">Source</label>
-                                        <select id="fsource" tabindex="-1" onchange="getNutritionDetails();">
-                                            <option></option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="ftype">Type</label>
-                                        <select id="ftype" tabindex="-1" onchange="getNutritionDetails();">
-                                            <option></option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="fitem">Item</label>
-                                        <input type="text" name="fItem" size ="3" id="fitem" tabindex="-1" onchange="getNutritionDetails();">
-                                    </div>
-                                    <div id="freset" hidden>
-                                        <label for="fresetbtn"></label>
-                                        <input id="fresetbtn" name="resetbutton" type="button" value="Reset" onclick="setItemFilterReset();">                                                
+                                    <div id='itemfilter'> 
                                     </div>
                                 </fieldset>
                                 <div>
@@ -245,9 +222,9 @@
                                 <legend>Source</legend>
                                 <div>
                                     <label for="sdate">Date</label>
-                                    <input type="text" id="sdate" class = "date" readonly name="Date" maxlength="11" tabindex="-1">
+                                    <input type="text" id="sdate" class = "date" readonly maxlength="11" tabindex="-1" onchange="checkDate();">
                                     <label for="stime" class="nogap">Time</label>
-                                    <input type="text" id="stime" class = "time" readonly name="time" size="8" maxlength="8" tabindex="-1">
+                                    <input type="text" id="stime" class = "time" readonly size="8" maxlength="8" tabindex="-1" onchange="checkTime();">
                                 </div>
                                 <div>
                                     <label for="sdescription">Description</label>
@@ -284,9 +261,9 @@
                         <legend>Create Event</legend>
                         <div>
                             <label for="crdate">Date</label>
-                            <input type="text" id="crdate" class = "date" name="Date" maxlength="11">
+                            <input type="text" id="crdate" class = "date" maxlength="11" onchange="checkDate();">
                             <label for="crtime" class="nogap">Time</label>
-                            <input type="text" id="crtime" class = "time" name="time" size="8" maxlength="8">
+                            <input type="text" id="crtime" class = "time" size="8" maxlength="8" onchange="checkTime();">
                         </div>
                         <div>
                             <label for="crdescription">Description</label>
@@ -308,7 +285,7 @@
                     </fieldset>
                 </div> 
             </div>
-            <table id="activeeventtable">
+            <table id="activeeventtable" hidden="">
                 <caption>Active Event</caption>
                 <thead>
                     <tr><th></th></tr>

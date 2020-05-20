@@ -11,10 +11,16 @@ and open the template in the editor.
 #updateitem {
     width: 550px;
 }
-input[onkeypress^='allowedInNumberField'] {
+input[onkeypress^='allowedInNumberField'], .number {
     width: 40px;
 }
-#itemdetailstable [name='ABV'], #itemdetailstable [name='DefaultSize'] {
+#isource {
+    width: 120px;   
+}
+#itemdetailstable [name='ABV'], #itemdetailstable [name='DefaultSize'], #itemdetailstable [name='Protein'], #itemdetailstable [name='Fat'], #itemdetailstable [name='Carbohydrate'] {
+    display: none;
+}
+#activeeventtable [name='Protein'], #activeeventtable [name='Fat'], #activeeventtable [name='Carbohydrate'] {
     display: none;
 }
 #eventhistorytable [name='Comment'] {

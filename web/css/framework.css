@@ -11,6 +11,9 @@ body {
     margin: auto;
     width: fit-content;
 }
+textarea {
+    vertical-align: top;
+}
 @media screen and (max-width: 900px) {
     .optional {
         display: none;
@@ -163,4 +166,7 @@ select.optlist {
 }
 .time {
     width: 4em;
+}
+.datetime {
+    width: 10em;
 }

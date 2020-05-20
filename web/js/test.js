@@ -42,11 +42,11 @@ TestOption2.prototype = {
     get int2() {return this.getValue('int2');},
     get str1() {return this.getValue('str1');}};
 TestOption2.prototype.constructor = TestOption2;
-function setSheet() {
+function setSheet(sheet) {
     try {        
         var jTable = new arrayToJSONTable('Rules');
         
-        cssed.setSheet(event.target.value, true);
+        cssed.setSheet(sheet === undefined? event.target.value : sheet, true);
         jTable.addColumn('Index',    'index',    'int');
         jTable.addColumn('MedIndex', 'mIndex',   'int');
         jTable.addColumn('Media',    'media',    'varchar');
@@ -66,8 +66,10 @@ function ruleClick(row) {
 
         switch (rdr.columnName()) {
             case 'Index':
+                document.getElementById('index').value = value;
                 break;
             case 'MedIndex':
+                document.getElementById('mindex').value = value;
                 break;
             case 'Media':
                 document.getElementById('media').value = value;
@@ -95,17 +97,38 @@ function testTable() {
                  {name:'Comment', minWidth: 10, maxWidth: 15}]});
 }
 
+function testCSSEdit() {
+    var test = cssed.getRule(
+            document.getElementById('selector').value,
+            document.getElementById('media').value,
+            true);            
+}
 function testAction(action) {
-    if (action === 'addItem') {
-        var row = new JSON('object');
-        var rows = data.getMember('Data', true).value;
-        row.addMember('Item',      document.getElementById('item').value);
-        row.addMember('Available', true);
-        row.addMember('Price',     Number(document.getElementById('price').value));        
-        row.addMember('Comment',   document.getElementById('comment').value);
-        rows.addElement(row);
-        testTable(); 
-   }
+    switch (action) {
+        case 'addItem':
+            var row  = new JSON('object');
+            var rows = data.getMember('Data', true).value;
+            row.addMember('Item', document.getElementById('item').value);
+            row.addMember('Available', true);
+            row.addMember('Price', Number(document.getElementById('price').value));
+            row.addMember('Comment', document.getElementById('comment').value);
+            rows.addElement(row);
+            testTable();
+            break;
+        case 'add':
+            cssed.addRule(
+                    document.getElementById('media').value, 
+                    document.getElementById('selector').value, 
+                    document.getElementById('rule').value, 
+                    document.getElementById('index').value);
+            setSheet(document.getElementById('sheet').value);
+            break;
+        case 'delete':
+            cssed.deleteRule(document.getElementById('index').value);
+            setSheet(document.getElementById('sheet').value);
+            break;        
+        default:
+    }
 };
 function testJSON() {
     var opt1 = new TestOption1({Int1: 3,  Int2: 21,  Str1: "Test String", Columns: [{name: 'Col1', minWidth: 12},{name: 'Col2', minWidth: 30}]});
@@ -136,7 +159,7 @@ function testJSON() {
     text1 = opt1.Str1;
     int  = opt2.int1;
     int  = opt2.int2;
-     text1 = opt2.str1;
+    text1 = opt2.str1;
     opt1.log();
     opt2.log();
     text2 = text1 || 'x';
@@ -185,4 +208,29 @@ function initialize() {
     st.enableLog(true);
     reporter.setFatalAction('throw');
 }
-
+function debug() {       
+    st.enableLog(true);
+    reporter.setFatalAction('throw');
+}
+function requestDebug() {
+    var parameters = createParameters('debug');
+    
+    parameters = addParameterById(parameters, 'request');
+    parameters = addParameterById(parameters, 'maxfield');
+    
+    function processResponse(response) {
+        if (response.indexOf('{') === 0) {
+            if (document.getElementById('request').value === 'Show Env')
+                loadJSONArray(response, 'resultstable', {maxField: 30, columns: [{name: 'Variable', minWidth: 28},{name: 'Value', maxWidth: 120}]});
+            else
+                loadJSONArray(response, 'resultstable', {columns: [{name: 'Stream', minWidth: 15}]});
+            
+            document.getElementById('resultstable').removeAttribute('hidden');
+        } else
+            alert(response);
+    }    
+    ajaxLoggedInCall(document.getElementById('handler').value, processResponse, parameters, true);
+}
+function callDebug() {
+    requestDebug();
+}

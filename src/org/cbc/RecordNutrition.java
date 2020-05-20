@@ -87,6 +87,7 @@ public class RecordNutrition extends ApplicationServer {
         rs.updateString("Item",   ctx.getParameter("item"));
         rs.updateString("Source", ctx.getParameter("source"));
         rs.updateString("Type",   ctx.getParameter("type"));
+        rs.updateString("Comment",ctx.getParameter("comment"));
         rs.updateString("Simple", simple? "Y" : "N");
         
         setNumericItemField(rs, "Calories",     ctx.getParameter("calories"),     scale);
@@ -111,6 +112,11 @@ public class RecordNutrition extends ApplicationServer {
                 super.config.getProperty("ntuser"),
                 super.config.getProperty("ntpassword"));
     }
+    private void addItemStartTime(Context ctx, SQLSelectBuilder sql) throws ParseException {
+        Date startTime = ctx.getTimestamp("starttime");
+        
+        sql.addAndStart(startTime == null? new Date() : startTime);
+    }
     public void processAction(
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
@@ -124,14 +130,16 @@ public class RecordNutrition extends ApplicationServer {
             SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
 
             sql.addField("iitem",         "Item");
-            sql.addField("icalories",     "Calories");
             sql.addField("isource",       "Source");
             sql.addField("itype",         "Type");
+            sql.addField("istart",        "Start");
             sql.addField("iend",          "End");
-            sql.addField("iprotein",      "protein");
+            sql.addField("icomment",      "Comment");
+            sql.addField("icalories",     "Calories");
+            sql.addField("iprotein",      "Protein");
             sql.addField("icholesterol",  "Cholesterol");
             sql.addField("ifat",          "Fat");
-            sql.addField("isaturated",    "saturated");
+            sql.addField("isaturated",    "Saturated");
             sql.addField("icarbohydrate", "Carbohydrate");
             sql.addField("isugar",        "Sugar");
             sql.addField("ifibre",        "Fibre");
@@ -139,11 +147,12 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("isimple",       "Simple");
             sql.addField("iabv",          "ABV");
             sql.addField("idefault",      "DefaultSize");
-            sql.addField("ipackSize",     "Packsize");
+            sql.addField("ipacksize",     "PackSize");
 
             sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
             sql.addAnd("Source", "=", ctx.getParameter("isource"));
-            sql.addAndStart(new Date());
+            addItemStartTime(ctx, sql);
+            
             JSONArray fields = new JSONArray();
             ResultSet rs     = executeQuery(ctx, sql);
 
@@ -152,12 +161,25 @@ public class RecordNutrition extends ApplicationServer {
 
             ctx.setStatus(200);
         } else if (action.equals("applyitemupdate")) {
-            String    command = ctx.getParameter("command");
-            String    item    = ctx.getParameter("item");
-            String    source  = ctx.getParameter("source");
+            String    command       = ctx.getParameter("command");
+            String    item          = ctx.getParameter("item");
+            String    source        = ctx.getParameter("source");
+            String    start         = ctx.getParameter("start");
+            String    previousStart = ctx.getParameter("previousStart");
             ResultSet rs;
 
             ctx.getAppDb().startTransaction();
+            
+            if (previousStart.length() != 0) {
+                SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionDetail");
+                
+                sql.addField("End", start);
+                sql.addAnd("Start",  "=", previousStart);
+                sql.addAnd("Item",   "=", item);
+                sql.addAnd("Source", "=", source);
+                executeUpdate(ctx, sql);
+                command = "create";
+            }
 
             if (command.equalsIgnoreCase("create")) {
                 rs = ctx.getAppDb().insertTable("NutritionDetail");
@@ -171,6 +193,7 @@ public class RecordNutrition extends ApplicationServer {
                 SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
                 sql.addAnd("Item",   "=", item);
                 sql.addAnd("Source", "=", source);
+                sql.addAnd("Start",  "=", start);
                 rs = updateQuery(ctx, sql.build());
 
                 if (!rs.next()) {
@@ -206,16 +229,19 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Units");
             sql.setOrderBy("Timestamp DESC");
 
-            sql.addAnd("WeekDay",     "=",    ctx.getParameter("day"));
-            sql.addAnd("Description", "LIKE", ctx.getParameter("description"));
-
+            if (ctx.existsParameter("filter"))
+                sql.addAnd(ctx.getParameter("filter"));
+            else {
+                sql.addAnd("WeekDay",     "=",    ctx.getParameter("day"));
+                sql.addAnd("Description", "LIKE", ctx.getParameter("description"));
+            }
             ResultSet rs = executeQuery(ctx, sql);
             
             data.add("EventHistory", rs);
             data.append(ctx.getReplyBuffer());
 
             ctx.setStatus(200);
-        } else if (action.equals("requestdetails")) {
+        } else if (action.equals("requestitemlist")) {
             JSONObject       data   = new JSONObject();
             String           source = ctx.getParameter("source");
             String           type   = ctx.getParameter("type");
@@ -228,14 +254,17 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Type",        sql.setValue(""));
             sql.addField("Simple",      sql.setValue(""));
             sql.addField("DefaultSize", sql.setValue(0));
-            sql.addField("Salt",        sql.setCast("DECIMAL", 4, 2));
-            sql.addField("Calories",    sql.setCast("DECIMAL", 5, 1));
+            sql.addField("Salt");
+            sql.addField("Calories");
+            sql.addField("Protein");
+            sql.addField("Fat");
+            sql.addField("Carbohydrate");
             sql.setOrderBy("Item");
 
             sql.addAnd("source", "=",    source);
             sql.addAnd("type",   "=",    type);
             sql.addAnd("item",   "LIKE", item);
-            sql.addAndStart(new Date());
+            addItemStartTime(ctx, sql);
 
             ResultSet rs = executeQuery(ctx, sql.build());
             data.add("ItemDetails", rs);
@@ -404,12 +433,15 @@ public class RecordNutrition extends ApplicationServer {
             SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
 
             sql.addField("Item");
-            sql.addField("ABV",       sql.setValue(0));
-            sql.addField("Quantity",  sql.setValue(0));
-            sql.addField("Source",    sql.setValue(""));
-            sql.addField("Type",      sql.setValue(""));
-            sql.addField("Calories",  sql.setValue(0));
-            sql.addField("Saturated", sql.setValue(0));
+            sql.addField("ABV",          sql.setValue(0));
+            sql.addField("Quantity",     sql.setValue(0));
+            sql.addField("Source",       sql.setValue(""));
+            sql.addField("Type",         sql.setValue(""));
+            sql.addField("Calories",     sql.setValue(0));
+            sql.addField("Protein",      sql.setValue(0));
+            sql.addField("Fat",          sql.setValue(0));
+            sql.addField("Saturated",    sql.setValue(0));
+            sql.addField("Carbohydrate", sql.setValue(0));
             sql.addField("Sugar",     sql.setValue(0));
             sql.addField("Salt",      sql.setValue(0));
             sql.setOrderBy("Item");

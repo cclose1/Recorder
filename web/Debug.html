@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script src="js/platform.js"></script>
+        <script src="js/json.js"></script>
+        <script src="js/login.js"></script>
+        <script src="js/formutils.js"></script>
+        <script src="js/test.js"></script>
+        <title>Display Message</title>
+    </head> 
+    <body onload="configureLogin('Nutrition', 'loginframe'); debug();">
+        <div id="innerfields">
+            <div id="debug">
+                <fieldset>
+                    <legend>Debug Parameters</legend>
+                    <div>
+                        <label>Action</label>
+                        <select id="request" tabindex="-1">
+                            <option>Show Env</option>
+                            <option>Report Streams</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Max Field</label>
+                        <input type="number" id="maxfield">
+                    </div>
+                    <div>
+                        <label>Handler</label>
+                        <input type= "text" id="handler" value="Nutrition">
+                    </div>
+                    <div>
+                        <label for="debug"></label>
+                        <input id="debug" name="debug" type="button" value="Debug" onclick="callDebug();">
+                    </div>
+                </fieldset>
+            </div> 
+        </div>
+        <div id="loginfields" hidden >
+            <iframe id="loginframe" src="Login.html" scrolling="no">
+            </iframe>
+        </div>   
+        <table id="resultstable" hidden>
+            <caption>Details</caption>
+            <thead>
+                <tr><th></th></tr>
+            </thead>
+            <tr><td></td></tr>
+        </table>
+    </body>
+</html> 

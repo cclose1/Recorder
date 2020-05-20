@@ -63,14 +63,14 @@ public class RecordBankTransaction extends ApplicationServer {
     private int getNextTXNLine(Context ctx, String txnId) throws SQLException {
         SQLSelectBuilder sql = ctx.getSelectBuilder("TransactionLine");
         
-        sql.addField("LineNum", sql.setExpressionSource("MAX(Line) + 1"), sql.setValue(0));
+        sql.addField("LineNum", sql.setExpressionSource("MAX(Line) + 1"));
         sql.addAnd("TXNId", "=", txnId);
         
         ResultSet rs = executeQuery(ctx, sql);
         
         rs.next();
         
-        return rs.getInt("LineNum");
+        return rs.getInt("LineNum") == 0? 1 : rs.getInt("LineNum");
     }
     private void addTransactionLine(Context ctx, Date timestamp, Date completed, String prefix, String txnId) throws SQLException {
         String account     = ctx.getParameter(prefix + "account");

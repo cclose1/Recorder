@@ -1,7 +1,6 @@
 'use strict';
 
-var timer = setInterval(function(){ updateTimer();}, 1000);
-var mysql;
+var timer;
 
 function showUpdate(yes) {
     setHidden('insertfields', yes);
@@ -14,20 +13,12 @@ function newSession() {
     document.getElementById("try").value = 1;
     document.getElementById("systolic").focus();
 }
-function trim(str) {
-    return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-}
 function setTime() {
     if (trim(document.getElementById("time").value) === "") {
         var date = new Date();
         document.getElementById("time").value = currentTime(date);
         document.getElementById("timestamp").value = currentDateTime(date);
-        document.getElementById("timer").value = 0;
-    }
-}
-function updateTimer() {
-    if (document.getElementById("timer").value !== "") {
-        document.getElementById("timer").value = parseInt(document.getElementById("timer").value) + 1;
+        timer.start();
     }
 }
 function send(ev) {
@@ -171,11 +162,8 @@ function requestHistory() {
 function updateOrientationList(name, dbField) {
     getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowBlank: true}); 
 }
-function initialize() {
-    if (!serverAcceptingRequests('Record')) return;
-    
-    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), initialize);
-    
+function initialize() {    
+    timer = new Timer(document.getElementById("timer"));
     newSession();
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');

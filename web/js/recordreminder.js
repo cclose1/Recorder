@@ -158,11 +158,9 @@ function initialize() {
             'Dentist,'     + 
             'Health,'      +
             'Insurance,'   +
+            'Maintenance,' +
             'Meeting,'     +
             'Social';
-    if (!serverAcceptingRequests('Reminder')) return;
-    
-    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), requestReminders);
     
     reporter.setFatalAction('console');
     
@@ -179,11 +177,12 @@ function initialize() {
         trigger:         document.getElementById('showfilter')});
     
     hstFilter.addFilter('Types',       'Type',     types);
+    hstFilter.addFilter('Frequency',   'Frequency', 'Y,M', true);
     hstFilter.addFilter('Description', 'Description');
     /*
      * The remaining calls can execute asynchronously.
      */
-    requestReminders();
+    connectToServer('Reminder', 'loginframe', requestReminders);
 }
 
 

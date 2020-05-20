@@ -11,7 +11,11 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -19,12 +23,14 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.cbc.application.reporting.Measurement;
-import org.cbc.application.reporting.Report;
-import org.cbc.application.reporting.Trace;
-import org.cbc.application.reporting.Thread;
 import org.cbc.application.reporting.Process;
+import org.cbc.application.reporting.Report;
+import org.cbc.application.reporting.Thread;
+import org.cbc.application.reporting.Trace;
+import org.cbc.json.JSONArray;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
+import org.cbc.json.JSONValue;
 import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
@@ -32,6 +38,7 @@ import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.data.DatabaseSession;
 import org.cbc.utils.system.DateFormatter;
+import org.cbc.utils.system.Environment;
 import org.cbc.utils.system.SecurityConfiguration;
 
 /**
@@ -74,8 +81,10 @@ public abstract class ApplicationServer extends HttpServlet {
                 = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
         return Long.parseLong(processName.split("@")[0]);
     }
-    protected class Configuration implements SecurityConfiguration {        
-        Properties properties = new Properties();
+    protected class Configuration implements SecurityConfiguration {  
+        Properties  properties = new Properties();  
+        Environment props      = new Environment(properties);
+        Environment envs       = new Environment();
         
         protected class Databases {
             public class Login {
@@ -135,65 +144,35 @@ public abstract class ApplicationServer extends HttpServlet {
         private boolean logRequest;
         private boolean logReply;
         private boolean loginRequired;
+        private double  longStatementTime;
         private boolean measureSQL;
         private boolean sqlServerAvailable;
         private boolean sshRequired;
-        
+   
         public String getProperty(String name) {
-            return properties.getProperty(name);
+            return props.getValue(name);
         }
         public int getIntProperty(String name, int defaultValue) {
-            String value = getProperty(name);
-            
-            if (value == null) return defaultValue;
-            
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException ex) {
-                Report.error(null, "Property " + name + " value=" + value + " is not an integer defaulting to " + defaultValue);
-            }        
-            return defaultValue;
-        }
-        private String getenv(String name, boolean expand) {
-            String env = System.getenv(name);
-            
-            if (env != null && env.startsWith("${") && expand) {
-                env = System.getenv(env.substring(2, env.length() - 1));
-            }
-            return env == null? "" : env.trim();
-        }
-        private String getenv(String name) {
-            return getenv(name, true);
-        }
-        private boolean getenvBoolean(String name, boolean ifNull) {
-            String env = getenv(name, true).trim();
-            
-            if (env.equals("")) return ifNull;
-            
-            env = env.toLowerCase();
-            
-            return env.equals("true") || env.equals("t") || env.equals("yes") || env.equals("y");
-        }
-        private boolean getenvBoolean(String name) {
-            return getenvBoolean(name, false);
-        }
+            return props.getIntValue(name, defaultValue);
+        }        
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
-            dbServer           = getenv("DATABASE_SERVER").length() == 0? "127.0.0.1" : getenv("DATABASE_SERVER");
-            mysqlUseSSL        = getenv("DATABASE_USE_SSL");
-            logRequest         = getenvBoolean("LOG_HTML_REQUEST");
-            logReply           = getenvBoolean("LOG_HTML_REPLY");
-            measureSQL         = getenvBoolean("MEASURE_SQL_QUERY");
-            sqlServerAvailable = getenvBoolean("SQLSERVER_AVAILABLE");
-            sshRequired        = getenvBoolean("SSH_REQUIRED");
+            dbServer           = envs.getValue("DATABASE_SERVER", "127.0.0.1");
+            mysqlUseSSL        = envs.getValue("DATABASE_USE_SSL");
+            logRequest         = envs.getBooleanValue("LOG_HTML_REQUEST");
+            logReply           = envs.getBooleanValue("LOG_HTML_REPLY");
+            longStatementTime  = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
+            measureSQL         = envs.getBooleanValue("MEASURE_SQL_QUERY");
+            sqlServerAvailable = envs.getBooleanValue("SQLSERVER_AVAILABLE");
+            sshRequired        = envs.getBooleanValue("SSH_REQUIRED");
             appName            = config.getServletName();
-            deadlockRetries    = properties.getProperty("deadlockretries");
-            hashAlgorithm      = properties.getProperty("hashalgorithm", "SHA");
-            loginRequired      = properties.getProperty("loginrequired", "no").equalsIgnoreCase("yes");
+            deadlockRetries    = props.getValue("deadlockretries");
+            hashAlgorithm      = props.getValue("hashalgorithm", "SHA");
+            loginRequired      = props.getValue("loginrequired", "no").equalsIgnoreCase("yes");
             
-            if (getenv("DATABASE_PORT").length() != 0) {
-                dbServer += ":" + getenv("DATABASE_PORT");
+            if (envs.getValue("DATABASE_PORT") != null) {
+                dbServer += ":" + envs.getValue("DATABASE_PORT");
             }
         }
         public boolean isSqlServerAvailable() {
@@ -230,11 +209,8 @@ public abstract class ApplicationServer extends HttpServlet {
         public boolean getMeasureSQL() {
             return measureSQL;
         }
-        /*
-         * To be removed.
-        */
-        public String getDefaultUserId() {
-            return "";
+        public double getLongStatementTime() {
+            return longStatementTime;
         }
     }
     protected Configuration config = new Configuration();
@@ -276,6 +252,8 @@ public abstract class ApplicationServer extends HttpServlet {
                 session.connect();
                 t.report('C', "Connection string " + session.getConnectionString());
             }   
+            session.SetLongStatementTime(config.getLongStatementTime());
+            
             t.exit();
             
             return session;
@@ -304,6 +282,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }   
         public String getParameter(String name) {
             return handler.getParameter(name);
+        }        
+        public boolean existsParameter(String name) {
+            return handler.existsParameter(name);
         }        
         public Date getTimestamp(String date, String time) throws ParseException {
             String dt = getParameter(date).trim();
@@ -436,6 +417,72 @@ public abstract class ApplicationServer extends HttpServlet {
     public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
     public abstract void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException;
     
+    private void addRowColumn(JSONArray row, String colName) throws JSONException {
+        JSONObject col = new JSONObject();
+        
+        col.add("Type", "varchar");
+        col.add("Name", colName);
+        row.add(col);
+    }
+    private void debugAction(Context ctx) throws JSONException {
+        String              request = ctx.getParameter("request");
+        JSONObject          data    = new JSONObject();
+        JSONArray           row     = new JSONArray();
+        JSONArray           rows;
+        int                 max = -1;
+        String              value;
+        
+        data.add("Table", "Debug");
+        data.add("Header", row);
+        
+        if (ctx.existsParameter("maxfield") && ctx.getParameter("maxfield").length() != 0) {
+            max = Integer.parseInt(ctx.getParameter("maxfield"));
+        }
+        if (request.equals("Show Env")) {
+            Map<String, String> envs = new TreeMap<>(System.getenv());
+            Iterator            it   = envs.entrySet().iterator();
+            
+            addRowColumn(row, "Variable");
+            addRowColumn(row, "Value");
+            rows = new JSONArray();
+            data.add("Data", rows);
+
+            while (it.hasNext()) {
+                Map.Entry<String, String> env = (Map.Entry<String, String>) it.next();
+
+                value = env.getValue();
+
+                if (max == -1 || value.length() <= max) {
+                    row = new JSONArray();
+                    rows.add(row);
+                    row.add(new JSONValue(env.getKey()));
+                    row.add(new JSONValue(value));
+                }
+            }            
+        } else if (request.equals("Report Streams")) {
+            HashMap<String, Process.Stream.Summary> streams = Process.getProcess(config.getAppName()).getStreamSummaries();
+            
+            addRowColumn(row, "Stream");
+            addRowColumn(row, "File");
+            addRowColumn(row, "FullFile");
+            addRowColumn(row, "Prefix");
+            rows = new JSONArray();
+            data.add("Data", rows);
+            
+            streams.entrySet().forEach((stream) -> {
+                Process.Stream.Summary smy = stream.getValue();
+                
+                JSONArray r = new JSONArray();
+                rows.add(r);
+                r.add(new JSONValue(smy.getName()));
+                r.add(new JSONValue(smy.getFileName()));
+                r.add(new JSONValue(smy.getFullFilename()));
+                r.add(new JSONValue(smy.getReportPrefix()));
+            });
+        }
+        data.append(ctx.getReplyBuffer());
+        ctx.setStatus(200);                       
+    }
     private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException {
         Trace  t      = new Trace("ASProcessAction");
         String action = ctx.getParameter("action");
@@ -465,6 +512,8 @@ public abstract class ApplicationServer extends HttpServlet {
             } else if (action.equals("loggedin")) {
                 ctx.getReplyBuffer().append(security.isLoggedIn()? "true" : "false");
                 ctx.setStatus(200);        
+            } else if (action.equals("debug")) {
+                debugAction(ctx);
             } else if (action.equals("")) {
                 ctx.getHandler().dumpRequest("No action parameter"); 
             } else {                

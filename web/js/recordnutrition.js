@@ -1,12 +1,286 @@
 'use strict';
 
-var mysql;
+var evnFilter;
+var hstFilter;
+var valItem = new ValidateItem();
+var itemRow = null;
 
+function ValidateItem() {
+    this.calDiffThreshold = 5;
+    this.oldTime          = null;
+    this.sizeDefault      = true;
+    
+    this.fields = 
+        {Calories:     {id: 'icalories',     type: null, maxSize: 5000, amount: null, sum: 0, toCalories: null},
+         Protein:      {id: 'iprotein',      type: null, maxSize: 5000, amount: null, sum: 0, toCalories: 4},
+         Fat:          {id: 'ifat',          type: null, maxSize: 5000, amount: null, sum: 0, toCalories: 9},
+         Carbohydrate: {id: 'icarbohydrate', type: null, maxSize: 5000, amount: null, sum: 0, toCalories: 4},
+         ABV:          {id: 'iabv',          type: null, maxSize: 5000, amount: null, sum: 0, toCalories: 7}};
+    
+    this.actionCancel = function() {
+        getElement('icalories').focus();
+    };
+    this.actionClick = function() {
+        applyItemUpdate(this.oldTime);
+        this.oldTime = null;
+        dismissAlert(false);
+    };
+    function clearSum(obj) {        
+        for (name in obj.fields) {
+            obj.fields[name].sum = 0;
+        }
+    }
+    function addValueToSum(obj, name, quantity, value) {
+        var field = obj.fields[name];
+        
+        value    = parseFloat(value);
+        quantity = parseFloat(quantity);
+        
+        if (field === undefined || field.type !== 'decimal') return true;
+        
+        if (field.sum + quantity * value > field.maxSize) return false;
+        
+        field.sum += quantity * value;
+        
+        return true;
+    }
+    function addRowToSum(obj, row, quantity) {
+        var rdr = new rowReader(row);
+        var name = null;
+        var item = null;
+
+        while (rdr.nextColumn()){
+            name = rdr.valueAttribute('name')
+
+            switch (name) {
+                case 'Item':
+                    item = rdr.columnValue();
+                    break;
+                case 'ABV':
+                case 'Quantity':
+                case 'DefaultSize':
+                    break; //Ignore these.                        
+                default:
+                    if (!addValueToSum(obj, name, quantity, rdr.columnValue()))  throw new ErrorObject('Validation Error', 'Item ' + item + ' results in overflow of ' + name);
+            }
+        }
+    }
+    function getSize(digits) {
+        var size = '';
+        
+        for (var i = 0; i < digits; i++) {
+            size += '9';
+        }
+        return parseFloat(size);
+    }
+    this.loadMaxSizes = function(itemData) {
+        var hdr = stringToJSON(itemData).getMember('Header', true).value;
+        var col;
+        var name;
+        var type;
+        var precision;
+        var scale;
+        var size;
+        var field;
+        
+        while (hdr.isNext()) {
+            col       = hdr.next().value;
+            name      = col.getMember('Name',      true).value;
+            type      = col.getMember('Type',      false).value;
+            scale     = col.getMember('Scale',     false).value;
+            precision = col.getMember('Precision', false).value;
+            size      = getSize(precision - scale);
+            
+            field = this.fields[name];
+            
+            if (field === undefined) {
+                field             = {id: null, type: type, maxSize: -1, amount: null, sum: 0, toCalories: null};
+                this.fields[name] = field;
+            }
+            field.type    = type;
+            field.maxSize = type === 'decimal'? getSize(precision - scale) : precision;
+        }
+    };
+    this.checkItemField = function(elm) {
+        var name;
+        var field;
+        var size = getElement('isize').value;
+        
+        elm    = getElement(elm);
+        name   = getElementLabel(elm);      
+        field  = this.fields[name];
+        
+        field.amount = getFloatValue(elm, 0);
+               
+        if (field.amount / size > field.maxSize) {     
+            displayAlert('Field Validation', "Value for " + name + " exceeds the maximum of " + field.maxSize * size, {focus: elm});
+            return false;
+        } else
+            return true;
+    };
+    this.setSizeDefault = function(simple) {
+        if (!this.sizeDefault) return;
+        
+        getElement('isize').value = simple? 100 : 1;
+    };
+    function checkCalculated(obj) {  
+        var diff = getFloatValue('ipcdiff', 0);
+        
+        if (diff > obj.calDiffThreshold)
+            displayAlert(
+                'Accept', 
+                'Calculated calories ' + getFloatValue('icalculated', 0) + ' not equal to calories value ' + getFloatValue('icalories', 0) + ', %diff ' + diff.toFixed(2), 
+                {confirm: obj});
+        else
+            obj.actionClick();                
+    }
+    this.checkTime = function() {
+        var elm = event.target;
+        
+        if (checkTimestamp() && this.oldTime !== null && toDate(elm.value) <= this.oldTime)
+            displayAlert('Validation', 'New version time must be after ' + getDateTime(this.oldTime), {focus: elm});
+    };
+    this.crossCheck = function() {
+        var elm    = event.target;
+        var checks = false;
+        
+        switch (getElementLabel(elm)) {
+            case 'Carbohydrate':
+            case 'Sugar':
+            case 'Fibre':
+                if (getFloatValue('isugar', 0) + getFloatValue('ifibre', 0) > getFloatValue('icarbohydrate', 0)) 
+                    displayAlert('Warning', 'Sum of Sugar and Fibre exceeds Carbohydrate', {focus: elm});
+                else
+                    checks = true;
+                break;
+            case 'Fat':
+            case 'Saturated':
+                if (getFloatValue('isaturated', 0) > getFloatValue('ifat', 0)) 
+                    displayAlert('Warning', 'Saturated exceeds Fat', {focus: elm});
+                else
+                    checks = true;
+                break;                
+        }
+        return checks;
+    };
+    this.updateCalculated = function() {
+        var calculated = 0;
+        var diff       = 0;
+        var calories   = getFloatValue('icalories', 0);
+        var size       = getElement('isize').value;
+        
+        if (event.target.id === 'isize') {
+            if (size <= 0) {
+                displayALert('Field Validation', 'Size must be greater than 0', {focus: getElement('isize')});
+                return false;
+            }
+            this.sizeDefault = false;
+        }        
+        for (name in this.fields) {
+            var field = this.fields[name];
+            
+            if (field.toCalories !== null) {
+                field.amount = (name === 'ABV'? size * 0.789 / 100 : 1) * getFloatValue(field.id, 0);
+                calculated += field.amount * field.toCalories;
+            }
+        }
+        diff = calories - calculated;        
+                
+        if (calories !== 0) diff = 100.0 * diff / calories;        
+        if (diff < 0) diff = -diff;
+        
+        getElement('ipcdiff').value     = diff.toFixed(2);
+        getElement('icalculated').value = calculated;
+        
+    };
+    this.checkAddItem = function () {
+        var table = document.getElementById('activeeventtable');
+        var row;
+        var i;
+
+        clearSum(this);
+        /*
+         * Check the Active Events Table items to calculate the totals before adding the new item.
+         * 
+         * Note: This should never cause overflow as it has already been checked.
+         */
+        for (i = 0; i < table.tBodies[0].rows.length; i++) {
+            row  = table.tBodies[0].rows[i];
+            
+            try {
+                addRowToSum(this, row, 1);
+            } catch (error) {
+                displayAlert(error.name, error.message, {focus: getElement('addItem')});
+                return false;
+            }
+        }
+        try {
+            addRowToSum(this, itemRow, getFloatValue('quantity'));
+        } catch (error){
+            displayAlert(error.name, error.message, {focus: getElement('addItem')});
+            return false;
+        }
+        return true;
+    };
+    this.setItemCreateCaption = function() {
+        if (document.getElementById("iitem").value === '') {
+            document.getElementById('icreate').value    = 'Create';
+            document.getElementById('iitem').readOnly   = false;
+            document.getElementById('isource').readOnly = false;
+            document.getElementById('istart').readOnly  = false;
+            document.getElementById('iend').readOnly    = false;
+            setHidden('inewversion', true);
+        } else {
+            document.getElementById('icreate').value    = 'Update';
+            document.getElementById('iitem').readOnly   = true;
+            document.getElementById('isource').readOnly = true;
+            document.getElementById('istart').readOnly  = true;
+            document.getElementById('iend').readOnly    = true;
+            setHidden('inewversion', false);
+        }
+    };
+    this.newItem = function() {
+        this.oldTime = null;
+        this.setItemCreateCaption();
+        this.updateCalculated();
+    };
+    this.updateItem = function() {
+        if (getDateTime(getElement('iend').value) < getDateTime(getElement('istart').value)) {
+            displayAlert('Validation Failure', 'End time must be after Start time', {focus: getElement('iend')});
+            return false;
+        }     
+        if (!fieldHasValue('iitem'))   return false;
+        if (!fieldHasValue('isource')) return false;
+        if (!fieldHasValue('itype'))   return false;
+        
+        if (!this.checkItemField('icalories'))     return false;
+        if (!this.checkItemField('ifat'))          return false;
+        if (!this.checkItemField('iprotein'))      return false;
+        if (!this.checkItemField('icarbohydrate')) return false;
+        
+        checkCalculated(this);
+    };
+    this.newVersion = function() {
+        setHidden('inewversion', true);
+        this.oldTime = toDate(document.getElementById('istart').value);
+        document.getElementById('istart').value    = getDateTime();
+        document.getElementById('istart').readOnly = false;
+        document.getElementById('iend').readOnly   = false;
+    };
+}
+function errorResponse(response) {
+    if (response.length > 2) {
+        displayAlert('Validation Failure', response);
+        return true;
+    }
+    return false;
+}
 function setHiddenLabelField(name, yes) {
     setHidden(name, yes);
     setHidden(name + 'lab', yes);
 }
-function clearItem() {    
+function clearItem() {
+    itemRow = null;
     document.getElementById('source').value   = '';
     document.getElementById('type').value     = '';
     document.getElementById('item').value     = '';
@@ -19,7 +293,7 @@ function clearItem() {
 function setEventMode(update) {
     setHidden('itembuttons',  true); 
     setHidden('eventbuttons', false);
-    setHidden('clone',        !update );
+    setHidden('clone',        !update);
     setHidden('remove',       !update);   
     setHidden('clear',        document.getElementById('date').value === '');
     clearItem();
@@ -65,7 +339,7 @@ function getWeight(date) {
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
     return weight;
 }
-function checkTimestamp(fldDate, fldTime) {
+function Server(fldDate, fldTime) {
     var valid = true;    
     var parameters = createParameters('checktimestamp');
 
@@ -79,10 +353,7 @@ function checkTimestamp(fldDate, fldTime) {
          * When processed by OpenShift the response is a single quote. So if more than 2
          * characters assume it is the error response.
          */
-        if (response.length > 2) {
-            displayAlert('Validation Failure', response);
-            valid = false;
-        }
+        valid = !errorResponse(response);
     }
     parameters = addParameterById(parameters, fldDate);
     parameters = addParameterById(parameters, fldTime);
@@ -102,6 +373,8 @@ function detailsRowClick(row, operation) {
         displayAlert('Error', 'Complete or cancel item');
         return;
     }
+    itemRow = row;
+    
     while (rdr.nextColumn()) {
         var colValue = rdr.columnValue();
         
@@ -150,16 +423,23 @@ function loadActiveEvent() {
         loadJSONArray(response, 'activeeventtable', options);
         setHidden('activeeventtable', false);
     }
-    ajaxLoggedInCall('Nutrition', processResponse, parameters);    
+    ajaxLoggedInCall('Nutrition', processResponse, parameters, false);    
 }
-function getNutritionDetails() {    
-    var parameters = createParameters('requestdetails');    
+function setItemStartTime(parameters) {
+    if (getElement('date').value !== '' && getElement('time').value !== '') {
+        parameters = addParameter(parameters, 'starttime', getElement('date').value + ' ' + getElement('time').value);
+    }
+    return parameters;
+}
+function getItemList() {    
+    var parameters = createParameters('requestitemlist');    
     var source     = trim(document.getElementById('fsource').value);
     var type       = trim(document.getElementById('ftype').value);
     var item       = trim(document.getElementById('fitem').value);
    
     if (item !== '') item = '%' + item + '%';
     
+    parameters = setItemStartTime(parameters);
     parameters = addParameter(parameters, 'source', source);
     parameters = addParameter(parameters, 'type',   type);
     parameters = addParameter(parameters, 'item',   item);
@@ -169,46 +449,39 @@ function getNutritionDetails() {
                 {maxField: 19, onClick: 'detailsRowClick(this, "add")', useInnerCell: false, 
                  columns: [{name: 'Source', maxWidth: 10},{name: 'Type', maxWidth: 10}]});
         
+        valItem.loadMaxSizes(response);
         loadJSONArray(response, 'itemdetailstable', options);
         document.getElementById('itemdetailstable').removeAttribute('hidden');
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
-    setHidden('freset', source === '' && type === '' && item === '');
 }
-function setItemFilterReset() {
-    document.getElementById('fsource').value = '';
-    document.getElementById('ftype').value   = '';
-    document.getElementById('fitem').value   = '';
-    getNutritionDetails();
-}
-function requestEventHistory(historyOnly) {    
-    var parameters  = createParameters('eventhistory');
-    var day         = trim(document.getElementById('efday').value);
-    var description = trim(document.getElementById('efdescription').value);
-    
-    if (description !== '') description = '%' + description + '%';
-    
-    parameters = addParameter(parameters, 'description', description);
-    parameters = addParameter(parameters, 'day',         day);
+function requestEventHistory(filter) {    
+    var parameters = createParameters('eventhistory');
 
     function processResponse(response) {
         loadJSONArray(response, 'eventhistorytable', {maxField: 19, onClick: 'rowEventHistoryClick(this)'});
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
-    ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
-    setHidden('efreset', day === '' && description === '');
+    if (filter === undefined) filter = hstFilter.getWhere();
+    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
     
-    if (typeof fldDate !== 'undefined' && !historyOnly) return;
-    
-    if (document.getElementById('date').value !== '' && document.getElementById('time').value !== '') {
-        loadActiveEvent();
-    } else
-        setHidden('activeeventtable', true);
+    ajaxLoggedInCall('Nutrition', processResponse, parameters);
 }
-function setEventFilterReset() {   
-    document.getElementById('efday').value         = '';
-    document.getElementById('efdescription').value = '';
-    requestEventHistory(false);
+function setEventTime(date, time) {
+    var timeChanged = document.getElementById('date').value !== date || document.getElementById('time').value !== time;
+    
+    document.getElementById('date').value = date;
+    document.getElementById('time').value = time;
+    
+    if (timeChanged) {
+        getItemList();
+    }
+    if (date !== '' && time !== '') {
+        loadActiveEvent();
+    } else {
+        clearTable('activeeventtable');
+        setHidden('activeeventtable', true);
+    }
 }
 function cloneEvent(action) {
     switch (action) {
@@ -244,17 +517,14 @@ function cloneEvent(action) {
             parameters = addParameterById(parameters, 'cweight');
             
             function processResponse(response) {
-                if (response.length > 2) {
-                    displayAlert('Validation Failure', response);
-                    return;
-                }
+                if (errorResponse(response)) return;
+                
+                document.getElementById('description').value = document.getElementById('cdescription').value;
+                setEventTime(document.getElementById('cdate').value, document.getElementById('ctime').value);
+                requestEventHistory();
+                displayClone(false);
             }
-            ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
-            document.getElementById('date').value        = document.getElementById('cdate').value;
-            document.getElementById('time').value        = document.getElementById('ctime').value;
-            document.getElementById('description').value = document.getElementById('cdescription').value;
-            requestEventHistory();
-            displayClone(false);
+            ajaxLoggedInCall('Nutrition', processResponse, parameters, true);
             break;
         case 'cancel':
             displayClone(false);
@@ -270,7 +540,6 @@ function updateEvent() {
     parameters = addParameterById(parameters, 'comment');   
     
     function processResponse(response) {
-        requestEventHistory(true);
     }    
     ajaxLoggedInCall('Nutrition', processResponse, parameters, true);
 }
@@ -305,17 +574,15 @@ function createNutritionEvent(action) {
             parameters = addParameterById(parameters, 'crweight');
             
             function processResponse(response) {
-                if (response.length > 2) {
-                    displayAlert('Validation Failure', response);
-                    return;
-                }
+                if (errorResponse(response)) return;
+            
+                document.getElementById('comment').value     = document.getElementById('crcomment').value;
+                document.getElementById('description').value = document.getElementById('crdescription').value;
+                setEventTime(document.getElementById('crdate').value, document.getElementById('crtime').value);
+                requestEventHistory();
+                displayCreate(false);
             }
             ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
-            document.getElementById('date').value        = document.getElementById('crdate').value;
-            document.getElementById('time').value        = document.getElementById('crtime').value;
-            document.getElementById('description').value = document.getElementById('crdescription').value;
-            requestEventHistory();
-            displayCreate(false);
             break;
         case 'cancel':
             displayCreate(false);
@@ -325,17 +592,25 @@ function createNutritionEvent(action) {
 function modifyItemData(isDelete) {    
     var parameters = createParameters('modifyitem');
 
-    if (!fieldHasValue('date'))     return;
-    if (!fieldHasValue('time'))     return;
-    if (!fieldHasValue('item'))     return;
+    if (!fieldHasValue('date')) return;
+    if (!fieldHasValue('time')) return;
+    if (!fieldHasValue('item')) return;
     
     if (isDelete) {
         parameters = addParameter('', 'action', 'deleteitem');
     } 
-    else 
+    else {
         if (!fieldHasValue('quantity')) return;
+        if (!valItem.checkAddItem())    return;
+    }
     
     function processResponse(response) {
+        if (errorResponse(response)) return;
+        
+        requestEventHistory();
+        loadActiveEvent();
+        clearItem();
+        setEventMode();
     }
     parameters = addParameterById(parameters, 'item');
     parameters = addParameterById(parameters, 'source');
@@ -349,16 +624,12 @@ function modifyItemData(isDelete) {
         parameters = addParameterById(parameters, 'abv'); 
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
-    clearItem();
-    setEventMode();
-    requestEventHistory();
 }
 function clearEvent() { 
     setHidden('activeeventtable', true);
-    document.getElementById('date').value = '';
-    document.getElementById('time').value = '';
     document.getElementById('description').value = '';
-    document.getElementById('comment').value = '';   
+    document.getElementById('comment').value     = '';
+    setEventTime('', '');
     setEventMode(false);
 }
 function deleteEvent() {    
@@ -369,9 +640,9 @@ function deleteEvent() {
 
     function processResponse(response) {
         clearEvent();
+        requestEventHistory();
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
-    requestEventHistory();
 }
 /*
  * @param name     Form field id
@@ -409,8 +680,7 @@ function rowEventHistoryClick(row) {
                     var fields = rdr.columnValue().split(' ');
 
                     if (fields.length === 2) {
-                        document.getElementById('date').value = fields[0];
-                        document.getElementById('time').value = fields[1];
+                        setEventTime(fields[0], fields[1]);
                     }
                     break;
                 case 'Description':
@@ -422,7 +692,6 @@ function rowEventHistoryClick(row) {
             }
         }
         setEventMode(true);
-        requestEventHistory();
     } catch (e) {
         alert("Exception " + e);
     }
@@ -433,9 +702,8 @@ function setSalt(isSalt) {
     else
         document.getElementById('isalt').value = tidyNumber(2.539 * document.getElementById('isodium').value / 1000, false, 2);
 }
-function setSimple() {
-//    setHiddenLabelField('isize',    !document.getElementById('isimple').checked);
-//    setHiddenLabelField('idefault', !document.getElementById('isimple').checked);
+function setSimple(yes) {
+    valItem.setSizeDefault(yes === undefined? event.target.checked : yes);
     setHiddenLabelField('isize',    false);
     setHiddenLabelField('idefault', false);
 }
@@ -445,7 +713,10 @@ function setCreateItem() {
     document.getElementById('itype').value = "";
     document.getElementById('istart').value = getDateTime();
     document.getElementById('iend').value = "3000-01-01 00:00:00";
+    document.getElementById('icomment').value = "";
     document.getElementById('icalories').value = "";
+    document.getElementById('icalculated').value = "";
+    document.getElementById('ipcdiff').value = "";
     document.getElementById('iprotein').value = "";
     document.getElementById('icholesterol').value = "";
     document.getElementById('ifat').value = "";
@@ -458,14 +729,14 @@ function setCreateItem() {
     document.getElementById('isize').value = 100;
     document.getElementById('idefault').value = "";
     document.getElementById('ipacksize').value = "";
-    setSimple();    
+    setSimple(true);    
     document.getElementById('iitem').focus();        
-    setItemCreateCaption();
-
+    valItem.setItemCreateCaption();
 }
 function setUpdateItem(item, source) {    
     var parameters = createParameters('getitem');
-
+    
+    parameters = setItemStartTime(parameters);
     parameters = addParameter(parameters, 'iitem',   item);
     parameters = addParameter(parameters, 'isource', source);
 
@@ -474,13 +745,13 @@ function setUpdateItem(item, source) {
         document.getElementById('isize').value = 1; 
         setSalt(true);
         setSimple();
-        setItemCreateCaption();
+        valItem.newItem();
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
 }
-function applyItemUpdate() {
+function applyItemUpdate(previousVersionTime) {
     var parameters = addParameter('', 'action', 'applyitemupdate');
-
+    
     parameters = addParameter(parameters, 'action', 'applyitemupdate');
     parameters = addParameterById(parameters, 'icreate',       'command');
     parameters = addParameterById(parameters, 'iitem',         'item');
@@ -488,6 +759,7 @@ function applyItemUpdate() {
     parameters = addParameterById(parameters, 'istart',        'start');
     parameters = addParameterById(parameters, 'iend',          'end');
     parameters = addParameterById(parameters, 'itype',         'type');
+    parameters = addParameterById(parameters, 'icomment',      'comment');
     parameters = addParameterById(parameters, 'icalories',     'calories');
     parameters = addParameterById(parameters, 'iprotein',      'protein');
     parameters = addParameterById(parameters, 'icholesterol',  'cholesterol');
@@ -502,31 +774,19 @@ function applyItemUpdate() {
     parameters = addParameterById(parameters, 'isize',         'size');
     parameters = addParameterById(parameters, 'idefault',      'default');
     parameters = addParameterById(parameters, 'ipacksize',     'packsize');
-
+    
+    if (hasValue(previousVersionTime)) parameters = addParameter(parameters, 'previousStart', getDateTime(previousVersionTime));
+    
     function processResponse(response) {
         loadJSONFields(response, false);
         setCreateItem();
+        evnFilter.callRequestor(true);
     }
-    ajaxLoggedInCall('Nutrition', processResponse, parameters);    
-}
-function setItemCreateCaption() {
-    if (document.getElementById("iitem").value === '') {
-        document.getElementById('icreate').value    = 'Create';
-        document.getElementById('iitem').readOnly   = false;
-        document.getElementById('isource').readOnly = false;
-        document.getElementById('istart').readOnly  = false;
-        document.getElementById('iend').readOnly    = false;
-    } else {
-        document.getElementById('icreate').value    = 'Update';
-        document.getElementById('iitem').readOnly   = true;
-        document.getElementById('isource').readOnly = true;
-        document.getElementById('istart').readOnly  = true;
-        document.getElementById('iend').readOnly    = true;
-    }
+    ajaxLoggedInCall('Nutrition', processResponse, parameters, false);    
 }
 function displayUpdateItem() {
     setHidden('updateitem', !document.getElementById("showitem").checked);
-    setItemCreateCaption();
+    valItem.setItemCreateCaption();
 }
 function reload() {
     setEventMode(false);
@@ -534,11 +794,11 @@ function reload() {
     /*
      * The remaining calls can execute asynchronously.
      */
-    getNutritionDetails();
+    getItemList();
     requestEventHistory();
     setCreateItem();
     displayUpdateItem();    
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
 function confirmListCreate(field) {
     this.field        = field;
     this.actionClick  = actionClick;
@@ -570,10 +830,23 @@ function checkExists() {
     
     displayAlert('Confirm', 'Create ' + field.name + ' for ' + field.value, {confirm: confirm});
 }
-function initialize() {    
-    if (!serverAcceptingRequests('Nutrition')) return;
-    
-    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reload);
-    
+function initialize() {            
+    hstFilter = getFilter('filter1', document.getElementById('eventfilter'), requestEventHistory, {
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           null,
+        forceGap:        '4px',
+        initialDisplay:  true});
+    hstFilter.addFilter('Day',         'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat', true);
+    hstFilter.addFilter('Description', 'Description');
+    evnFilter = getFilter('filter2', document.getElementById('itemfilter'), getItemList, {
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           null,
+        forceGap:        '4px',
+        initialDisplay:  true});
+    evnFilter.addFilter('Source', 'Source,,fsource', '', true);
+    evnFilter.addFilter('Type',   'Type,,ftype',     '', true);
+    evnFilter.addFilter('Item',   'Item,,fitem');
     reload();
 }

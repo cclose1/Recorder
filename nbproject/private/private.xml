@@ -7,18 +7,23 @@
             <file>file:/C:/MyFiles/Java/Recorder/web/js/json.js</file>
             <file>file:/C:/MyFiles/Java/BloodPressure/src/java/org/cbc/RecordNutrition.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/WEB-INF/record.properties</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/WEB-INF/web.xml</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/EnterMeasure.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/recordnutrition.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/filter.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordReminder.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/alert.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/test.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/csseditor.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/Debug.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Reminder.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/Test.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/recordspend.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordBankTransaction.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/Login.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordreminder.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/recordbanktransaction.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/HTTPRequestHandler.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/alert.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/Filter.html</file>
             <file>file:/C:/MyFiles/Java/Recorder/nbproject/build-impl.xml</file>
@@ -31,6 +36,7 @@
             <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/RecordNutrition.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordReminder.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/login.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/css/recordbanktransaction.css</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/recordnutrition.js</file>

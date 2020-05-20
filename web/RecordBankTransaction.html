@@ -15,7 +15,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Bank Transaction</title>
     </head>
-    <body onload="configureAlert(false, true, 'alertframe');configureLogin('BankTransaction', 'loginframe'); initialize();">
+    <body onload="configureAlert(false, true, 'alertframe'); connectToServer('BankTransaction', 'loginframe', initialize)">
         <div id="alertdiv" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
             <iframe id="alertframe" src="Alert.html" scrolling="no">
             </iframe>
@@ -35,9 +35,9 @@
                         <div>
                             <div>
                                 <label for="date">Date</label>
-                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="0">
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
                                 <label for="time" class="nogap">Time</label>
-                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="0">
+                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
                             </div>
                             <div>
                                 <label for="cdate">Completed</label>

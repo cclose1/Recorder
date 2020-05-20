@@ -2,7 +2,6 @@
 
 var txnFilter;
 var selectedAccount;
-var mysql;
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -33,25 +32,13 @@ function getRateData() {
     parameters = addParameter(parameters, 'to',     toRate);
     parameters = addParameter(parameters, 'amount', amount);
     
-    function processResponse(response) {
-        var symbol;
-        
+    function processResponse(json) {
         try {
-            var jObj = new jsonObject(response);
+            if (typeof json === 'string') json = (new JSONReader(json)).getJSON();
             
-            while ((symbol = jObj.symbol()) !== null) {
-                switch (symbol.name) {
-                    case "Source":
-                        document.getElementById('exsource').value = symbol.value;
-                        break;
-                    case "Amount":
-                        document.getElementById('examount').value = symbol.value;
-                        break;
-                    case "Timestamp":
-                        loadDateTime(symbol.value.split(" "), 'exdate', 'extime');
-                        break;
-                }
-            }
+            document.getElementById('exsource').value = json.getMember('Source', true).value;
+            document.getElementById('examount').value = json.getMember('Amount', true).value;
+            loadDateTime((json.getMember('Timestamp', true).value).split(" "), 'exdate', 'extime');
             setHidden('exchangerate', false);
         } catch (err) {
             alert("getRateData error-" + err.message);
@@ -387,9 +374,7 @@ function requestAccounts() {
 function initialize() {
     var action = document.getElementById('action');
     var response;
-    
-    if (mysql === undefined) mysql = new checkMySQL(document.getElementById('mysqldiv'), reset);
-    
+        
     action.innerHTML = "";
     /*
      * Setting the options in the HTML action element seems to disable setting the value by doing the following assignment.
@@ -406,8 +391,6 @@ function initialize() {
         'transactions',
         'detailfields',
         'filter']);
-    
-    if (!serverAcceptingRequests('BankTransaction')) return;
     
     txnFilter = getFilter('filter1', document.getElementById('filter'), requestTransactions, {
         allowAutoSelect: true, 
@@ -437,13 +420,15 @@ function initialize() {
         keepValue:    true,
         async:        false,
         allowBlank:   true});
-    getList('BankTransaction', {
+    response = getList('BankTransaction', {
         name:         "txntype",
         table:        "BankTransactionType",
         field:        "Code",
         keepValue:    true,
         async:        false,
-        allowBlank:   true});
+        allowBlank:   true},
+        true);
+    txnFilter.addFilter('Types', 'Type', response);
     response = getList('BankTransaction', {
         name:         "txnusage",
         table:        "AccountUsage",
@@ -452,7 +437,7 @@ function initialize() {
         async:        false,
         allowBlank:   true},
         true);
-    txnFilter.addFilter('Usages', 'Usage', response);
+    txnFilter.addFilter('Usages',      'Usage', response);
     txnFilter.addFilter('Description', 'Description');
     requestAccounts();
     reset();
