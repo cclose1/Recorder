@@ -17,6 +17,10 @@
         <servlet-class>org.cbc.RecordBankTransaction</servlet-class>
     </servlet>
     <servlet>
+        <servlet-name>CarUsage</servlet-name>
+        <servlet-class>org.cbc.CarUsage</servlet-class>
+    </servlet>
+    <servlet>
         <servlet-name>Reminder</servlet-name>
         <servlet-class>org.cbc.RecordReminder</servlet-class>
     </servlet>
@@ -35,6 +39,10 @@
     <servlet-mapping>
         <servlet-name>BankTransaction</servlet-name>
         <url-pattern>/BankTransaction</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>CarUsage</servlet-name>
+        <url-pattern>/CarUsage</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
         <servlet-name>Reminder</servlet-name>

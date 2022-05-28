@@ -12,6 +12,7 @@
         <script src="js/login.js"></script>
         <script src="js/entermeasure.js"></script>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width"/>
         <title>Record Blood Pressure</title>
     </head>
     <body onload="configureAlert(false, true); connectToServer('Record', 'loginframe', initialize);">                    
@@ -82,7 +83,10 @@
                     </div>
                     <div>
                         <label for="comment">Comment</label>
-                        <input type="text" name="Comment" size ="4" id="comment"  tabindex="-1" onchange="document.getElementById('systolic').focus();">
+                        <input type="text" size ="4" id="comment" list="commentList"  tabindex="-1" onchange="document.getElementById('systolic').focus();">
+                        <datalist id="commentList">
+                            <option></option>
+                        </datalist>
                     </div>
                     <div>
                         <label for="save"></label>

@@ -9,6 +9,7 @@
         <script src="js/platform.js"></script>
         <script src="js/json.js"></script>
         <script src="js/formutils.js"></script>
+        <script src="js/unitsconverter.js"></script>
         <script src="js/csseditor.js"></script>
         <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
@@ -108,9 +109,16 @@
                         </div>
                         <div>
                             <label for="isimple">Simple</label>
-                            <input id="isimple" name="Simple" value="Simple" type="checkbox" onclick="setSimple()">
-                            <label id='isizelab' for='isize' class='gap106ar'>Size</label>
+                            <input id="isimple" value="Simple" type="checkbox" onclick="setSimple()">
+                            <label for="ivolume" class="gap106ar">Volume</label>
+                            <input id="ivolume" value="Volume" type="checkbox" onclick="setSimple()">
+                            <label id='isizelab' for='isize' class='gap116ar'>Size</label>
                             <input id='isize' type='text' name='Size' maxlength='4' onkeypress='allowedInNumberField();' onchange='valItem.updateCalculated();'>
+                            
+                            <select id="iunits" onfocus='unitsChange();' onchange='unitsChange();'>
+                            </select>
+                        </div>
+                        <div>
                             <label id='idefaultlab' for='idefault'>Default</label>
                             <input id='idefault' type='text' name='Default' maxlength='4' onkeypress='allowedInNumberField();'>
                             <label id='ipacksizelab' for='ipacksize'>Pack Size</label>
@@ -144,7 +152,7 @@
                                     <label for="comment">Comment</label>
                                     <input type= "text" name="comment"     id="comment"     onchange="updateEvent();">
                                 </div>
-                                <fieldset>
+                                <fieldset class="filter">
                                     <legend>Event Filter</legend>
                                     <div id='eventfilter'> 
                                     </div>
@@ -172,13 +180,14 @@
                                 </div>
                                 <label for='quantity'>Quantity</label>
                                 <input id='quantity' type='text' name='Quantity' size ='7' maxlength='10' tabindex='-1' onkeypress='allowedInNumberField();'>
-                                <label id='unitslabel' class = 'nogap'>Grams</label>
+                                <select id='units' onfocus='unitsChange();' onchange='unitsChange();'>
+                                </select>
                                 <label id='abvlab' for='abv' class='nogap'>ABV</label>
                                 <input id='abv' type='text' name='abv' size='2' maxlength='4' tabindex='-1'>
                                 <div id="itembuttons">
                                     <label for="addItem"></label>
-                                    <input id="addItem" name="addItem" type="button" value="Add Item" onclick="modifyItemData(false);">
-                                    <input id="removeItem" name="removeItem" type="button" value="Delete Item" onclick="modifyItemData(true);">
+                                    <input id="addItem" name="addItem" type="button" value="Add Item" onclick="modifyItemData();">
+                                    <input id="removeItem" name="removeItem" type="button" value="Delete Item" onclick="modifyItemData();">
                                     <input id="cancelItem" name="cancelItem" type="button" value="Cancel Item" onclick="setEventMode(false);">
                                 </div>
                                 <div id="eventbuttons">

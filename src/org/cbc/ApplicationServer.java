@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,6 +35,7 @@ import org.cbc.json.JSONValue;
 import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
+import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.data.DatabaseSession;
@@ -49,9 +51,42 @@ import org.cbc.utils.system.SecurityConfiguration;
 public abstract class ApplicationServer extends HttpServlet { 
     protected Reminder reminder = null;
     
+    /*
+     * Describes a table field.
+     */
+    protected class DBField {
+        String  name;         // DB Table field name.
+        String  parameter;    // Parameter name providing the field.
+        String  hourparam;    // The hour part of a timestamp.
+        boolean key;          // Forms part of the primary key
+        boolean blankToNull;
+        boolean isDate;
+        
+        public DBField(String name, boolean key, String parameter) {
+            this.name        = name;
+            this.key         = key;
+            this.parameter   = parameter;
+            this.blankToNull = false;
+            this.isDate      = false;
+        }
+        public DBField(String name, boolean key, String parameter, boolean blankToNull) {
+            this.name        = name;
+            this.key         = key;
+            this.parameter   = parameter;
+            this.blankToNull = blankToNull;
+            this.isDate      = false;
+        }
+        public DBField(String name, boolean key, String datePar, String timePar) {
+            this.name        = name;
+            this.key         = key;
+            this.parameter   = datePar;
+            this.hourparam   = timePar;
+            this.blankToNull = false;
+            this.isDate      = true;
+        }
+    }
     protected String getListSql(Context ctx, String table, String field) throws ParseException, SQLException {
-        SQLSelectBuilder sql          = ctx.getSelectBuilder(table);
-        String[]         filterFields = ctx.getParameter("filter").split(",");
+        SQLSelectBuilder sql = ctx.getSelectBuilder(table);
         
         sql.setOptions("DISTINCT");
         sql.addField(field);
@@ -159,7 +194,7 @@ public abstract class ApplicationServer extends HttpServlet {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
             
             dbServer           = envs.getValue("DATABASE_SERVER", "127.0.0.1");
-            mysqlUseSSL        = envs.getValue("DATABASE_USE_SSL");
+            mysqlUseSSL        = envs.getValue("DATABASE_USE_SSL", "");
             logRequest         = envs.getBooleanValue("LOG_HTML_REQUEST");
             logReply           = envs.getBooleanValue("LOG_HTML_REPLY");
             longStatementTime  = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
@@ -353,12 +388,113 @@ public abstract class ApplicationServer extends HttpServlet {
             return builder;
         }
     }
-    protected void setNumericItemField(ResultSet rs, String name, String value, double scale) throws SQLException {
+    protected class TableUpdater {
+        private Context            ctx;
+        private ResultSet          rs;
+        private String             name;
+        private ArrayList<DBField> fields = new ArrayList<DBField>();
+        private String             keyString;
         
-        if (value.length() == 0)
-            rs.updateNull(name);
-        else
-            rs.updateDouble(name, Double.parseDouble(value) / scale);
+        private void appendKeyString(String field, String value) throws SQLException {
+            if (value != null && value != "") {
+                if (keyString != "") keyString += ", ";
+                
+                keyString += field + " = " + value;
+            } else {
+                throw new SQLException("Table " + name + " key field " + field + " is null");
+            }
+        }
+        private void addKey(SQLBuilder sql, Context ctx) throws ParseException, SQLException {
+            keyString = "";
+            
+            for(DBField field : fields) {
+                String value = "";
+                
+                if (field.key) {
+                    if (field.isDate) {
+                        Date ts = ctx.getTimestamp(field.parameter, field.hourparam);                        
+                        sql.addAnd(field.name, "=", ts);
+                        value = ctx.getDbTimestamp(ts);
+                    } else {
+                        value = ctx.getParameter(field.parameter);
+                        sql.addAnd(field.name, "=", value);
+                    }
+                    appendKeyString(field.name, value);
+                }
+            }
+        }    
+        private void setFields(ResultSet rs, Context ctx) throws SQLException, ParseException {
+            for(DBField field : fields) {
+                if (field.isDate)
+                    rs.updateString(field.name, ctx.getDbTimestamp(ctx.getTimestamp(field.parameter, field.hourparam)));
+                else
+                {
+                    String value = ctx.getParameter(field.parameter);
+                    
+                    if (value.trim() == "" && field.blankToNull) value = null;
+                    
+                    rs.updateString(field.name, value);
+                }
+            }            
+        }
+        private void update(String action) throws ParseException, SQLException {
+            /*
+             * Attempt to retrieve a session for the primary key.
+             */
+            SQLSelectBuilder sql = ctx.getSelectBuilder("ChargeSession");
+            addKey(sql, ctx);
+           
+            rs = ctx.getAppDb().updateQuery(sql.build());
+
+            if (rs.next()) {
+                if (action == "create")
+                    ctx.getReplyBuffer().append(name + " row already exists for " + keyString);
+                else {
+                    rs.moveToCurrentRow();
+                    setFields(rs, ctx);
+                    rs.updateRow();
+                    ctx.setStatus(200);
+                }
+            } else {
+                if (action == "update")  
+                    ctx.getReplyBuffer().append("No " + name + " row for " + keyString);
+                else {
+                    rs.moveToInsertRow();
+                    setFields(rs, ctx);
+                    rs.insertRow();
+                    ctx.setStatus(200);
+                }
+            }     
+        }
+        public void setContext(Context context) {
+            ctx = context;
+        }
+        public TableUpdater(String tableName) {
+            name = tableName;
+        }
+        public void addField(String name, boolean key, String parameter) {
+            fields.add(new DBField(name, key, parameter));
+        }
+        public void addField(String name, boolean key, String parameter, boolean blankToNull) {
+            fields.add(new DBField(name, key, parameter, blankToNull));
+        }
+        public void addField(String name, boolean key, String date, String hour) {
+            fields.add(new DBField(name, key, date, hour));
+        }
+        public void createRow() throws ParseException, SQLException {
+            update("create");
+        }
+        public void updateRow() throws ParseException, SQLException {
+            update("update");
+        }
+        public void addOrderBy(SQLSelectBuilder sql, boolean desc) {
+            for(DBField field : fields) {
+                sql.addOrderByField(field.name, desc);
+            }
+        }
+        public void addFilter(SQLSelectBuilder sql) throws SQLException {            
+            if (ctx.existsParameter("filter")) sql.addAnd(ctx.getParameter("filter"));            
+        }
     }
     private class MeasureSql {
         Measurement m = null;
@@ -413,6 +549,17 @@ public abstract class ApplicationServer extends HttpServlet {
     protected void executeUpdate(Context ctx, SQLBuilder sql) throws SQLException {
         executeUpdate(ctx, sql.build());
     }
+    protected boolean exists(Context ctx, String table, SQLNamedValues where) throws SQLException {
+        ResultSet        rs;
+        SQLSelectBuilder sel = new SQLSelectBuilder(table);
+        
+        sel.addField("Count", "1");
+        sel.addAnd(where);
+        rs = ctx.getAppDb().executeQuery(sel.build());
+        
+        return rs.next();
+    }
+    
     public abstract String getVersion();
     public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
     public abstract void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException;
@@ -431,7 +578,8 @@ public abstract class ApplicationServer extends HttpServlet {
         JSONArray           rows;
         int                 max = -1;
         String              value;
-        
+    
+        ctx.handler.dumpRequest();
         data.add("Table", "Debug");
         data.add("Header", row);
         

@@ -80,7 +80,7 @@ class Security {
         
         SQLSelectBuilder sql;
         boolean          logInRequired = config.getLoginRequired() || config.getSSHRequired();
-        String           source        = origin == null ? referrer : origin;
+        String           source        = origin == null ? referrer == null? "" : referrer : origin;
         
         if (config.getLogRequest()) {
             handler.dumpRequest();

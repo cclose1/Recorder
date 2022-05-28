@@ -210,6 +210,8 @@ public class RecordSpend extends ApplicationServer {
                 ctx.setStatus(200);
             } else {
                 SQLSelectBuilder sql = ctx.getSelectBuilder(config.getUpdateTable());
+                /*
+                Does not look as if following are necessary. Leave for a while and then delete.
                 
                 sql.addField("SeqNo");
                 sql.addField("Timestamp");
@@ -221,6 +223,7 @@ public class RecordSpend extends ApplicationServer {
                 sql.addField("Payment");
                 sql.addField("Period");
                 sql.addField("BankCorrection");
+*/
                 sql.addAnd("SeqNo", "=", seqNo, false);
                 rs = ctx.getAppDb().updateQuery(sql.build());
                     

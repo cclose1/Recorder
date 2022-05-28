@@ -52,45 +52,45 @@
                             </div>
                             <div>
                                 <label for="category">Category</label>
-                                <select id="category" tabindex="-1" onchange="setTime(); updateFilteredLists();">
+                                <select id="category" tabindex="-1" onchange="setDateTime(); updateFilteredLists();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="type">Type</label>
-                                <select id="type" tabindex="-1" onchange="setTime(); updateFilteredLists();">
+                                <select id="type" tabindex="-1" onchange="setDateTime(); updateFilteredLists();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="location">Location</label>
-                                <input type="text" name="location" list="locationList" id="location" oninput="setTime();" tabindex="-1">
+                                <input type="text" name="location" list="locationList" id="location" oninput="setDateTime();" tabindex="-1">
                                 <datalist id="locationList">
                                     <option></option>
                                 </datalist>
                             </div>
                             <div>
                                 <label for="description">Description</label>
-                                <input type= "text" name="description" list="descriptionList" id="description" oninput="setTime();">
+                                <input type= "text" name="description" list="descriptionList" id="description" oninput="setDateTime();">
                                 <datalist id="descriptionList">
                                     <option></option>
                                 </datalist>
                             </div>
                             <div>
                                 <label for="amount">Amount</label>
-                                <input type="text" name="Amount" size ="3" id="amount" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">
+                                <input type="text" name="Amount" size ="3" id="amount" tabindex="-1" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                                 <label for="correction" class="nogap">Correction</label>
-                                <input title = "Value to add to amount to get bank debit" type="text" name="correction" size="3" id="correction" maxlength="8" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">
+                                <input title = "Value to add to amount to get bank debit" type="text" name="correction" size="3" id="correction" maxlength="8" tabindex="-1" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                             </div>
                             <div>
                                 <label for="payment">Payment</label>
-                                <select id="payment" tabindex="-1" onchange="setTime();">
+                                <select id="payment" tabindex="-1" onchange="setDateTime();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="period">Frequency</label>
-                                <select id="period" tabindex="-1" onchange="setTime();">
+                                <select id="period" tabindex="-1" onchange="setDateTime();">
                                     <option></option>
                                     <option>M</option>
                                     <option>Y</option>

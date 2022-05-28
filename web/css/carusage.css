@@ -7,12 +7,7 @@ and open the template in the editor.
     Created on : 24-Mar-2015, 20:53:07
     Author     : Chris
 */
+.xx {
+    width: 100px;
+}
 
-#history [name='Individual'] {
-    display: none;
-}
-@media screen and (max-width: 900px) {
-    #history [name='Orientation'] {    
-        display: none;
-    }
-}

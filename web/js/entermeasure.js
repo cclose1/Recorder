@@ -167,6 +167,7 @@ function initialize() {
     newSession();
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');
+    getList('Record', {name: "commentList", table: 'Measure', field: 'Comment', firstValue: ' ', async:false, allowBlank: true});
     requestHistory();
     showUpdate(false);
 }

@@ -374,7 +374,7 @@ function requestAccounts() {
 function initialize() {
     var action = document.getElementById('action');
     var response;
-        
+    
     action.innerHTML = "";
     /*
      * Setting the options in the HTML action element seems to disable setting the value by doing the following assignment.

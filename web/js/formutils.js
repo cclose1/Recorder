@@ -1,5 +1,20 @@
 'use strict';
-
+/*
+ * Returns an array of the elements children. If tagName is defined only children with tagName are returned.
+ */
+function getChildren(element, tagName) {
+    var children = [];
+    
+    for (var i = 0; i < element.childElementCount; i++) {
+        if (tagName === undefined || element.children[i].tagName === tagName) {
+            children.push(element.children[i]);
+        }
+    }
+    return children;
+}
+function getParameter(value, defaultValue) {
+    return value === undefined? defaultValue : value;
+}
 function ErrorObject(name, message) {
     this.name    = name;
     this.message = message;
@@ -12,7 +27,7 @@ function ErrorObject(name, message) {
     };
     if (message === undefined) {
         this.message = name;
-        this.name    = null;
+        this.name    = '';
     }
 }
 function removeURLPath(url) {
@@ -248,6 +263,7 @@ function setAttribute(element, id, value) {
     }
     if (value !== undefined) element.setAttribute(name, value);
 }
+
 /*
  * Creates an element for tagName in the filter defined by frame and returns its elenent object
  * 
@@ -558,6 +574,78 @@ function BaseOptions(pAccessByGet) {
                     ' default '   + lpad(String(spec.default), 10)  + 
                     ' value '     + String(this.getValue(spec.name)));
         }
+    };
+}
+function UnitConvert(pOptions) { 
+    BaseOptions.call(this, false);
+    
+    setObjectName(this, 'UnitConvert');
+    this.addSpec({name: 'source',      type: 'string',  mandatory: true});
+    this.addSpec({name: 'target',      type: 'string',  mandatory: true});
+    this.addSpec({name: 'multiplier',  type: 'number',  mandatory: true});
+    this.addSpec({name: 'description', type: 'string',  mandatory: false});
+    this.addSpec({name: 'isVolume',    type: 'boolean', default: false, mandatory: false});
+        
+    this.clear();
+    this.load(pOptions);    
+}
+
+function ConvertUnitsO() {
+    BaseOptions.call(this, false);
+    
+    var base = undefined;
+    
+    this.conversions = [];
+    /*
+     * Returns the entry in conversions for source and target. If one exists for target and source it is returned with the reciprocal multipler
+     * for source and target and a appropiate description.
+     * 
+     * Note: Given the reverse check, the returned conversion may not be in conversions.
+     */
+    function get(conversions, source, target) {
+        var conversion = null;
+        
+        for (var i = 0; i < conversions.length; i++) {
+            conversion = conversions[i];
+            
+            if (conversion.source === source && conversion.target === target) return conversion;
+            
+            if (conversion.target === source && conversion.source === target) 
+                return new UnitConvert(
+                    {source:      source, 
+                     target:      target, 
+                     isVolume:    conversion.isVolume, 
+                     multiplier:  1 / conversion.multiplier,
+                     description: source + ' to ' + target});
+        }
+        return null;
+    }
+    function add(conversions, conversion) {
+        var conv = get(conversions, conversion.source, conversion.target);
+        
+        if (conv !== null) {
+            if (conv.isVolume !== conversion.isVolume && conv.multiplier !== conversion.multiplier && conv.description !== conversion.description) 
+                throw ErrorObject('Adding conversion for source ' + conversion.source + ' to target ' + conversion.target + ' would change an existing conversion');
+            else
+                return;
+        }
+        conversions.push(conversion);
+    }
+    if (base === undefined) {
+        base = [];
+        add(base, new UnitConvert({source: 'gm', target: 'ml', isVolume: false, multiplier: 1, description: 'gm to ms'}));
+    }
+    this.addConversion = function(conversion) {
+        var conv = get(base, conversion.source, conversion);
+        
+        if (conv === null) add(this.conversions, new UnitConvert(conversion));
+    };
+    this.getConversion = function(source, target){
+        var cv = get(base, source, target);
+        
+        if (cv !== null) return cv;
+        
+        return get(this.conversions, source, target);
     };
 }
 function reportReminder(options) {
@@ -1080,7 +1168,7 @@ Column.prototype.getDisplayValue = function (value, nullToSpace) {
 /*
  * IE11 does not support classes.
  class RowReader {
- constructor(row, throwError) {
+ co1nstructor(row, throwError) {
  this.row        = row;
  this.index      = -1;
  this.throwError = throwError === undefined? false : throwError;
@@ -1112,20 +1200,54 @@ Column.prototype.getDisplayValue = function (value, nullToSpace) {
  }
  }
  */
-
+/*
+ * Returns the caption for element. If this is null it establishes a value in the following order:
+ *  - If the parent is fieldset and it has caption its value is returned.
+ *  - if the element has a name attribute its value is returned.
+ *  - The elements id is returned.
+ */
+function getCaption(element) {
+    var parent = element.parentNode;
+    var children;
+    
+    if (element.caption !== null) return element.innerHTML;
+    
+    if (parent.tagName === 'FIELDSET') {
+        children = getChildren(parent, 'LEGEND');
+        
+        if (children.length > 0) return children[0].innerHTML;
+    }
+    return element.id;
+}
 function rowReader(row, throwError) {
-    this.row = row;
-    this.index = -1;
-    this.header = document.getElementById(this.row.parentNode.parentNode.id).rows[0];
+    this.row        = row;
+    this.index      = -1;
+    this.header     = document.getElementById(this.row.parentNode.parentNode.id).rows[0];
+    this.table      = this.header.parentNode.parentNode;
+    /* 
+     * This stopped working, need to investigate why. The ne version is a workaround.
+    this.caption    = this.table.caption.innerHTML;
+     */
+    
+    this.caption    = getCaption(this.table);
     this.throwError = throwError === undefined ? false : throwError;
 
+    function reportError(obj, message) {
+        if (obj.throwError) 
+            throw Error(message);
+        else
+            alert(message);        
+    }
     this.check = function() {
-        if (this.index >= this.header.cells.length) {
-            if (this.throwError)
-                throw Error("Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
-            else
-                alert("Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
+        if (this.index >= this.header.cells.length) 
+            reportError(this, "Attempt to read beyond last column. There are " + this.header.cells.length + " columns");    
+    };
+    this.selectColumn = function(name) {
+        for (this.index = 0; this.index < this.header.cells.length; this.index++) {
+            if (this.header.cells[this.index].innerHTML === name) return true;
         }
+        reportError(this, "Column " + name + " is not in table " + this.caption);
+        return false;
     };
     this.reset = function() {
         this.index = -1;
@@ -1145,7 +1267,6 @@ function rowReader(row, throwError) {
     };
     this.columnValue = function() {
         this.check();
-
         /*
          * Needed to go via ta to ensure that escapable characters such as & are not returned in their escaped form i.e. &amp;
          * 
@@ -1154,6 +1275,9 @@ function rowReader(row, throwError) {
         var ta = document.createElement('textarea');
         ta.innerHTML = trim(this.row.cells[this.index].innerHTML);
         return ta.value;
+    };
+    this.getColumnValue = function(name) {
+        if (this.selectColumn(name)) return this.columnValue();
     };
 }
 /*
@@ -1642,7 +1766,7 @@ function loadOptionsJSON(jsonOptions, loadOptions) {
         }
         else if (typeof json === 'string' && json.charAt(0) !== '{') {
             json.split(',').forEach(function (option) {
-                addOption(select, option);
+                addOption(select, trim(option));
             });
         } else {
             if (typeof json === 'string') json = (new JSONReader(jsonOptions)).getJSON();
@@ -1899,20 +2023,32 @@ function setLabel(name, caption) {
 function trim(str) {
     return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 }
-function setDateTime(fldDate, fldTime) {
+
+function setDate(did) {
     var date = new Date();
-
-    fldDate = typeof fldDate === 'undefined' ? 'date' : fldDate;
-    fldTime = typeof fldTime === 'undefined' ? 'time' : fldTime;
-
-    if (trim(document.getElementById(fldDate).value) === '') {
-        document.getElementById(fldDate).value = currentDate(date);
-    }
-    if (trim(document.getElementById(fldTime).value) === '') {
-        document.getElementById(fldTime).value = currentTime(date);
+    
+    if (did === undefined) did = 'date';
+    
+    if (trim(document.getElementById(did).value) === "") {
+        document.getElementById(did).value = currentDate(date);
     }
 }
+function setTime(tid) {
+    var date = new Date();
+    
+    if (tid === undefined) tid = 'time';
+    
+    if (trim(document.getElementById(tid).value) === "") {
+        document.getElementById(tid).value = currentTime(date);
+    }
+}
+function setDateTime(did, tid) {
+    setDate(did);
+    setTime(tid);
+}
 function loadDateTime(fields, date, time) {
+    if (typeof fields === 'string') fields = fields.split(' ');
+    
     document.getElementById(date === undefined? "date" : date).value = fields.length > 0? fields[0] : "";
     document.getElementById(time === undefined? "time" : time).value = fields.length > 1? fields[1] : "";
 }

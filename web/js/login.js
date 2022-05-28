@@ -10,6 +10,9 @@ function setMYSQL(flag) {
 function getMYSQL() {
     return getLocalStorage('usingMYSQL');
 }
+function setUsingMYSQL(element) {
+    setHidden(getElement(element), !getMYSQL());
+}
 /*
  * 
  * No longer used
@@ -109,6 +112,7 @@ function ajaxLoggedInCall(server, processResponse, parameters, async) {
     if (async === undefined) async = true;
 
     ajaxCall(server, parameters, ajaxProcess, async);
+    setUsingMYSQL('mysqldiv');
 }
 function serverAcceptingRequests(server) {
     var parameters = addParameter("", "action", "loggedin");
@@ -134,7 +138,7 @@ function login(server, event) {
             pu.getElementById("user").value = '';
             setHidden("logoff", false);
             
-            if (appMYSQLUpdater !== undefined) setHidden(appMYSQLUpdater, !getMYSQL());
+            if (appMYSQLUpdater !== undefined) setUsingMYSQL(appMYSQLUpdater);
             if (appReset        !== undefined) appReset();
         } else
             displayAlert("Security Failure", params[0]);

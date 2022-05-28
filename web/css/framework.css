@@ -36,6 +36,9 @@ textarea {
 #appframe {
     display : inline-grid;
 }
+.filter {
+    width: max-content;
+}
 .frame {
     margin-right: auto;
     margin-left: auto;
@@ -66,6 +69,9 @@ label {
     display: inline-block;
     width: 85px;
     text-align: right;
+}
+.largelab {
+    width: 120px;
 }
 .nogap {    
     display: inline-block;
@@ -99,6 +105,11 @@ label {
 .gap110ar {    
     display: inline-block;
     width: 110px;
+    text-align: right;
+}
+.gap116ar {    
+    display: inline-block;
+    width: 116px;
     text-align: right;
 }
 th {

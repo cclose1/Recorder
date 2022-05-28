@@ -11,10 +11,3 @@ body.iefix {
 #summaryfields label {
     width: 95px
 }
-/*
- * resizeFrame seemed to set height OK, but the width was too short. Use this work around while trying
- * to find a better solution.
- */
-#filterframe {
-    width: 375px;
-}

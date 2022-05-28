@@ -2,19 +2,6 @@
 
 var hstFilter;
 
-function trim(str) {
-    return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-}
-function setTime() {
-    var date = new Date();
-
-    if (trim(document.getElementById("date").value) === "") {
-        document.getElementById("date").value = currentDate(date);
-    }
-    if (trim(document.getElementById("time").value) === "") {
-        document.getElementById("time").value = currentTime(date);
-    }
-}
 function reset() {
     document.getElementById("seqno").value       = "";
     document.getElementById("date").value        = "";

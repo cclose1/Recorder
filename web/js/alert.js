@@ -4,6 +4,7 @@ var alertTime;
 var useBrowserAlert = true;
 var confirm;
 var focusElement;
+var clearValue = false;
 
 var al;
 
@@ -154,25 +155,50 @@ function checkAlert(e) {
     
     if (!inDisplay) dismissAlert();
 }
-function dismissAlert(clearValue) {
+function dismissAlert() {
     if (!useBrowserAlert) al.display(false, false);
     
-    if ((clearValue === undefined || clearValue) && confirm !== undefined) {
-        confirm.actionCancel();
+    if (confirm !== undefined) {
+        confirm.actionCancel(confirm);
     }    
     if (focusElement !== undefined) {
+        if (clearValue) focusElement.value = '';
+        
         focusElement.focus();
     }
     focusElement = undefined;
     confirm      = undefined;
+    clearValue   = false;
 }
+function invokeConfirmAction() {
+    if (confirm === undefined)
+        dismissAlert();
+    else {
+        confirm.actionClick(confirm);
+        dismissAlert();
+    }        
+}
+/*
+ * Title is the first line of displayed alert and is emboldened.
+ * Text  is the alert description and is the second line of the displayed text.
+ * Options can contain the following fields:
+ *  - confirm      If present it sets up confirmation alert. The value is an object that must have actionClick and actionCancel methods.
+ *                 Note: confirm is passed as a parameter. The invoked method when referencing this get the alert object rather than the
+ *                 this of the object which the method is defined in. Don't know if this is the way this should work; it does not seem
+ *                 right to me.
+ *  - focusElement If present the screen element to which focus is set in the event of cancel.
+ */
 function displayAlert(title, text, options) {
+    if (title === null || title === undefined) title = '';
+    
     if (options !== undefined) {
         confirm      = options.confirm;
         focusElement = options.focus;
+        clearValue   = options.clear;
     } else {
         confirm      = undefined;
         focusElement = undefined;      
+        clearValue   = false;
     }
     if (useBrowserAlert) {
         if (confirm === undefined)
@@ -195,13 +221,8 @@ function displayAlert(title, text, options) {
         var alOK = al.getElementById('alertOK');
         
         if (alOK) {
-            if (confirm === undefined) {
-                setHidden(alOK, true);
-                alOK.onclick = dismissAlert;
-            } else {
-                setHidden(alOK, false);
-                alOK.onclick = confirm.actionClick;
-            }
+            alOK.onclick = invokeConfirmAction;
+            setHidden(alOK, confirm === undefined);
         }
         div_show(title.length, text.length);
         al.display(true, false);

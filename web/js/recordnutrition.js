@@ -2,8 +2,10 @@
 
 var evnFilter;
 var hstFilter;
-var valItem = new ValidateItem();
-var itemRow = null;
+var valItem   = new ValidateItem();
+var itemRow   = null;
+var savedUnit = null;
+var cnvUnits  = new ConvertUnits();
 
 function ValidateItem() {
     this.calDiffThreshold = 5;
@@ -18,12 +20,12 @@ function ValidateItem() {
          ABV:          {id: 'iabv',          type: null, maxSize: 5000, amount: null, sum: 0, toCalories: 7}};
     
     this.actionCancel = function() {
-        getElement('icalories').focus();
     };
-    this.actionClick = function() {
-        applyItemUpdate(this.oldTime);
-        this.oldTime = null;
-        dismissAlert(false);
+    this.actionClick = function(obj) {
+        if (obj === undefined) obj = this;
+        
+        applyItemUpdate(obj.oldTime);
+        obj.oldTime = null;
     };
     function clearSum(obj) {        
         for (name in obj.fields) {
@@ -44,24 +46,34 @@ function ValidateItem() {
         
         return true;
     }
-    function addRowToSum(obj, row, quantity) {
-        var rdr = new rowReader(row);
-        var name = null;
-        var item = null;
-
+    function addRowToSum(obj, row, quantity, item, source) {
+        var rdr     = new rowReader(row);
+        var name    = null;
+        var scale   = quantity;
+        var rItem   = rdr.getColumnValue('Item');
+        var rSource = rdr.getColumnValue('Source');
+        
+        if (item !== undefined) {
+            /*
+             * This is an update, so we have to set scale depending on if current table item matches the input item.
+             */
+            if (rItem === item && rSource === source)
+                scale = quantity / rdr.getColumnValue('Quantity');
+            else
+                scale = 1;
+        }
         while (rdr.nextColumn()){
-            name = rdr.valueAttribute('name')
+            name = rdr.valueAttribute('name');
 
             switch (name) {
                 case 'Item':
-                    item = rdr.columnValue();
-                    break;
+                case 'Source':
                 case 'ABV':
                 case 'Quantity':
                 case 'DefaultSize':
                     break; //Ignore these.                        
                 default:
-                    if (!addValueToSum(obj, name, quantity, rdr.columnValue()))  throw new ErrorObject('Validation Error', 'Item ' + item + ' results in overflow of ' + name);
+                    if (!addValueToSum(obj, name, scale, rdr.columnValue()))  throw new ErrorObject('Validation Error', 'Item ' + rItem + ' results in overflow of ' + name);
             }
         }
     }
@@ -174,7 +186,6 @@ function ValidateItem() {
                 displayALert('Field Validation', 'Size must be greater than 0', {focus: getElement('isize')});
                 return false;
             }
-            this.sizeDefault = false;
         }        
         for (name in this.fields) {
             var field = this.fields[name];
@@ -193,11 +204,14 @@ function ValidateItem() {
         getElement('icalculated').value = calculated;
         
     };
-    this.checkAddItem = function () {
-        var table = document.getElementById('activeeventtable');
+    this.checkAddItem = function (action) {
+        var table    = document.getElementById('activeeventtable');
+        var item     = getElement('item').value;
+        var source   = getElement('source').value;
+        var quantity = getFloatValue('quantity');
         var row;
         var i;
-
+        
         clearSum(this);
         /*
          * Check the Active Events Table items to calculate the totals before adding the new item.
@@ -208,14 +222,19 @@ function ValidateItem() {
             row  = table.tBodies[0].rows[i];
             
             try {
-                addRowToSum(this, row, 1);
+                if (action === 'modify') 
+                    addRowToSum(this, row, quantity, item, source);
+                else
+                    addRowToSum(this, row, 1);
             } catch (error) {
                 displayAlert(error.name, error.message, {focus: getElement('addItem')});
                 return false;
             }
         }
+        if (action === 'modify') return true;
+        
         try {
-            addRowToSum(this, itemRow, getFloatValue('quantity'));
+            addRowToSum(this, itemRow, quantity);
         } catch (error){
             displayAlert(error.name, error.message, {focus: getElement('addItem')});
             return false;
@@ -230,6 +249,7 @@ function ValidateItem() {
             document.getElementById('istart').readOnly  = false;
             document.getElementById('iend').readOnly    = false;
             setHidden('inewversion', true);
+            this.sizeDefault =  true;
         } else {
             document.getElementById('icreate').value    = 'Update';
             document.getElementById('iitem').readOnly   = true;
@@ -237,6 +257,7 @@ function ValidateItem() {
             document.getElementById('istart').readOnly  = true;
             document.getElementById('iend').readOnly    = true;
             setHidden('inewversion', false);
+            this.sizeDefault = false;
         }
     };
     this.newItem = function() {
@@ -286,9 +307,9 @@ function clearItem() {
     document.getElementById('item').value     = '';
     document.getElementById('quantity').value = '';
     document.getElementById('abv').value      = '';
-    setHidden('abv',        true);
-    setHidden('abvlab',     true);
-    setLabel('unitslabel', '');
+    setHidden('abv',    true);
+    setHidden('abvlab', true);
+    setHidden('units',  true);
 }
 function setEventMode(update) {
     setHidden('itembuttons',  true); 
@@ -298,18 +319,23 @@ function setEventMode(update) {
     setHidden('clear',        document.getElementById('date').value === '');
     clearItem();
 }
-function setItemMode(update, simple, abv) {
+function setUnits(element, simple, isVolume) {      
+    setHidden(element, !simple);
+    cnvUnits.setSelectOptions(element, isVolume? 'ml' : 'gm');
+}
+function setItemMode(update, isVolume, simple, abv) {
     if (document.getElementById('date').value === '') return;
     
     setHidden('eventbuttons', true);
     setHidden('itembuttons',  false); 
-    setHidden('removeItem',   !update);
+    setHidden('removeItem',   !update);    
+    setUnits('units', simple, isVolume);
+
     document.getElementById('addItem').value = update? 'Update Item' : 'Add Item';
     
     if (!simple && document.getElementById('quantity').value === '') document.getElementById('quantity').value = 1;
     
-    setLabel('unitslabel', simple? 'Grams' : '');
-    document.getElementById('abv').value = abv;
+    document.getElementById('abv').value   = abv;
     setHidden('abv',    abv === '');
     setHidden('abvlab', abv === '');
 }
@@ -362,12 +388,13 @@ function Server(fldDate, fldTime) {
     return valid;
 }
 function detailsRowClick(row, operation) {
-    var rdr     = new rowReader(row);
-    var simple  = false;
-    var abv     = '';
-    var isEvent = document.getElementById('date').value !== '';
-    var item    = '';
-    var source  = '';
+    var rdr      = new rowReader(row);
+    var simple   = false;
+    var isVolume = false;
+    var abv      = '';
+    var isEvent  = document.getElementById('date').value !== '';
+    var item     = '';
+    var source   = '';
 
     if (document.getElementById('item').value !== '') {
         displayAlert('Error', 'Complete or cancel item');
@@ -406,10 +433,13 @@ function detailsRowClick(row, operation) {
                 document.getElementById('simple').value = colValue;
                 simple = colValue === 'Y';
                 break;
+            case 'IsVolume':
+                isVolume = colValue === 'Y';
+                break;
         }
     }
     setUpdateItem(item, source);
-    setItemMode(operation !== 'add', simple, abv);
+    setItemMode(operation !== 'add', isVolume, simple, abv);
 }
 function loadActiveEvent() {    
     var parameters = createParameters('getactiveevent');
@@ -589,19 +619,35 @@ function createNutritionEvent(action) {
             break;
     }
 }
-function modifyItemData(isDelete) {    
-    var parameters = createParameters('modifyitem');
-
+function modifyItemData() {
+    var action;
+    var parameters;
+    
+    if (event.target.id === 'removeItem')
+        action = 'remove';
+    else {
+        if (isVisible('units')) {
+            var quantity = getElement('quantity'); 
+            var units    = getElement('units');            
+            var dbUnit   = cnvUnits.getUnit(units.value).isVolume? 'ml' : 'gm'; //Units value stored in the database
+            
+            quantity.value = cnvUnits.convert(units.value, dbUnit, quantity.value);
+            units.value    = dbUnit;            
+        }
+        action = event.target.value === 'Add Item'? 'add' : 'modify';
+    }
     if (!fieldHasValue('date')) return;
     if (!fieldHasValue('time')) return;
     if (!fieldHasValue('item')) return;
     
-    if (isDelete) {
-        parameters = addParameter('', 'action', 'deleteitem');
+    if (action === 'remove') {
+        parameters = createParameters('removeitem');
     } 
     else {
-        if (!fieldHasValue('quantity')) return;
-        if (!valItem.checkAddItem())    return;
+        parameters = createParameters('modifyitem');
+        
+        if (!fieldHasValue('quantity'))    return;
+        if (!valItem.checkAddItem(action)) return;
     }
     
     function processResponse(response) {
@@ -619,7 +665,7 @@ function modifyItemData(isDelete) {
     parameters = addParameterById(parameters, 'description');
     parameters = addParameterById(parameters, 'simple');
     
-    if (!isDelete) {
+    if (action !== 'delete') {
         parameters = addParameterById(parameters, 'quantity');
         parameters = addParameterById(parameters, 'abv'); 
     }
@@ -702,10 +748,13 @@ function setSalt(isSalt) {
     else
         document.getElementById('isalt').value = tidyNumber(2.539 * document.getElementById('isodium').value / 1000, false, 2);
 }
-function setSimple(yes) {
-    valItem.setSizeDefault(yes === undefined? event.target.checked : yes);
+function setSimple() {
+    var simple = document.getElementById('isimple').checked;
+    
+    valItem.setSizeDefault(simple);
     setHiddenLabelField('isize',    false);
-    setHiddenLabelField('idefault', false);
+    setHiddenLabelField('idefault', false);   
+    setUnits('iunits', simple, document.getElementById('ivolume').checked);
 }
 function setCreateItem() {
     document.getElementById('iitem').value = "";
@@ -727,9 +776,10 @@ function setCreateItem() {
     document.getElementById('isimple').checked = true;
     document.getElementById('iabv').value = "";
     document.getElementById('isize').value = 100;
+    document.getElementById('ivolume').checked = false;
     document.getElementById('idefault').value = "";
     document.getElementById('ipacksize').value = "";
-    setSimple(true);    
+    setSimple();    
     document.getElementById('iitem').focus();        
     valItem.setItemCreateCaption();
 }
@@ -750,9 +800,8 @@ function setUpdateItem(item, source) {
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
 }
 function applyItemUpdate(previousVersionTime) {
-    var parameters = addParameter('', 'action', 'applyitemupdate');
+    var parameters = createParameters('applyitemupdate');
     
-    parameters = addParameter(parameters, 'action', 'applyitemupdate');
     parameters = addParameterById(parameters, 'icreate',       'command');
     parameters = addParameterById(parameters, 'iitem',         'item');
     parameters = addParameterById(parameters, 'isource',       'source');
@@ -772,6 +821,7 @@ function applyItemUpdate(previousVersionTime) {
     parameters = addParameterById(parameters, 'isimple',       'simple');
     parameters = addParameterById(parameters, 'iabv',          'abv');
     parameters = addParameterById(parameters, 'isize',         'size');
+    parameters = addParameterById(parameters, 'ivolume',       'volume');
     parameters = addParameterById(parameters, 'idefault',      'default');
     parameters = addParameterById(parameters, 'ipacksize',     'packsize');
     
@@ -797,7 +847,7 @@ function reload() {
     getItemList();
     requestEventHistory();
     setCreateItem();
-    displayUpdateItem();    
+    displayUpdateItem();
 }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
 function confirmListCreate(field) {
     this.field        = field;
@@ -830,7 +880,23 @@ function checkExists() {
     
     displayAlert('Confirm', 'Create ' + field.name + ' for ' + field.value, {confirm: confirm});
 }
-function initialize() {            
+function unitsChange() {
+    var toUnits = event.target.value;
+    var sizeElm = getElement(event.target.id === 'iunits'? 'isize' : 'quantity');
+    
+    if (event.type === 'change') {
+        try {
+            sizeElm.value = cnvUnits.convert(savedUnit, toUnits, getFloatValue(sizeElm));
+        } catch (e) {
+            event.target.value = savedUnit;
+            displayAlert(e.name, e.message, {focus: event.target});
+        }
+    }
+    savedUnit = event.target.value;
+}
+function initialize() {
+    var wl = window.location;
+    
     hstFilter = getFilter('filter1', document.getElementById('eventfilter'), requestEventHistory, {
         allowAutoSelect: true, 
         autoSelect:      true,

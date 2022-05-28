@@ -165,9 +165,9 @@ function Filter(key, element, requestor, options) {
                 async:      false,
                 allowBlank: true});
         fields.appendChild(div);
-    };
-    
+    };    
     this.options = new FilterOptions(options);
+    var caption  = this.options.title; // Set title from options.
     
     if (this.isiFrame) {
         this.document = this.element.contentDocument || this.element.contentWindow.document;
@@ -181,13 +181,19 @@ function Filter(key, element, requestor, options) {
     /*
      * Remove current fields.
      */
-    while (this.top.hasChildNodes()) {
+    while (this.top.hasChildNodes()) { 
+        var elm = this.top.lastChild;
+        /*
+         * If there was not an options title keep the current legend.
+         */
+        if (elm.localName !== 'legend' && caption === null) caption = elm.innerHtml;
+        
         this.top.removeChild(this.top.lastChild);
     }
     /*
      * Create filter framework excluding the filter fields to be added later.
      */    
-    if (options.title !== null) createElement(this.document, 'legend', {append: this.top, text: options.title});
+    if (caption !== null) createElement(this.document, 'legend', {append: this.top, text: caption});
     
     this.fields = createElement(this.document, 'div', {append: this.top});
     btns        = createElement(this.document, 'div', {append: this.top});
@@ -208,9 +214,31 @@ function Filter(key, element, requestor, options) {
     elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear'});
     this.setEventHandler(elm, 'onclick', 'addFilterField');
 };
+
+/*
+ * 
+ * @param key The Filter object key defining the filter.
+ * 
+ * Sets the visibility of the filter parameters from the source element checked of the triggering event.
+ * 
+ */
+function setFilterVisibility(key) {
+    var on     = event.srcElement.checked;
+    var filter = findFilter(key, false);
+    
+    if (filter !== undefined) {
+        setHidden(filter.element.id, !on);
+        
+        if (filter.isiFrame) resizeFrame(filter.element);
+    }
+}
+/*
+ * Since filterId is redundant, as it is present in the Filter object, it will be withdrawn when all uses
+ * of it have been converted to us the above.
+ */
 function setFilter(filterId, key) {
     var on     = event.srcElement.checked;
-    var filter = findFilter(key);
+    var filter = findFilter(key, false);
     
     setHidden(filterId, !on);
     

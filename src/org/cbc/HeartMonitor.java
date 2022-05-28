@@ -8,16 +8,25 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Hashtable;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
+import org.cbc.application.reporting.Report;
+import org.cbc.json.JSONArray;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
+import org.cbc.json.JSONReader;
+import org.cbc.json.JSONValue;
+import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLDeleteBuilder;
+import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.data.DatabaseSession;
+import org.cbc.utils.system.DateFormatter;
 
 /**
  *
@@ -26,20 +35,65 @@ import org.cbc.utils.data.DatabaseSession;
 @WebServlet(name = "NewServletz", urlPatterns = {"/NewServletz"})
 public class HeartMonitor extends ApplicationServer {
     public String getVersion() {
-        return "V1.3 Released 26-May-18";    
+        return "V1.4 Released 30-Nov-20";    
     }
     private String getOrientation(Context ctx, String field) throws SQLException {
-        String           value = ctx.getParameter(field);
-        SQLSelectBuilder sql   = ctx.getSelectBuilder("MeasureOrientation");
+        SQLSelectBuilder sql = ctx.getSelectBuilder("MeasureOrientation");
         
-        if (value == null || value.trim().length() == 0) return null;
+        if (field == null || field.trim().length() == 0) return null;
         
         sql.addField("Id");
-        sql.addAnd("Orientation", "=", value);
+        sql.addAnd("Orientation", "=", field);
         
         ResultSet rs = ctx.getAppDb().executeQuery(sql.build());
         
         return rs.next()? rs.getString("Id") : null;
+    }    
+    private String getMemberValue(JSONArray row,  Hashtable<String, Integer> index, String id) throws JSONException {
+        return row.get(index.get(id).intValue()).getString();
+    }
+    private void applyJSONUpdate(Context ctx, String table, String user, Hashtable<String, Integer> index, JSONArray row) throws JSONException, ParseException, SQLException {
+        ResultSet      rs   = null;
+        SQLNamedValues nv      = new SQLNamedValues();
+        Date           time    = DateFormatter.parseDate(getMemberValue(row, index, "Time"));
+        Date           session = DateFormatter.parseDate(getMemberValue(row, index, "Session"));
+        String         side    = getMemberValue(row, index, "Side");
+        
+        nv.add("Individual", user, "=");
+        nv.add("Timestamp",  time, "=");
+        nv.add("Side",       side, "=");
+        
+        if (exists(ctx, table, nv)) {  
+            SQLUpdateBuilder sql = ctx.getUpdateBuilder(table);
+            
+            sql.addAnd(nv);;
+            sql.addField("Individual",  user);
+            sql.addField("Timestamp",   time);
+            sql.addField("Side",        side);
+            sql.addField("Session",     session);
+            sql.addField("Systolic",    getMemberValue(row, index, "Systolic"));
+            sql.addField("Diastolic",   getMemberValue(row, index, "Diastolic"));
+            sql.addField("Pulse",       getMemberValue(row, index, "Pulse"));
+            sql.addField("Orientation", getOrientation(ctx, getMemberValue(row, index, "Orientation")));
+            sql.addField("Comment",     getMemberValue(row, index, "Comment"));
+           
+            executeUpdate(ctx, sql);   
+        } else {            
+            rs = ctx.getAppDb().insertTable(table);
+            rs.moveToInsertRow();
+            
+            rs.updateString("Individual",   user);
+            rs.updateTimestamp("Session",   ctx.getSQLTimestamp(session));
+            rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(time));
+            rs.updateString("Side",         side);
+            rs.updateString("Systolic",     getMemberValue(row, index, "Systolic"));
+            rs.updateString("Diastolic",    getMemberValue(row, index, "Diastolic"));
+            rs.updateString("Pulse",        getMemberValue(row, index, "Pulse"));
+            rs.updateString("Orientation",  getOrientation(ctx, getMemberValue(row, index, "Orientation")));
+            rs.updateString("Comment",      getMemberValue(row, index, "Comment"));
+            rs.insertRow();            
+            rs.close();
+        }
     }
     public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {       
         databases.setApplication(
@@ -61,7 +115,7 @@ public class HeartMonitor extends ApplicationServer {
             rs.updateString("Systolic",     ctx.getParameter("systolic"));
             rs.updateString("Diastolic",    ctx.getParameter("diastolic"));
             rs.updateString("Pulse",        ctx.getParameter("pulse"));
-            rs.updateString("Orientation",  getOrientation(ctx, "orientation"));
+            rs.updateString("Orientation",  getOrientation(ctx, ctx.getParameter("orientation")));
             rs.updateString("Comment",      ctx.getParameter("comment"));
             rs.insertRow();
             rs.close();
@@ -92,7 +146,7 @@ public class HeartMonitor extends ApplicationServer {
             sql.addField("Systolic",    ctx.getParameter("usystolic"));
             sql.addField("Diastolic",   ctx.getParameter("udiastolic"));
             sql.addField("Pulse",       ctx.getParameter("upulse"));
-            sql.addField("Orientation", getOrientation(ctx, "uorientation"));
+            sql.addField("Orientation", getOrientation(ctx, ctx.getParameter("uorientation")));
             sql.addField("Comment",     ctx.getParameter("ucomment"));
             
             try {
@@ -144,6 +198,25 @@ public class HeartMonitor extends ApplicationServer {
             data.add("PressureHistory", rs, super.config.getProperty("bpoptionalcolumns"), false);
             data.append(ctx.getReplyBuffer());
 
+            ctx.setStatus(200);
+        } else if (action.equals("updates")) {
+            Hashtable<String, Integer> index   = new Hashtable<>(0);        
+            String                     user    = ctx.getParameter("user");
+            JSONValue                  data    = JSONValue.load(new JSONReader(ctx.getParameter("updates")));
+            JSONArray                  columns = data.getObject().get("Header").getArray();            
+            JSONArray                  rows    = data.getObject().get("Data").getArray();
+            /*
+             * Build an index to link the column header names to the corresponding row column.
+             */
+            for (int i = 0; i < columns.size(); i++) {
+                index.put(columns.get(i).getObject().get("Name").getString(), new Integer(i));
+            }
+            
+            for (int i = 0; i < rows.size(); i++) {
+                JSONArray row = rows.get(i).getArray();
+                
+                applyJSONUpdate(ctx, table, user, index, row);
+            }
             ctx.setStatus(200);
         } else {
             ctx.dumpRequest("Action " + action + " is invalid");
