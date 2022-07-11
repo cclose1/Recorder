@@ -1,22 +1,42 @@
 'use strict';
 
-var sessionFilter/* 
+var sessionFilter;
+
+function lockKey(yes) {
+    document.getElementById("carreg").disable   = yes;
+    document.getElementById("sdate").readOnly   = yes;
+    document.getElementById("stime").readOnly   = yes;
+    document.getElementById("mileage").readOnly = yes;
+}
+/* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 function setSave(action) {
-    var clear = true;
+    var clear  = true;
     var remove = true;
+    var elm;
     
     switch (action) {
         case 'New':
+            lockKey(false);
             break;
         case 'Create':
+            lockKey(false);
             clear = false;
             break;
         case 'Update':
+            lockKey(true);
             clear = false;
+            remove = false;
+            
+            elm = getElement("etime", true);
+            
+            if (elm.empty) {
+                document.getElementById("edate").value   = document.getElementById("sdate").value;
+                document.getElementById("etime").value   = document.getElementById("stime").value;
+            }
             break;
         default:
             reporter.fatalError('carreg.js setSave action ' + action + ' is invalid');
@@ -24,6 +44,100 @@ function setSave(action) {
     setHidden("clear",  clear);
     setHidden("remove", remove);
     document.getElementById("save").value  = action;        
+}
+/*
+ * 
+ * @param {String} value is a string of the form h:m:s. The hour field size can exceed 24, but minutes and seconds, if present,
+ *                       must be in the range 0 to 59.
+ * @returns An array of number fields. The array can be up to length 3. Index 0 is hours, index 2 is minutes and index 3 is seconds.
+ *          Undefined is return if value is undefined or the empty string.
+ * 
+ * An exception is thrown if value does not obey the rules defined above.
+ */
+function getDurationFields(value) {
+    if (value === undefined || trim(value) === "") return undefined;
+    
+    var flds = value.split(':');
+    
+    if (flds.length > 3) throw "Duration has more than 3 time fields"; 
+    
+    flds[0] = +toNumber(flds[0], 0); // Note: + ensures it is type number. 
+                                     // Should probably change toNumber to do this, but things may relly on it being a string.
+            
+    if (flds.length > 1) flds[1] = +toNumber(flds[1], 0, 59);
+    if (flds.length > 2) flds[2] = +toNumber(flds[2], 0, 59);
+    
+    return flds;
+}
+/*
+ * A duration is stored in the database as a decimal hour.
+ * 
+ * It can be displayed as decimals or as as tring of the form hh:mm:ss.
+ * 
+ * @param {type} val
+ * @returns {undefined}
+ */
+function convertDuration(val, toString) {
+    var v;
+    
+    if (toString === undefined) toString = true;
+    if (val      === undefined || val === "") return "";
+    /*
+     * Sets v to val if it is not a valid number, otherswise, the numeric value of string.
+     */
+    v = isNaN(val)? val : +val;
+    
+    switch (typeof v) {
+        case 'string':
+            var flds = getDurationFields(v);
+            
+            if (toString) return v; // We still get the fields to validate v.
+            
+            v = flds[0];
+            
+            if (flds.length > 1) v += flds[1] / 60.0;
+            if (flds.length > 2) v += flds[2] / 3600.0;
+            
+            break;
+        case 'number':
+            if (!toString) return v;
+            
+            var h = Math.trunc(v);
+            v = 60 * (v - h);                 // Remove hours
+            var m = Math.trunc(v);            // Get minutes
+            var s = Math.trunc(60 * (v - m)); // Remove minutes and get seconds
+            
+            v = lpad(h, 2, '0') + ':' + lpad(m, 2, '0') + ':' + lpad(s, 2, '0');
+            break;
+        default:
+            throw exception('carreg.js convertDuration value type ' + typeof v + ' is not supported');
+    }
+    return v;
+}
+function checkGreaterOrEqual(first, last) {
+    var fval = trim(getElement(first).value);
+    var lval = trim(getElement(last).value);
+    
+    if (fval !== "" && lval !== "") {
+        if (Number(lval) < Number(fval)) {
+            displayAlert('Validation Error', 'Value must be greater or equal to ' + fval, {focus: getElement(last)});
+            return false;
+        }
+    }
+    return true;
+}
+function checkDuration(elm) {
+    var elm   = getElement(elm === undefined? event.target : elm);
+    var val   = elm.value;
+    var valid = true;
+    
+    try {
+        convertDuration(val, false);
+    } catch (err) {
+        valid = false;
+        displayAlert('Validation Error', err, {focus: elm});
+    }
+    return valid;
 }
 function requestChargeSessions(filter) {
     var parameters = createParameters('chargesessions');
@@ -38,10 +152,9 @@ function requestChargeSessions(filter) {
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function reset() {
-    document.getElementById("chargesource").value   = "";
-    document.getElementById("carreg").value         = "";
     document.getElementById("sessioncomment").value = "";
     document.getElementById("mileage").value        = "";
+    document.getElementById("estduration").value    = "";
     document.getElementById("sdate").value          = "";
     document.getElementById("stime").value          = "";
     document.getElementById("smiles").value         = "";
@@ -95,22 +208,39 @@ function setNew() {
     setDateTime('sdate', 'stime');
     setSave('Create');
 }
-function send() {
-    var action = document.getElementById("save").value;
+function send(action) {
+    if (action === undefined) action = event.target.value;
+    
+    console.log("Action " + action);
 
-    var parameters = createParameters(action === 'Create' ? 'createsession' : 'updatesession');
+    var parameters = createParameters(action.toLowerCase() + 'session');
     
     if (action === 'New') {
         setNew();
         return;
     }
-    if (!checkDateTime("sdate", "stime", true))  return;
-    if (!fieldHasValue("mileage"))               return;
-    if (!checkDateTime("edate", "etime", false)) return;
+    var dt = validateDateTime("sdate", "stime", {required: true});
+    if (!dt.valid) return;
     
+    if (action !== 'delete') {
+        var tm = validateDateTime("edate", "etime");
+        if (!tm.valid) return;
+
+        if (!fieldHasValue("mileage"))     return;
+        if (!checkDuration("estduration")) return;
+
+        if (!checkGreaterOrEqual("smiles", "emiles"))       return;
+        if (!checkGreaterOrEqual("schargepc", "echargepc")) return;
+
+        if (!dt.empty && !tm.empty && tm.value < dt.value) {
+            displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: "edate"});
+            return;
+        }
+    }
     parameters = addParameterById(parameters, 'carreg');
     parameters = addParameterById(parameters, 'chargesource');    
     parameters = addParameterById(parameters, 'sessioncomment');
+    parameters = addParameterById(parameters, 'location');
     parameters = addParameterById(parameters, 'mileage');
     parameters = addParameterById(parameters, 'sdate');
     parameters = addParameterById(parameters, 'stime');
@@ -122,6 +252,7 @@ function send() {
     parameters = addParameterById(parameters, 'echargepc');
     parameters = addParameterById(parameters, 'charge');
     parameters = addParameterById(parameters, 'cost');
+    parameters = addParameter(parameters, 'estduration', convertDuration(document.getElementById('estduration').value, false));
     
     function processResponse(response) {
         if (response.length > 2) {
@@ -129,21 +260,14 @@ function send() {
             return;
         }
         requestChargeSessions();
-        setSave('Update');
+        
+        if (action === 'Delete')
+            clearData();
+        else
+            setSave('Update');
     }
     ajaxLoggedInCall("CarUsage", processResponse, parameters);
     return true;
-}
-function deleteData() {
-    var parameters = createParameters('delete');
-    
-    if (!checkDateTime("sdate", "stime", true))  return;
-
-    parameters = addParameterById(parameters, 'carreg');
-    parameters = addParameterById(parameters, 'sdate');
-    parameters = addParameterById(parameters, 'stime');
-
-    ajaxLoggedInCall('CarUsage', reset, parameters);
 }
 function btChargeSessionsRowClick(row) {
     var rdr = new rowReader(row);
@@ -163,6 +287,12 @@ function btChargeSessionsRowClick(row) {
                 break;
             case 'Start':
                 loadDateTime(value, "sdate", "stime");
+                break;
+            case 'Location':
+                document.getElementById('location').value  = value;
+                break;
+            case 'EstDuration':
+                document.getElementById('estduration').value  = convertDuration(value, true);
                 break;
             case 'Mileage':
                 document.getElementById('mileage').value  = value;
@@ -192,15 +322,8 @@ function btChargeSessionsRowClick(row) {
     }
     setSave('Update');
 }
-function initialize() {    
-    var cars = 
-            'EO70 ECC,' +
-            'BD68 PBF';
-    var sources = 
-            'Home,' +
-            'PodPoint';
-    
-    reporter.setFatalAction('console');
+function initialize() {
+    reporter.setFatalAction('error');  
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
         allowAutoSelect: true, 
@@ -210,22 +333,29 @@ function initialize() {
         initialDisplay:  false});
     sessionFilter.addFilter('Source', 'Source,,fchargesource', '', true);
     sessionFilter.addFilter('CarReg', 'CarReg,,fcarreg',       '', true);
-    loadListResponse(cars, {
-        name:         "carreg",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
-    loadListResponse(cars, {
+     
+    var response = getList('CarUsage', {
+        table:        'Car',
+        name:         'carreg',
+        field:        'Registration',
+        keepValue:    false,
+        defaultValue: 'EO70 ECC',
+        async:        false},
+        true);
+    loadListResponse(response, {
         name:         "fcarreg",
         keepValue:    true,
         async:        false,
         allowBlank:   true});
-    loadListResponse(sources, {
-        name:         "chargesource",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
-    loadListResponse(sources, {
+    var response = getList('CarUsage', {
+        table:        'Charger',
+        name:         'chargesource',
+        field:        'Name',
+        keepValue:    false,
+        defaultValue: 'HomePodPoint',
+        async:        false},
+        true);
+    loadListResponse(response, {
         name:         "fchargesource",
         keepValue:    true,
         async:        false,

@@ -54,14 +54,6 @@ function lpad(text, length, pad) {
 
     return text;
 }
-function lpad1(value, length, pad) {
-    value = value.toString();
-
-    while (value.length < length)
-        value = pad === undefined? ' ' : pad + value;
-
-    return value;
-}
 function rpad(text, length, pad) {
     text = text.toString();
     
@@ -74,21 +66,214 @@ function toNumber(text, low, high) {
     if (isNaN(text))
         throw text + " is not numeric";
 
-    if (text < low || text > high)
+    if (text < low || text > high && high !== undefined)
         throw text + " is not in the range " + low + " to " + high;
 
-    return text;
+    return parseInt(text);
 }
 /*
- * If date is undefined or null returns the current date. If date is not a Date object it is converted to one.
+ * 
+ * @param time String of the form hh:mm:ss, hh:mm or hh. Spaces and leading zeros are ignored. 
+ *             The time field must be in the correect range, i.e hh must be 0 to 23.
+ * @returns An array of three integers with the time fields, with index 0 being the hours
+ * 
+ * Throws an exception if the time is invalid.
  */
-function getDate(date) {
-    if (date === undefined || date === null)
-        date = new Date();
-    else if (!(date instanceof Date))
-        date = new Date(date);
+function toTime(time) {
+    time = time.split(":");
     
-    return date;
+    try {
+        if (time.length === 1) time[1] = '0'; // Note: this extends the array and sets minutes to 0.
+        if (time.length === 2) time[2] = '0';
+        if (time.length > 3) throw "Invalid time format - too many fields";
+        /*
+         * Validete and convert time fields to numberic.
+         */
+        for (let i = 0; i < time.length; ++i) {
+            time[i] = time[i].trim() === "" ? 0 : toNumber(time[i], 0, i === 0 ? 23 : 59);
+        }
+    } catch(err){
+        throw new ErrorObject('Time', err);
+    }
+    return time;
+}
+/*
+ * This converts a timestamp as defined as defined below and returns a Date object with timestamp converted to local time.
+ * 
+ * This will the same as would be returned by new Date for the normalised value of timestamp. However there is a difference in error checking,
+ * e.g. for 31-Jun-2001 new Date('31-Jun-2001') will return the same as new Date(1-Jul-2001', whereas this code will throw an ErrorObject
+ * exception.
+ * 
+ * Note: If a Date is passed as timestamp, it will be returned, i.e. the notime parameter will have no effect.
+ * 
+ * timestamp is a date string with optionally a time string following separated by a space.
+ *           A date string is of the form dd/mm/yy. The separator can also be -. The mm can be a month number or a 3 character
+ *           month name. dd is more than 2 digits, it taken to be a year and is swapped with yy. The date can be optionally followed by 
+ *           a space separated time field of up three integers separated by : in the order hours, minutes and seconds.
+ *           
+ *           The following are valid examples with their normalised equivalents:
+ *           
+ *             Value              Normalised
+ *             1/2/20             01-Feb-2020 00:00:00
+ *             2/3/1980 10        02-Mar-1980 10:00:00
+ *             2001/4/1 23:59     01-Apr-2001 23:59:00
+ *             2/ 3 / 20  11 : 20 02-Mar-2020 11:20:00
+ *             
+ * notime    indicates if the string should not have a time string following the date. If not undefined and true then an error
+ *           is reported if there is a time string.
+ *           
+ * Throws an ErrorObject exception if timestamp does not yield a valid Date object. getName() will be 'Time' if the time is invalid and
+ * 'Date' otherwise. The message describes the validation failure.
+ */
+function toDate(timestamp, notime) {
+    if (timestamp instanceof Date) return timestamp;
+    
+    var months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+    var date    = timestamp.split(new RegExp("[/\-]"));
+    var time    = new Array(0, 0, 0);
+    var errName = "Date";
+    
+    try {        
+        if (date.length !== 3) throw "Invalid date format";
+        /*
+         * Check to see if the date is followed by a time field. First remove any leading spaces from the final date field.
+         */
+        date[2] = trim(date[2]);
+        
+        var i = date[2].indexOf(' ');
+        
+        if (i !== -1) {
+            /*
+             * There is a time field.
+             */
+            errName = "Time";
+            
+            if (notime !== undefined && notime) throw "Time present in date only field";
+            
+            time    = toTime(date[2].substring(i + 1));
+            date[2] = date[2].substring(0, i);
+        }        
+        errName = "Date";
+
+        date[0] = toNumber(date[0]);
+        date[1] = trim(date[1]);
+        date[2] = toNumber(date[2]);
+        
+        if (date[0] > 99) {
+            /*
+             * If first field is more than 2 digits, assume it is the year and swap with date[2]
+             */
+            var y = date[0];
+
+            date[0] = date[2];
+            date[2] = y;
+        }
+        if (date[2] < 100) date[2] += 2000;
+        
+        for (var i = 0; i < months.length; i++) {
+            if (months[i].toLowerCase() === date[1].toLowerCase()) {
+                date[1] = i + 1;
+                break;
+            }
+        }
+        date[1] = toNumber(date[1]) - 1;
+        
+        var datetime = new Date();
+
+        datetime.setFullYear(date[2]);
+        datetime.setMonth(date[1]);
+        datetime.setDate(date[0]);        
+        datetime.setHours(time[0], time[1], time[2], 0);
+        /*
+         * The above set functions updates the next field if the value is out of range for the current one, e.g. 2022 08 33
+         * results in 2022 09 2. Read back the fields to check the values have not changed. This is not necessary for the time
+         * fields as they have already been checked to be in the correct range.
+         */
+        if (datetime.getFullYear() !== date[2] || datetime.getMonth() !== date[1] || datetime.getDate() !== date[0]) throw "Invalid date format";
+
+        if (isNaN(datetime.getTime()))
+            throw "Invalid datetime format";
+
+        return datetime;
+    } catch (err) {
+        if (err instanceof ErrorObject) throw err;
+        /*
+         * If the exception is not an ErrorObject convert it to one.
+         */
+        throw new ErrorObject(errName, err);
+    }
+}
+function validateDateTimeOptions(pOptions) { 
+    BaseOptions.call(this, false);
+    
+    setObjectName(this, 'validateDateTime');
+    this.addSpec({name: 'required',  type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'normalise', type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'notime',    type: 'boolean', default: false, mandatory: false});
+        
+    this.clear();
+    this.load(pOptions, false);    
+}
+function validateDateTime(did, tid, options) {
+    var timestamp = '';
+    var tm        = null;    
+    var opts      = new validateDateTimeOptions(options);
+    var result    = {
+        valid: false,
+        value: undefined,
+        empty: true
+    };
+    var dt = getElement(did, true);
+    var tm = tid !== undefined && tid !== null ? getElement(tid, true) :  { elm: null, value: '', empty: true};
+    result.empty = dt.empty;
+    
+    if (!tm.empty && dt.empty && tm.elm !== null) {
+        displayAlert('Validation Error', 'Date must be given if time is', {focus: dt.elm});
+        return result;
+    }
+    if (opts.required) {
+        if (dt.empty) {
+            displayAlert('Field Validation', "Enter a value for " + getElementLabel(dt.elm), {focus: dt.elm});
+            return result;
+        }
+        if (tm.empty && tm.elm !== null) {
+            displayAlert('Field Validation', "Enter a value for " + getElementLabel(tm.elm), {focus: tm.elm});
+            return result;
+        }
+    }
+    timestamp = trim(dt.value + ' ' + tm.value);
+    
+    if (timestamp === '') {
+        result.valid = true;
+        return result;
+    }
+    
+    try {
+        result.value = toDate(timestamp, opts.notime);
+        
+        if (tm.elm === null && opts.notime) {
+            /*
+             * In this the date field should no have the time appended
+             */
+        }
+        result.valid = true;
+        
+        if (opts.normalise) {
+            if (tm.elm !== null) {
+                /*
+                 * Date and time are in separate fields
+                 */
+                dt.elm.value = dateString(result.value);
+                tm.elm.value = timeString(result.value);
+            } else
+                dt.elm.value = getDateTime(result.value);
+        }
+    } catch(e) {
+        var elm = e.getName() === 'Time' && tm.elm !== null ? tm.elm : dt.elm;
+        
+        displayAlert('Field Error', e.message + " on " + getElementLabel(elm), {focus: elm});
+    }
+    return result;
 }
 function dateDiff(from, to, units) {
     var scale;
@@ -114,43 +299,47 @@ function dateDiff(from, to, units) {
         default:
             reporter.fatalError('dateDiff interval ' + units + ' is invalid');
     }
-    return (getDate(to).getTime() - getDate(from).getTime()) / scale;
+    return (toDate(to).getTime() - toDate(from).getTime()) / scale;
 }
 function dateString(date) {
     var fields = date.toString().split(" ");
 
     return lpad(fields[2], 2, "0") + "-" + fields[1] + "-" + fields[3];
 }
-function timeString(date) {
-    var fields = date.toString().split(" ");
-
-    return fields[4];
-}   
-function getTime(date, milliseconds) {
-    date = getDate(date);
+/*
+ * 
+ * @param source Either a Date object or an array of the integer values of hours, minutes and seconds.
+ * 
+ * @returns Time string of the form hh:mm:ss, where hh is 0 to 23.
+ */
+function timeString(source, milliseconds) {
+    var time;
     
-    var time = lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
+    if (source === null || source === undefined) source = new Date();
     
-    if (milliseconds !== undefined && milliseconds) time += '.' + lpad(date.getMilliseconds(), 3, '0');
+    if (typeof source === 'String') source = toDate(source);
+    
+    if (source instanceof Date)
+        time = source.toString().split(" ")[4];
+    else
+        time = lpad(source[0], 2, '0') + ':' + lpad(source[1], 2, '0') + ':' + lpad(source[2], 2, '0');
+    
+    if (milliseconds !== undefined && milliseconds) time += '.' + lpad(source.getMilliseconds(), 3, '0');
     
     return time;
+} 
+function dateTimeString(date) {    
+    return dateString(date) + ' ' + timeString(date);
 }
 function getDateTime(date) {
-    date = getDate(date);
+    if (date === null || date === undefined) date = new Date();
     
-    var datetime =
-            date.getFullYear()                  + '-' +
-            lpad((date.getMonth() + 1), 2, '0') + '-' +
-            lpad(date.getDate(),        2, '0') + ' ' +
-            lpad(date.getHours(),       2, '0') + ':' +
-            lpad(date.getMinutes(),     2, '0') + ':' +
-            lpad(date.getSeconds(),     2, '0');
-    return datetime;
+    return dateTimeString(toDate(date));
 }
 function getDayText(date, long) {
     var value = 'Invalid';
     
-    switch (getDate(date).getDay()) {
+    switch (toDate(date).getDay()) {
         case 0:
             value = 'Sunday';
             break;
@@ -179,60 +368,63 @@ function getDayText(date, long) {
     
     return value;
 }
-function toDate(text) {
-    var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-    var date = text.split(" ");
-    var time = new Array(0, 0, 0);
+function checkDate(elm, required) {
+    return validateDateTime(elm, null, {required: required, notime: true}).valid;
+}
+function checkTime(elm, required) {
+    var ok = false;
+    
+    elm = getElement(elm);
 
-    if (date.length === 2) {
-        time = date[1].split(":");
-
-        if (time.length === 1)
-            time[1] = 0;
-        if (time.length === 2)
-            time[2] = 0;
-        if (time.length > 3)
-            throw "Invalid time format";
-    }
-    date = date[0].split(new RegExp("[/\-]"));
-
-    if (date.length !== 3 || isNaN(date[2])) {
-        throw "Invalid date format";
-    }
-
-    if (date[0].length > 2) {
-        /*
-         * If first field is more than 2 digits, assume it is the year and swap with date[2]
-         */
-        var y = date[0];
-
-        date[0] = date[2];
-        date[2] = y;
-    }
-
-    date[2] = (date[2].length <= 2) ? date[2] = "20" + lpad(date[2], 2, "0") : date[2];
-
-    for (var i = 0; i < months.length; i++) {
-        if (months[i].toLowerCase() === date[1].toLowerCase()) {
-            date[1] = i + 1;
-            break;
+    if (fieldHasValue(elm, required)) {
+        try {
+            var t = toTime(elm.value);
+            elm.value = timeString(t);
+            ok = true;
+        } catch (err) {
+            displayAlert('Validation Error', err.message, {focus: elm});
         }
     }
-    var datetime = new Date();
-
-    datetime.setFullYear(date[2], toNumber(date[1], 1, 12) - 1, date[0]);
-    datetime.setHours(toNumber(time[0], 0, 23), toNumber(time[1], 0, 59), toNumber(time[2], 0, 59), 0);
-    
-    if (isNaN(datetime.getTime())) throw "Invalid datetime format";
-    
-    return datetime;
+    return ok;
+}
+function checkTimestamp(elm, required) {
+    return validateDateTime(elm, null, {required: required}).valid;
+}
+function checkDateTime(did, tid, required) {
+    return validateDateTime(did, tid, {required: required}).valid;
 }
 /*
- * If object is an element it is returned, otherwise it is assumed to be an element id and the element with that id from
- * the current document is returned.
+ * object can be one of the following:
+ *  Object         Element
+ *  undefined    event.target
+ *  null              "
+ *  empty string      "
+ *  string       Element for object string or null if no element for object
+ *  otherwise    object
+ *  
+ * withValue     undefined or false element is returned, otherwise returns a structure, with the element, its value as a string which is
+ *               empty if value element value is undefined and empty set to true if value is the empty string.
  */
-function getElement(object) {
-    return typeof object === 'string' ? document.getElementById(object) : object;
+function getElement(object, withValue) {
+    var elm = object;
+    
+    if (object === undefined || object === null)
+        elm = event.target;
+    else if (typeof object === 'string') { 
+        if (trim(object) === '')
+            elm = event.target;
+        else
+            elm = document.getElementById(object);
+    }    
+    var val = elm === null || elm.value === undefined? "" : trim(elm.value);
+    
+    if (withValue === undefined || !withValue) return elm;
+    
+    return {
+        elm:   elm,
+        value: val,
+        empty: val.length === 0
+    };
 }
 function triggerClick(element) {
     var event;
@@ -314,8 +506,11 @@ function getLocalStorage(id) {
 function Reporter() {
     function output(action, message) {
         switch (action) {
-            case 'console':
-                console.log(getTime(null, true) + ' ' + message);
+            case 'log':
+                console.log(timeString(null, true) + ' ' + message);
+                break;
+            case 'error':
+                console.error(timeString(null, true) + ' ' + message);
                 break;
             case 'alert':
                 alert(message);
@@ -337,12 +532,12 @@ function Reporter() {
         output(this.fatalAction, message);
     };
     this.log = function(message) {
-        if (this.logEnabled) output('console', message);
+        if (this.logEnabled) output('log', message);
     };        
     this.logThrow = function(exception, showAlert) {
         if (showAlert) alert(exception.name + '-' + exception.message);
         
-        console.log(exception);
+        console.error(exception);
     };
 }
 var reporter = new Reporter();
@@ -394,7 +589,7 @@ function Statistics(enabled) {
         return (new Date() - this.start) / 1000;
     };
     this.log = function(message) {
-        if (this.logEnabled) console.log(getTime(this.start, true) + ' ' + this.id + ' ' + message);
+        if (this.logEnabled) console.log(timeString(this.start, true) + ' ' + this.id + ' ' + message);
     };
     this.logElapsed = function(action) {
         this.log(action + ' took ' + this.elapsed() + ' ms');
@@ -455,7 +650,10 @@ function BaseOptions(pAccessByGet) {
                 break;
             }
         }
-        if (spec === null) error(options, 'Option "' + name + '" is not defined');
+        if (spec === null) {
+            error(options, 'Option "' + name + '" is not defined');
+            return;
+        }
         
         if (read) {
             value = options.accessByGet? spec.value : options[name];
@@ -505,8 +703,7 @@ function BaseOptions(pAccessByGet) {
                     /*
                      * Check if parameter not defined and return if it is. This prevents loadOption failing.
                      */
-                    if (getSpec(this, name) === null)
-                        continue;
+                    if (getSpec(this, name) === null)  continue;
                 }
                 loadOption(this, name, values[name]);
             }
@@ -651,7 +848,6 @@ function ConvertUnitsO() {
 function reportReminder(options) {
     var opts = options.split(',');
     
-    
     if (opts.length !== 3)
         reporter.fatalError('Invalid reminder options-' + options);
     else {
@@ -666,11 +862,11 @@ function reportReminder(options) {
             reporter.log('Local storage initialised');
             setLocalStorage('remInterval', interval);
         } else {
-            lastDt = getDate(last);
+            lastDt = new Date(last);  // Don't use toDate in this case 
             reporter.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
         }
         interval = opts[1];
-        earliest = getDate(opts[2]);
+        earliest = toDate(opts[2]);
         hours    = dateDiff(null, earliest, 'Hours');
 
         if (lastDt === null || dateDiff(lastDt, null, 'Minutes') > interval) {
@@ -678,7 +874,7 @@ function reportReminder(options) {
             var state = opts[0] === '!ReminderImmediate'? 'URGENT' : 'current';
             
             days  = Math.floor(hours / 24);
-            hours = Math.floor(hours - 24 * days)
+            hours = Math.floor(hours - 24 * days);
             
             if (days === 0)
                 due = hours + ' hours';
@@ -690,7 +886,7 @@ function reportReminder(options) {
             displayAlert('Warning',  'There are ' + state + ' reminders. Next due ' + due);
             reporter.log('Alert displayed. Earliest ' + getDateTime(earliest) + ' days ' + days + ' hours ' + hours);
             setLocalStorage('remInterval', interval);
-            setLocalStorage('remLast',     getDate().toString());
+            setLocalStorage('remLast',     (new Date()).toString());
         }
     }    
 }
@@ -937,94 +1133,6 @@ function loadTable(table, data) {
                 addTableRow(table, fields[i]);
         }
     }
-}
-function checkDate(elm, required) {
-    var ok = false;
-    
-    if (elm === null || elm === undefined) elm = event.target;
-    
-    elm = getElement(elm);
-    
-    if (fieldHasValue(elm, required)) {
-        try
-        {
-            var d = toDate(elm.value);
-            elm.value = dateString(d);
-            ok = true;
-        } catch (err)
-        {
-            displayAlert('Validation Error', err, {focus: elm});
-        }
-    }
-    return ok;
-}
-function checkTime(elm, required) {
-    var ok = false;
-    
-    if (elm === null || elm === undefined)
-        elm = event.target;
-    else
-        elm = getElement(elm);
-
-    if (fieldHasValue(elm, required)) {
-        try
-        {
-            var d = toDate("01/01/2000 " + elm.value);
-            elm.value = timeString(d);
-            ok = true;
-        } catch (err)
-        {
-            displayAlert('Validation Error', err, {focus: elm});
-        }
-    }
-    return ok;
-}
-
-function checkTimestamp(elm, required) {
-    var ok = false;
-    
-    if (elm === null || elm === undefined)
-        elm = event.target;
-    else
-        elm = getElement(elm);
-
-    if (fieldHasValue(elm, required)) {
-        try
-        {
-            var d = toDate(elm.value);
-            elm.value = getDateTime(d);
-            ok = true;
-        } catch (err)
-        {
-            displayAlert('Validation Error', err, {focus: elm});
-        }
-    }
-    return ok;
-}
-function checkDateTime(did, tid, required) {
-    var dValue;
-    var tValue;
-
-    required = required === undefined ? true : required;
-    dValue = fieldHasValue(did, required);
-
-    if (dValue && !checkDate(did))
-        return false;
-    if (!dValue && required)
-        return false;
-
-    tValue = fieldHasValue(tid, required);
-
-    if (tValue && !checkTime(tid))
-        return false;
-    if (!tValue && required)
-        return false;
-
-    if (tValue && !dValue) {
-        displayAlert('Validation Error', 'Date must be given if time is', {focus: document.getElementById(did)});
-        return false;
-    }
-    return true;
 }
 function getRadioValue(name)
 {
@@ -1794,18 +1902,17 @@ function loadOptionsJSON(jsonOptions, loadOptions) {
 function currentDate(date) {
     var mthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    if (date === undefined)
-        date = new Date();
+    if (date === undefined) date = new Date();
 
     return lpad(date.getDate(), 2, '0') + '-' + mthNames[date.getMonth()] + '-' + lpad(date.getFullYear(), 2, '0');
 }
 function currentTime(date) {
-    date = getDate();
+    if (date === undefined) date = new Date();
 
     return lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
 }
 function currentDateTime(date) {
-    date = getDate();
+    if (date === undefined) date = new Date();
 
     return currentDate(date) + ' ' + currentTime(date);
 }

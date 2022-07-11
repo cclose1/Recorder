@@ -130,7 +130,7 @@ public class RecordBankTransaction extends ApplicationServer {
             sql.addField("Number",     sql.setFieldSource("AccountNumber"), sql.setValue(""));
             sql.addField("Card",       sql.setFieldSource("CardNumber"),    sql.setValue(""));
             sql.addField("Account");
-            sql.addField("'TXN Id'",   sql.setFieldSource("TXNId"),         sql.setValue(""));
+            sql.addField("TXN Id",     sql.setFieldSource("TXNId"),         sql.setValue(""));
             sql.addField("Amount",     sql.setCast("DECIMAL", 10, 2));
             sql.addField("AmountFull", sql.setFieldSource("Amount"));
             sql.addField("Fee",        sql.setCast("DECIMAL", 10, 2));

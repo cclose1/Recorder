@@ -317,6 +317,20 @@ public abstract class ApplicationServer extends HttpServlet {
         }   
         public String getParameter(String name) {
             return handler.getParameter(name);
+        }
+        public int getInt(String name, int nullDefault) {
+            String value = handler.getParameter(name);
+            
+            if (value == null) return nullDefault;
+            
+            return Integer.parseInt(value);
+        }
+        public double getDouble(String name, int nullDefault) {
+            String value = handler.getParameter(name);
+            
+            if (value == null) return nullDefault;
+            
+            return Double.parseDouble(value);
         }        
         public boolean existsParameter(String name) {
             return handler.existsParameter(name);
@@ -388,6 +402,49 @@ public abstract class ApplicationServer extends HttpServlet {
             return builder;
         }
     }
+    protected class TableReader {     
+        private ResultSet rs        = null;
+        private boolean   rowExists = false;
+        
+        public void close() throws SQLException {
+            if (rs != null) rs.close();
+            
+            rowExists = false;            
+        }
+        public void open(Context ctx, SQLSelectBuilder sql) throws SQLException {
+            close();
+            rs = executeQuery(ctx, sql);
+            rowExists = rs.first();            
+        }
+        public void first() throws SQLException {
+            rowExists = rs.first();            
+        }
+        public boolean next() throws SQLException {
+            rowExists = rs.next();
+            return rowExists;
+        }
+        public boolean rowExists() {
+            return this.rowExists;
+        }
+        public boolean lastValueNull() throws SQLException {
+            return rs.wasNull();
+        }
+        public double getDouble(String colName) throws SQLException {
+            double val = rs.getDouble(colName);
+            
+            return rs.wasNull()? -1 : val;
+        }
+        public int getInt(String colName) throws SQLException {
+            int val = rs.getInt(colName);
+            
+            return rs.wasNull()? -1 : val;
+        }
+        public Date getDate(String colName) throws SQLException {
+            Date val = rs.getTimestamp(colName);
+            
+            return val;            
+        }
+    }
     protected class TableUpdater {
         private Context            ctx;
         private ResultSet          rs;
@@ -431,7 +488,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 {
                     String value = ctx.getParameter(field.parameter);
                     
-                    if (value.trim() == "" && field.blankToNull) value = null;
+                    if (value.trim().equals("") && field.blankToNull) value = null;
                     
                     rs.updateString(field.name, value);
                 }
@@ -441,28 +498,44 @@ public abstract class ApplicationServer extends HttpServlet {
             /*
              * Attempt to retrieve a session for the primary key.
              */
-            SQLSelectBuilder sql = ctx.getSelectBuilder("ChargeSession");
+            SQLSelectBuilder sql = ctx.getSelectBuilder(name);
             addKey(sql, ctx);
            
             rs = ctx.getAppDb().updateQuery(sql.build());
 
             if (rs.next()) {
-                if (action == "create")
-                    ctx.getReplyBuffer().append(name + " row already exists for " + keyString);
-                else {
-                    rs.moveToCurrentRow();
-                    setFields(rs, ctx);
-                    rs.updateRow();
-                    ctx.setStatus(200);
+                switch (action) {
+                    case "create":
+                        ctx.getReplyBuffer().append(name + " row already exists for " + keyString);
+                        break;
+                    case "update":
+                        rs.moveToCurrentRow();
+                        setFields(rs, ctx);
+                        rs.updateRow();
+                        ctx.setStatus(200);
+                        break;
+                    case "delete":
+                        rs.moveToCurrentRow();
+                        rs.deleteRow();
+                        ctx.setStatus(200);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Action: " + action + " for TableUpdater.update");
                 }
             } else {
-                if (action == "update")  
-                    ctx.getReplyBuffer().append("No " + name + " row for " + keyString);
-                else {
-                    rs.moveToInsertRow();
-                    setFields(rs, ctx);
-                    rs.insertRow();
-                    ctx.setStatus(200);
+                switch (action) {
+                    case "create":
+                        rs.moveToInsertRow();
+                        setFields(rs, ctx);
+                        rs.insertRow();
+                        ctx.setStatus(200);
+                        break;
+                    case "update":
+                    case "delete":
+                        ctx.getReplyBuffer().append("No " + name + " row for " + keyString);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Action: " + action + " for TableUpdater.update");
                 }
             }     
         }
@@ -486,6 +559,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public void updateRow() throws ParseException, SQLException {
             update("update");
+        }
+        public void deleteRow() throws ParseException, SQLException {
+            update("delete");
         }
         public void addOrderBy(SQLSelectBuilder sql, boolean desc) {
             for(DBField field : fields) {
@@ -512,10 +588,14 @@ public abstract class ApplicationServer extends HttpServlet {
         }
     }
     private MeasureSql measureSQL = new MeasureSql();
-    
+    /*
+     * This creates a result set that allows reposition to the start. 
+     *
+     * In the interest of efficiency should also allow the creation of a forward only result set
+     */
     protected ResultSet executeQuery(Context ctx, String sql) throws SQLException {
         measureSQL.start();
-        ResultSet rs = ctx.getAppDb().executeQuery(sql);
+        ResultSet rs = ctx.getAppDb().executeQuery(sql, ResultSet.TYPE_SCROLL_SENSITIVE);
         measureSQL.end(sql);
         return rs;
     }

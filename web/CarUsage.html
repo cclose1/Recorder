@@ -46,6 +46,19 @@
                                 </select>
                             </div>
                             <div>
+                                <label for="location" class = 'largelab'>Location</label>
+                                <input type="text" name="Location" size ="7" id="location" tabindex="0">                            
+                            </div>
+                            <div>
+                                <label for="estduration" class = 'largelab'>Est Full Charge</label>
+                                <input type="text" name="Est Full Charge" size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
+                                <label class="nogap">Hours</label>                        
+                            </div>
+                            <div>
+                                <label for="test" class = 'largelab'>Timestamp</label>
+                                <input type="text" name="Timestamp" id="test" class='datetime' maxlength="20" tabindex="0" onchange="checkTimestamp();">
+                            </div>
+                            <div>
                                 <label for="sesssioncomment" class = 'largelab'>Comment</label>
                                 <textarea id='sessioncomment' rows='2'></textarea>
                             </div>
@@ -59,32 +72,32 @@
                                 </div>
                                 <div>
                                     <label for="mileage">Mileage</label>
-                                    <input type="text" name="Mileagex" size ="7" id="mileage" tabindex="0" onkeypress="allowedInNumberField();">                            
-                                </div>
-                                <div>
-                                    <label for="smiles">Miles</label>
-                                    <input type="text" name="Start Miles x" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="Mileage" size ="7" id="mileage" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
                                     <label for="schargepc">Charge %</label>
                                     <input type="text" name="Start Charge% x" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                </div>
+                                <div>
+                                    <label for="smiles">Miles</label>
+                                    <input type="text" name="Start Miles x" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                             </fieldset>
                             <fieldset id="endfields" class = 'form'>
                                 <legend>End</legend>
                                 <div>
                                     <label for="edate">Date</label>                   
-                                    <input type="text" name="End Date" id="edate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
+                                    <input type="text" name="End Date" id="edate" class='date' maxlength="20" tabindex="0" onchange="checkDate();">
                                     <label for="time" class="nogap">Time</label>
-                                    <input type="text" name="endtime" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
-                                </div>
-                                <div>
-                                    <label for="emiles">Miles</label>
-                                    <input type="text" name="End Miles x" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="End Time" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
                                 </div>
                                 <div>
                                     <label for="echargepc">Charge %</label>
                                     <input type="text" name="End Charge% x" size ="7" id="echargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                </div>
+                                <div>
+                                    <label for="emiles">Miles</label>
+                                    <input type="text" name="End Miles x" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
                                     <label for="echarge">Charge</label>
@@ -98,7 +111,7 @@
                             <div>
                                 <label for="save"></label>
                                 <input id="save" name="save" type="button" value="Create" onclick="send();">
-                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="deleteData();">
+                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="send();">
                                 <input id="clear" name="clear" type="button" value="Clear" onclick="clearData();">
                             </div>
                             <div id="logoff" hidden>

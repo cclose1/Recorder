@@ -8,19 +8,16 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Hashtable;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import org.cbc.application.reporting.Report;
 import org.cbc.json.JSONArray;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.json.JSONReader;
 import org.cbc.json.JSONValue;
-import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
@@ -66,7 +63,7 @@ public class HeartMonitor extends ApplicationServer {
         if (exists(ctx, table, nv)) {  
             SQLUpdateBuilder sql = ctx.getUpdateBuilder(table);
             
-            sql.addAnd(nv);;
+            sql.addAnd(nv);
             sql.addField("Individual",  user);
             sql.addField("Timestamp",   time);
             sql.addField("Side",        side);

@@ -26,7 +26,9 @@ import org.cbc.utils.data.DatabaseSession;
  * @author chris
  */
 public class CarUsage extends ApplicationServer {    
-    private TableUpdater session = new TableUpdater("ChargeSession");
+    private TableUpdater     session        = new TableUpdater("ChargeSession");
+    private TableReader      sessions       = new TableReader();
+    private SQLSelectBuilder sqlCarSessions = new SQLSelectBuilder("ChargeSession");
     
     @Override
     public String getVersion() {
@@ -42,22 +44,39 @@ public class CarUsage extends ApplicationServer {
         session.setContext(ctx);
         
         switch (action) {
-            case "createsession":
-                session.createRow();
-                break;
-            case "updatesession":
-                session.updateRow();
-                break;
-            case "deletesession":
-                {
-                    SQLDeleteBuilder sql = ctx.getDeleteBuilder("ChargeSession");
-                    sql.addAnd("Individual", "=", ctx.getParameter("ukindividual"));
-                    sql.addAnd("Timestamp",  "=", ctx.getSQLTimestamp("uktimestamp"));
-                    sql.addAnd("Side",       "=", ctx.getParameter("ukside"));
-                    executeUpdate(ctx, sql.build());
-                    ctx.setStatus(200);
-                    break;
+            case "createsession":                
+            case "updatesession":               
+            case "deletesession":          
+                sqlCarSessions.clearWhere();
+                sqlCarSessions.addAnd("CarReg", "=", ctx.getParameter("carreg"));                
+                sessions.open(ctx, sqlCarSessions);
+               
+                if (action.equals("createsession")) {
+                    if (sessions.rowExists()) {
+                        if (ctx.getInt("mileage", -1) < sessions.getInt("Mileage")) {
+                            ctx.getReplyBuffer().append("Mileage must be greater or equal to previous");
+                            ctx.setStatus(200);
+                            return;
+                        }
+                        if (ctx.getTimestamp("sdate", "stime").before(sessions.getDate("Start"))) {
+                            ctx.getReplyBuffer().append("Start date must not be before previous");
+                            ctx.setStatus(200);
+                            return;
+                        }
+                    }
+                    session.createRow();
                 }
+                else if (action.equals("updatesession"))
+                    session.updateRow();
+                else {
+                    if (sessions.rowExists() && ctx.getTimestamp("sdate", "stime").before(sessions.getDate("Start"))) {
+                        ctx.getReplyBuffer().append("Can only delete the most recent session");
+                        ctx.setStatus(200);
+                        return;
+                    }
+                    session.deleteRow();
+                }
+                break;
             case "chargesessions":
                 {
                     JSONObject       data   = new JSONObject();
@@ -68,13 +87,16 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Source");
                     sql.addField("CarReg");
                     sql.addField("Start");
+                    sql.addField("Location");
                     sql.addField("Mileage");
+                    sql.addField("EstDuration");
                     
                     if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
                         sql.addField("Weekday", sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Start), 1, 3)"));
                     } else {
                         sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Start), 1, 3)"));
-                    }       sql.addField("Start Miles", "StartMiles");
+                    }       
+                    sql.addField("Start Miles", "StartMiles");
                     sql.addField("Start %", "StartPerCent");
                     sql.addField("End");
                     sql.addField("End Miles", "EndMiles");
@@ -106,13 +128,18 @@ public class CarUsage extends ApplicationServer {
         session.addField("Start",        true,  "sdate",     "stime");
         session.addField("Source",       false, "chargesource");
         session.addField("Comment",      false, "sessioncomment");
-        session.addField("Mileage",      false, "mileage",   true);
-        session.addField("StartPercent", false, "schargepc", true);
-        session.addField("StartMiles",   false, "smiles",    true);
-        session.addField("End",          false, "edate",     "etime");
-        session.addField("EndPercent",   false, "echargepc", true);
-        session.addField("EndMiles",     false, "emiles",    true);
-        session.addField("Charge",       false, "charge",    true);
-        session.addField("Cost",         false, "cost",      true);
+        session.addField("Location",     false, "location",    true);
+        session.addField("Mileage",      false, "mileage",     true);
+        session.addField("EstDuration",  false, "estduration", true);
+        session.addField("StartPercent", false, "schargepc",   true);
+        session.addField("StartMiles",   false, "smiles",      true);
+        session.addField("End",          false, "edate",       "etime");
+        session.addField("EndPercent",   false, "echargepc",   true);
+        session.addField("EndMiles",     false, "emiles",      true);
+        session.addField("Charge",       false, "charge",      true);
+        session.addField("Cost",         false, "cost",        true);
+        
+        sqlCarSessions.addField("*");
+        sqlCarSessions.addOrderByField("Start", true);
     }
 }
