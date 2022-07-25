@@ -79,21 +79,25 @@ public class CarUsage extends ApplicationServer {
                 break;
             case "chargesessions":
                 {
-                    JSONObject       data   = new JSONObject();
+                    JSONObject       data     = new JSONObject();
                     ResultSet        rs;
-                    SQLSelectBuilder sql    =  ctx.getSelectBuilder("ChargeSession");
+                    SQLSelectBuilder sql      = ctx.getSelectBuilder("ChargeSession");
+                    Object           rateCast = sql.setCast("DECIMAL", 8, 2);
+                    
                     sql.setProtocol(ctx.getAppDb().getProtocol());
                     sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
-                    sql.addField("Source");
                     sql.addField("CarReg");
                     sql.addField("Start");
-                    sql.addField("Location");
+                    sql.addField("Charger");
+                    sql.addField("Unit");
                     sql.addField("Mileage");
                     sql.addField("EstDuration");
                     
                     if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
+                        sql.addField("Rate",    sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent)"), rateCast);
                         sql.addField("Weekday", sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Start), 1, 3)"));
                     } else {
+                        sql.addField("Rate",    sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent)"), rateCast);
                         sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Start), 1, 3)"));
                     }       
                     sql.addField("Start Miles", "StartMiles");
@@ -106,6 +110,29 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Comment");
                     session.addFilter(sql);
                     session.addOrderBy(sql, true);
+                    rs = executeQuery(ctx, sql);
+                    data.add("ChargeSessions", rs);
+                    data.append(ctx.getReplyBuffer(), "");
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "chargers":
+                {
+                    JSONObject       data   = new JSONObject();
+                    ResultSet        rs;
+                    SQLSelectBuilder sql    =  ctx.getSelectBuilder("Chargers");
+                    sql.setProtocol(ctx.getAppDb().getProtocol());
+                    sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
+                    sql.addField("Name");
+                    sql.addField("Network");
+                    sql.addField("Unit");
+                    sql.addField("Active");
+                    sql.addField("Rate");
+                    sql.addField("Tariff");
+                    sql.addField("Location");
+                    sql.addField("Comment");
+    //                session.addFilter(sql);
+    //                session.addOrderBy(sql, true);
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
                     data.append(ctx.getReplyBuffer(), "");
@@ -126,9 +153,9 @@ public class CarUsage extends ApplicationServer {
                 
         session.addField("CarReg",       true,  "carreg");
         session.addField("Start",        true,  "sdate",     "stime");
-        session.addField("Source",       false, "chargesource");
+        session.addField("Charger",      false, "chargesource");
+        session.addField("Unit",         false, "chargeunit");
         session.addField("Comment",      false, "sessioncomment");
-        session.addField("Location",     false, "location",    true);
         session.addField("Mileage",      false, "mileage",     true);
         session.addField("EstDuration",  false, "estduration", true);
         session.addField("StartPercent", false, "schargepc",   true);

@@ -266,10 +266,15 @@ function ValidateItem() {
         this.updateCalculated();
     };
     this.updateItem = function() {
-        if (getDateTime(getElement('iend').value) < getDateTime(getElement('istart').value)) {
-            displayAlert('Validation Failure', 'End time must be after Start time', {focus: getElement('iend')});
+        var sd = validateDateTime('istart', null, {required: true});
+        var ed = validateDateTime('iend',   null, {required: true});
+        
+        if (!sd.valid || !ed.valid) return false;
+        
+        if (ed.value <= sd.value) {
+            displayAlert('Validation Error', 'End timestamp must be after start timestamp', {focus: "edate"});
             return false;
-        }     
+        }
         if (!fieldHasValue('iitem'))   return false;
         if (!fieldHasValue('isource')) return false;
         if (!fieldHasValue('itype'))   return false;

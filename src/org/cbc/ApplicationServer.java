@@ -565,7 +565,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public void addOrderBy(SQLSelectBuilder sql, boolean desc) {
             for(DBField field : fields) {
-                sql.addOrderByField(field.name, desc);
+                if (field.key) sql.addOrderByField(field.name, desc);
             }
         }
         public void addFilter(SQLSelectBuilder sql) throws SQLException {            

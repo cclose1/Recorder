@@ -126,6 +126,7 @@ function toTime(time) {
  * 'Date' otherwise. The message describes the validation failure.
  */
 function toDate(timestamp, notime) {
+    if (timestamp === undefined || timestamp === null || timestamp === '') return new Date();
     if (timestamp instanceof Date) return timestamp;
     
     var months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
@@ -867,9 +868,9 @@ function reportReminder(options) {
         }
         interval = opts[1];
         earliest = toDate(opts[2]);
-        hours    = dateDiff(null, earliest, 'Hours');
+        hours    = dateDiff(new Date(), earliest, 'Hours');
 
-        if (lastDt === null || dateDiff(lastDt, null, 'Minutes') > interval) {
+        if (lastDt === null || dateDiff(lastDt, new Date(), 'Minutes') > interval) {
             var due;
             var state = opts[0] === '!ReminderImmediate'? 'URGENT' : 'current';
             

@@ -41,22 +41,16 @@
                             </div>
                             <div>
                                 <label for="chargesource" class = 'largelab'>Charge Source</label>
-                                <select id="chargesource"  tabindex="0">
-                                    <option></option>
-                                </select>
+                                <input readonly type='text' name='Charge Source' size='15' id="chargesource"  tabindex="0">
                             </div>
                             <div>
-                                <label for="location" class = 'largelab'>Location</label>
-                                <input type="text" name="Location" size ="7" id="location" tabindex="0">                            
+                                <label for="chargeunit" class = 'largelab'>Charge Unit</label>
+                                <input readonly type='text' name='Charge Unit' size='15' id="chargeunit"  tabindex="0">
                             </div>
                             <div>
                                 <label for="estduration" class = 'largelab'>Est Full Charge</label>
                                 <input type="text" name="Est Full Charge" size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
                                 <label class="nogap">Hours</label>                        
-                            </div>
-                            <div>
-                                <label for="test" class = 'largelab'>Timestamp</label>
-                                <input type="text" name="Timestamp" id="test" class='datetime' maxlength="20" tabindex="0" onchange="checkTimestamp();">
                             </div>
                             <div>
                                 <label for="sesssioncomment" class = 'largelab'>Comment</label>
@@ -87,7 +81,7 @@
                                 <legend>End</legend>
                                 <div>
                                     <label for="edate">Date</label>                   
-                                    <input type="text" name="End Date" id="edate" class='date' maxlength="20" tabindex="0" onchange="checkDate();">
+                                    <input type="text" name="End Date" id="edate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
                                     <label for="time" class="nogap">Time</label>
                                     <input type="text" name="End Time" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
                                 </div>
@@ -101,18 +95,19 @@
                                 </div>
                                 <div>
                                     <label for="echarge">Charge</label>
-                                    <input type="text" name="Charge x" size ="7" id="charge" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="Charge" size ="7" id="charge" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
                                     <label for="ecost">Cost</label>
-                                    <input type="text" name="Cost x" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                             </fieldset>                            
                             <div>
                                 <label for="save"></label>
-                                <input id="save" name="save" type="button" value="Create" onclick="send();">
+                                <input id="save"   name="save"   type="button" value="Create"        onclick="send();">
                                 <input id="remove" name="remove" type="button" hidden value="Delete" onclick="send();">
-                                <input id="clear" name="clear" type="button" value="Clear" onclick="clearData();">
+                                <input id="copy"   name="copy"   type="button" hidden value="Copy"   onclick="send();">
+                                <input id="clear"  name="clear"  type="button" value="Clear"         onclick="clearData();">
                             </div>
                             <div id="logoff" hidden>
                                 <label for="logoffbtn"></label>
@@ -131,6 +126,15 @@
                     <fieldset id='filter' class='form'>
                         <legend>Session Filter</legend>
                     </fieldset>
+                </div>
+                <div class='floatleft'>
+                    <table id="chargerstable">
+                        <caption>Chargers</caption>
+                        <thead>
+                            <tr><th></th></tr>
+                        </thead>
+                        <tr><td></td></tr>
+                    </table>
                 </div>
             </div> 
             <table id="chargesessionstable">

@@ -16,6 +16,7 @@ function lockKey(yes) {
 function setSave(action) {
     var clear  = true;
     var remove = true;
+    var copy   = true;
     var elm;
     
     switch (action) {
@@ -28,8 +29,9 @@ function setSave(action) {
             break;
         case 'Update':
             lockKey(true);
-            clear = false;
+            clear  = false;
             remove = false;
+            copy   = false;
             
             elm = getElement("etime", true);
             
@@ -43,6 +45,7 @@ function setSave(action) {
     }
     setHidden("clear",  clear);
     setHidden("remove", remove);
+    setHidden("copy",   copy);
     document.getElementById("save").value  = action;        
 }
 /*
@@ -151,6 +154,18 @@ function requestChargeSessions(filter) {
     
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
+function requestChargers(filter) {
+    var parameters = createParameters('chargers');
+
+    function processResponse(response) {
+        loadJSONArray(response, 'chargerstable', {maxField: 19, onClick: 'btChargersRowClick(this)'});
+        document.getElementById('chargerstable').removeAttribute('hidden');
+    }
+//    if (filter === undefined) filter = sessionFilter.getWhere();
+//    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
+    
+    ajaxLoggedInCall('CarUsage', processResponse, parameters);
+}
 function reset() {
     document.getElementById("sessioncomment").value = "";
     document.getElementById("mileage").value        = "";
@@ -167,6 +182,7 @@ function reset() {
     document.getElementById("cost").value           = "";
     
     requestChargeSessions();
+    requestChargers();
     setSave('New');
 }
 /*
@@ -180,34 +196,45 @@ function clearData() {
 function resetSessions() {
     reset();
 }
-function setNew() {
-    var sessions = document.getElementById('chargesessionstable');
-    
-    if (sessions.tBodies[0].rows.length > 0) {
+function setNew(copy) {
+    if (copy) {
         /*
-         * Set carreg and charge source from the first table row.
+         * Save comment and restore after clearData.
          */
-        var row  = sessions.tBodies[0].rows[0];
-        var cells = row.cells;
-        
-        for (var c = 0; c < cells.length; c++) {
-            var cell  = cells[c];
-            var value = cell.innerHTML;
-            
-            switch (cell.attributes.name.value) {
-                case 'Source':
-                    document.getElementById('chargesource').value  = value;
-                    break;
-                case 'CarReg':
-                    document.getElementById('carreg').value  = value;
-                    break;
+        var comment = document.getElementById('sessioncomment').value;
+        clearData();
+        document.getElementById('sessioncomment').value = comment;
+    } else {
+        var sessions = document.getElementById('chargesessionstable');
+
+        if (sessions.tBodies[0].rows.length > 0) {
+            /*
+             * Set carreg and charge source from the first table row.
+             */
+            var row = sessions.tBodies[0].rows[0];
+            var cells = row.cells;
+
+            for (var c = 0; c < cells.length; c++) {
+                var cell = cells[c];
+                var value = cell.innerHTML;
+
+                switch (cell.attributes.name.value) {
+                    case 'Source':
+                        document.getElementById('chargesource').value = value;
+                        break;
+                    case 'CarReg':
+                        document.getElementById('carreg').value = value;
+                        break;
+                }
             }
+            var i;
         }
-        var i;
     }
     setDateTime('sdate', 'stime');
+    document.getElementById('stime').value = document.getElementById('stime').value.substring(0, 5);
     setSave('Create');
 }
+
 function send(action) {
     if (action === undefined) action = event.target.value;
     
@@ -216,7 +243,11 @@ function send(action) {
     var parameters = createParameters(action.toLowerCase() + 'session');
     
     if (action === 'New') {
-        setNew();
+        setNew(false);
+        return;
+    }
+    if (action === 'Copy') {
+        setNew(true);
         return;
     }
     var dt = validateDateTime("sdate", "stime", {required: true});
@@ -238,9 +269,9 @@ function send(action) {
         }
     }
     parameters = addParameterById(parameters, 'carreg');
-    parameters = addParameterById(parameters, 'chargesource');    
+    parameters = addParameterById(parameters, 'chargesource'); 
+    parameters = addParameterById(parameters, 'chargeunit');    
     parameters = addParameterById(parameters, 'sessioncomment');
-    parameters = addParameterById(parameters, 'location');
     parameters = addParameterById(parameters, 'mileage');
     parameters = addParameterById(parameters, 'sdate');
     parameters = addParameterById(parameters, 'stime');
@@ -279,17 +310,17 @@ function btChargeSessionsRowClick(row) {
             case 'CarReg':
                 document.getElementById('carreg').value  = value;
                 break;
-            case 'Source':
+            case 'Charger':
                 document.getElementById('chargesource').value  = value;
+                break;
+            case 'Unit':
+                document.getElementById('chargeunit').value  = value;
                 break;
             case 'Comment':
                 document.getElementById('sessioncomment').value  = value;
                 break;
             case 'Start':
                 loadDateTime(value, "sdate", "stime");
-                break;
-            case 'Location':
-                document.getElementById('location').value  = value;
                 break;
             case 'EstDuration':
                 document.getElementById('estduration').value  = convertDuration(value, true);
@@ -322,6 +353,22 @@ function btChargeSessionsRowClick(row) {
     }
     setSave('Update');
 }
+function btChargersRowClick(row) {
+    var rdr = new rowReader(row);
+    
+    while (rdr.nextColumn()) {
+        var value = rdr.columnValue();
+
+        switch (rdr.columnName()) {
+            case 'Name':
+                document.getElementById('chargesource').value  = value;
+                break;
+            case 'Unit':
+                document.getElementById('chargeunit').value  = value;
+                break;
+        }
+    }
+}
 function initialize() {
     reporter.setFatalAction('error');  
     
@@ -331,8 +378,8 @@ function initialize() {
         title:           'Sessions Filter',
         forceGap:        '4px',
         initialDisplay:  false});
-    sessionFilter.addFilter('Source', 'Source,,fchargesource', '', true);
-    sessionFilter.addFilter('CarReg', 'CarReg,,fcarreg',       '', true);
+    sessionFilter.addFilter('Charger', 'Charger,,fchargesource', '', true);
+    sessionFilter.addFilter('CarReg',  'CarReg,,fcarreg',        '', true);
      
     var response = getList('CarUsage', {
         table:        'Car',
@@ -348,18 +395,13 @@ function initialize() {
         async:        false,
         allowBlank:   true});
     var response = getList('CarUsage', {
-        table:        'Charger',
-        name:         'chargesource',
+        table:        'ChargerLocation',
+        name:         'fchargesource',
         field:        'Name',
         keepValue:    false,
-        defaultValue: 'HomePodPoint',
-        async:        false},
-        true);
-    loadListResponse(response, {
-        name:         "fchargesource",
-        keepValue:    true,
         async:        false,
-        allowBlank:   true});
+        allowBlank:   true},
+        true);
     reset();
 }
 
