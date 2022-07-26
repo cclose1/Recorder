@@ -322,7 +322,7 @@ function btChargeSessionsRowClick(row) {
             case 'Start':
                 loadDateTime(value, "sdate", "stime");
                 break;
-            case 'EstDuration':
+            case 'Start Duration':
                 document.getElementById('estduration').value  = convertDuration(value, true);
                 break;
             case 'Mileage':

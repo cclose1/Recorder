@@ -9,17 +9,11 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
-import java.util.Date;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
-import org.cbc.sql.SQLBuilder;
-import org.cbc.sql.SQLDeleteBuilder;
-import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
-import org.cbc.sql.SQLUpdateBuilder;
-import org.cbc.utils.data.DatabaseSession;
 
 /**
  *
@@ -88,23 +82,29 @@ public class CarUsage extends ApplicationServer {
                     sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
                     sql.addField("CarReg");
                     sql.addField("Start");
+                    sql.addField("End");          
+                    
+                    if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
+                        sql.addField("Weekday",   sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Start), 1, 3)"));
+                    } else {
+                        sql.addField("Weekday",   sql.setExpressionSource("SubStr(DayName(Start), 1, 3)"));
+                    } 
+                    sql.addField("Start Duration", "EstDuration");
                     sql.addField("Charger");
                     sql.addField("Unit");
                     sql.addField("Mileage");
-                    sql.addField("EstDuration");
                     
                     if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
-                        sql.addField("Rate",    sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent)"), rateCast);
-                        sql.addField("Weekday", sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Start), 1, 3)"));
+                        sql.addField("Rate",     sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent)"), rateCast);
+                        sql.addField("Duration", sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent) * (100 - EndPercent)"), rateCast);
                     } else {
-                        sql.addField("Rate",    sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent)"), rateCast);
-                        sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Start), 1, 3)"));
+                        sql.addField("Rate",     sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent)"), rateCast);
+                        sql.addField("Duration", sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent) * (100 - EndPercent)"), rateCast);
                     }       
                     sql.addField("Start Miles", "StartMiles");
-                    sql.addField("Start %", "StartPerCent");
-                    sql.addField("End");
-                    sql.addField("End Miles", "EndMiles");
-                    sql.addField("End %", "EndPerCent");
+                    sql.addField("Start %",     "StartPerCent");
+                    sql.addField("End Miles",   "EndMiles");
+                    sql.addField("End %",       "EndPerCent");
                     sql.addField("Charge");
                     sql.addField("Cost");
                     sql.addField("Comment");
