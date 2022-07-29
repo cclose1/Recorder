@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package org.cbc;
 
 import java.io.IOException;
@@ -26,36 +25,43 @@ import org.cbc.sql.SQLUpdateBuilder;
  * @author Chris
  */
 public class RecordNutrition extends ApplicationServer {
+
     private boolean eventFor(Context ctx, Date timestamp) throws SQLException {
         ResultSet rs = executeQuery(ctx, "SELECT Timestamp FROM NutritionEvent WHERE Timestamp = '" + ctx.getDbTimestamp(timestamp) + "'");
-             
+
         return rs.next();
     }
+
     private String getWeight(Context ctx, Date date) throws SQLException {
         SQLSelectBuilder sql = ctx.getSelectBuilder("Weight");
-        
+
         sql.addField("Kilos");
         sql.addAnd("Date", "=", date);
-        
+
         ResultSet rs = updateQuery(ctx, sql.build());
-                
-        if (rs.next()) return rs.getString("Kilos");
-        
+
+        if (rs.next()) {
+            return rs.getString("Kilos");
+        }
+
         return "";
     }
+
     private void updateWeight(Context ctx, Date timestamp, String weight) throws SQLException {
-        SQLSelectBuilder sql  = ctx.getSelectBuilder("Weight");
-        
-        if (weight == null || weight.length()== 0) return;
-        
+        SQLSelectBuilder sql = ctx.getSelectBuilder("Weight");
+
+        if (weight == null || weight.length() == 0) {
+            return;
+        }
+
         sql.addField("Date");
         sql.addField("Time");
         sql.addField("Kilos");
-        
+
         sql.setWhere("Date = '" + ctx.getDbDate(timestamp) + "'");
-        
+
         ResultSet rs = updateQuery(ctx, sql.build());
-                
+
         if (rs.next()) {
             /*
              * The database date time starts at 00:00:00. Calculate the number of seconds between the database time
@@ -63,43 +69,46 @@ public class RecordNutrition extends ApplicationServer {
              * the weight update. Changes to existing weight table entried for previous days are ignored.
              */
             double seconds = (System.currentTimeMillis() - rs.getDate("Date").getTime()) / 1000.0;
-            
-            if (seconds < 24*60*60) {
+
+            if (seconds < 24 * 60 * 60) {
                 rs.moveToCurrentRow();
                 rs.updateString("Kilos", weight);
                 rs.updateRow();
             }
         } else {
             rs.moveToInsertRow();
-            rs.updateString("Date",  ctx.getDbDate(timestamp));
-            rs.updateString("Time",  ctx.getDbTime(timestamp));
+            rs.updateString("Date", ctx.getDbDate(timestamp));
+            rs.updateString("Time", ctx.getDbTime(timestamp));
             rs.updateString("Kilos", weight);
             rs.insertRow();
-        } 
+        }
     }
+
     protected void setNumericItemField(ResultSet rs, String name, String value, double scale) throws SQLException {
-        
-        if (value.length() == 0)
+
+        if (value.length() == 0) {
             rs.updateNull(name);
-        else
+        } else {
             rs.updateDouble(name, Double.parseDouble(value) / scale);
+        }
     }
+
     private void setItemFields(Context ctx, ResultSet rs) throws SQLException {
         String  fld    = ctx.getParameter("size");
         boolean simple = ctx.getParameter("simple").equalsIgnoreCase("true");
         boolean volume = ctx.getParameter("volume").equalsIgnoreCase("true");
 
-        double  scale  = 1;
-        
+        double scale = 1;
+
         if (fld.length() != 0) scale = Double.parseDouble(fld);
-        
+
         rs.updateString("Item",     ctx.getParameter("item"));
         rs.updateString("Source",   ctx.getParameter("source"));
         rs.updateString("Type",     ctx.getParameter("type"));
         rs.updateString("Comment",  ctx.getParameter("comment"));
-        rs.updateString("Simple",   simple? "Y" : "N");
-        rs.updateString("IsVolume", simple && volume? "Y" : "N");
-        
+        rs.updateString("Simple",   simple ? "Y" : "N");
+        rs.updateString("IsVolume", simple && volume ? "Y" : "N");
+
         setNumericItemField(rs, "Calories",     ctx.getParameter("calories"),     scale);
         setNumericItemField(rs, "Protein",      ctx.getParameter("protein"),      scale);
         setNumericItemField(rs, "Cholesterol",  ctx.getParameter("cholesterol"),  scale);
@@ -113,24 +122,110 @@ public class RecordNutrition extends ApplicationServer {
         setNumericItemField(rs, "DefaultSize",  ctx.getParameter("default"),      1);
         setNumericItemField(rs, "PackSize",     ctx.getParameter("packsize"),     1);
     }
-    public String getVersion() {       
-        return "V4.2 Released 05-Dec-2018   ";  
+
+    public String getVersion() {
+        return "V5.0 Released 28-Jul-2022";
     }
-    public void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
+
+    public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(
                 super.config.getProperty("ntdatabase"),
                 super.config.getProperty("ntuser"),
                 super.config.getProperty("ntpassword"));
     }
+
     private void addItemStartTime(Context ctx, SQLSelectBuilder sql) throws ParseException {
         Date startTime = ctx.getTimestamp("starttime");
+
+        sql.addAndStart(startTime == null ? new Date() : startTime);
+    }
+    /*
+     * In some cases updating a value via the record set fails for MySQL. The following error message
+     *  
+     *  Cannot convert class java.time.LocalDateTime to SQL type requested due to java.lang.ArrayIndexOutOfBoundsException - 2  
+     *
+     * On attempting to update any field in the record set, irrespective of the field type.
+     *
+     * Updating NutritionEvent table is such a case. However, updating NutritionDetail table works using a MySQL record set works.
+     * There seems to be no essential difference between between the code that works and that which doesn't.
+     *
+     * The following is a work around that uses an update sql statement instead of the record set update.
+     *
+     * Would like to investigate further to understand why this happens. This is not a satifactory solution.
+     */
+    private void updateNutritionEvent(Context ctx, ResultSet rs) throws SQLException, ParseException {
+        Date   timestamp   = ctx.getTimestamp("date", "time");
+        String description = ctx.getParameter("description");
+
+        if (rs.next()) {
+            if (ctx.getAppDb().getProtocol().equalsIgnoreCase("sqlserver")) {
+                rs.moveToCurrentRow();
+                rs.updateString("Description", description);
+                rs.updateRow();
+            } else {
+                /*
+                 * For MySQL replace above with an update query.
+                 */
+                SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionEvent");
+
+                sql.addField("Description", description);
+                sql.addAnd("Timestamp", "=", timestamp);
+                executeUpdate(ctx, sql);
+            }
+        } else {
+            rs.moveToInsertRow();
+            rs.updateString("Timestamp",   ctx.getDbTimestamp(timestamp));
+            rs.updateString("Description", description);
+            rs.insertRow();
+        }
+    }
+    /*
+     * NutritionRecord is another table that fails. See comment for updateNutritionEvent.
+    */
+    private void updateNutritionRecord(Context ctx, ResultSet rs) throws SQLException, ParseException {
+        Date   timestamp = ctx.getTimestamp("date", "time");
+        String item      = ctx.getParameter("item");
+        String source    = ctx.getParameter("sourcr");
+        String quantity  = ctx.getParameter("quantity");
+        String abv       = ctx.getParameter("abv");
         
-        sql.addAndStart(startTime == null? new Date() : startTime);
+        if (rs.next()) {
+            if (ctx.getAppDb().getProtocol().equalsIgnoreCase("sqlserver")) {
+                rs.moveToCurrentRow();
+                rs.updateString("Quantity", quantity);
+
+                if (abv.length() != 0) rs.updateString("ABV", abv);
+                
+                rs.updateRow();            
+            } else {
+                SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionRecord");
+                
+                sql.addField("Quantity", quantity);
+                
+                if (abv.length() != 0) sql.addField("ABV", abv);
+                
+                sql.addAnd("Timestamp", "=", timestamp);
+                sql.addAnd("Item",      "=", item);
+                sql.addAnd("Source",    "=", source);
+                executeUpdate(ctx, sql);
+            }
+        } else {
+            rs.moveToInsertRow();
+            rs.updateString("Timestamp",   ctx.getDbTimestamp(timestamp));
+            rs.updateString("Item",        ctx.getParameter("item"));
+            rs.updateString("Source",      ctx.getParameter("source"));
+            rs.updateString("Quantity",    quantity);
+            rs.updateString("IsComposite", ctx.getParameter("simple").equalsIgnoreCase("c") ? "Y" : "N");
+
+            if (abv.length() != 0) rs.updateString("ABV", abv);
+            
+            rs.insertRow();
+        }
     }
     public void processAction(
             Context ctx,
-            String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
-        
+            String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
+
         if (action.equals("getweight")) {
             Date date = ctx.getDate("date");
 
@@ -163,7 +258,7 @@ public class RecordNutrition extends ApplicationServer {
             sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
             sql.addAnd("Source", "=", ctx.getParameter("isource"));
             addItemStartTime(ctx, sql);
-            
+
             JSONArray fields = new JSONArray();
             ResultSet rs     = executeQuery(ctx, sql);
 
@@ -172,32 +267,32 @@ public class RecordNutrition extends ApplicationServer {
 
             ctx.setStatus(200);
         } else if (action.equals("applyitemupdate")) {
-            String    command       = ctx.getParameter("command");
-            String    item          = ctx.getParameter("item");
-            String    source        = ctx.getParameter("source");
-            String    start         = ctx.getParameter("start");
-            String    previousStart = ctx.getParameter("previousStart");
+            Date   start    = ctx.getTimestamp("start");
+            Date   end      = ctx.getTimestamp("end");
+            Date   previous = ctx.getTimestamp("previousStart");
+            String command  = ctx.getParameter("command");
+            String item     = ctx.getParameter("item");
+            String source   = ctx.getParameter("source");
             ResultSet rs;
 
             ctx.getAppDb().startTransaction();
-            
-            if (previousStart.length() != 0) {
+
+            if (previous != null) {
                 SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionDetail");
-                
+
                 sql.addField("End", start);
-                sql.addAnd("Start",  "=", previousStart);
+                sql.addAnd("Start",  "=", previous);
                 sql.addAnd("Item",   "=", item);
                 sql.addAnd("Source", "=", source);
                 executeUpdate(ctx, sql);
                 command = "create";
             }
-
             if (command.equalsIgnoreCase("create")) {
                 rs = ctx.getAppDb().insertTable("NutritionDetail");
                 rs.moveToInsertRow();
                 setItemFields(ctx, rs);
-                rs.updateString("Start", ctx.getParameter("start"));
-                rs.updateString("End",   ctx.getParameter("end"));
+                rs.updateString("Start", ctx.getDbTimestamp(start));
+                rs.updateString("End",   ctx.getDbTimestamp(end));
                 rs.insertRow();
                 ctx.setStatus(200);
             } else {
@@ -208,7 +303,7 @@ public class RecordNutrition extends ApplicationServer {
                 rs = updateQuery(ctx, sql.build());
 
                 if (!rs.next()) {
-                    ctx.getReplyBuffer().append("No record for Item '" + item + ", Source '" + source + "'");
+                    ctx.getReplyBuffer().append("No record for Item '").append(item).append(", Source '").append(source).append("'");
                 } else {
                     rs.moveToCurrentRow();
                     setItemFields(ctx, rs);
@@ -219,8 +314,8 @@ public class RecordNutrition extends ApplicationServer {
             rs.close();
             ctx.getAppDb().commit();
         } else if (action.equals("eventhistory")) {
-            JSONObject       data = new JSONObject();
-            SQLSelectBuilder sql  = ctx.getSelectBuilder("NutritionEventSummary");
+            JSONObject data = new JSONObject();
+            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEventSummary");
 
             sql.setProtocol(ctx.getAppDb().getProtocol());
             sql.setMaxRows(config.getIntProperty("nutritionhistoryrows", 100));
@@ -233,21 +328,21 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Protein");
             sql.addField("Fat");
             sql.addField("Saturated");
-            sql.addField("Carb", "Carbohydrate") ;
+            sql.addField("Carb",        "Carbohydrate");
             sql.addField("Sugar");
             sql.addField("Fibre");
             sql.addField("Salt");
             sql.addField("Units");
             sql.setOrderBy("Timestamp DESC");
 
-            if (ctx.existsParameter("filter"))
+            if (ctx.existsParameter("filter")) {
                 sql.addAnd(ctx.getParameter("filter"));
-            else {
+            } else {
                 sql.addAnd("WeekDay",     "=",    ctx.getParameter("day"));
                 sql.addAnd("Description", "LIKE", ctx.getParameter("description"));
             }
             ResultSet rs = executeQuery(ctx, sql);
-            
+
             data.add("EventHistory", rs);
             data.append(ctx.getReplyBuffer());
 
@@ -285,26 +380,27 @@ public class RecordNutrition extends ApplicationServer {
         } else if (action.equals("getList")) {
             String field = ctx.getParameter("field");
 
-            if (field.equalsIgnoreCase("source"))
+            if (field.equalsIgnoreCase("source")) {
                 getList(ctx, "NutritionSources", "Name");
-            else
+            } else {
                 getList(ctx, "NutritionTypes", "Name");
+            }
         } else if (action.equals("addListItem")) {
-            String           field   = ctx.getParameter("field");
-            String           table   = field.equalsIgnoreCase("source")? "NutritionSources" : "NutritionTypes";
-            SQLInsertBuilder sql = ctx.getInsertBuilder(table);
-            
+            String           field = ctx.getParameter("field");
+            String           table = field.equalsIgnoreCase("source") ? "NutritionSources" : "NutritionTypes";
+            SQLInsertBuilder sql   = ctx.getInsertBuilder(table);
+
             sql.addField("Name", ctx.getParameter("item"));
             executeUpdate(ctx, sql);
             ctx.setStatus(200);
         } else if (action.equals("createevent")) {
-            Date   timestamp   = ctx.getTimestamp("crdate", "crtime");
+            Date timestamp     = ctx.getTimestamp("crdate", "crtime");
             String description = ctx.getParameter("crdescription");
             String comment     = ctx.getParameter("crcomment");
             String weight      = ctx.getParameter("crweight");
 
             if (eventFor(ctx, timestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for " + timestamp);
+                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(timestamp);
             } else {
                 SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
 
@@ -316,7 +412,7 @@ public class RecordNutrition extends ApplicationServer {
             updateWeight(ctx, timestamp, weight);
             ctx.setStatus(200);
         } else if (action.equals("updateevent")) {
-            Date   timestamp   = ctx.getTimestamp("date", "time");
+            Date timestamp     = ctx.getTimestamp("date", "time");
             String description = ctx.getParameter("description");
             String comment     = ctx.getParameter("comment");
 
@@ -334,7 +430,7 @@ public class RecordNutrition extends ApplicationServer {
             String cComment     = ctx.getParameter("ccomment");
 
             if (eventFor(ctx, cTimestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for " + cTimestamp);
+                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(cTimestamp);
             } else {
                 SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
 
@@ -351,14 +447,14 @@ public class RecordNutrition extends ApplicationServer {
             updateWeight(ctx, cTimestamp, ctx.getParameter("cweight"));
             ctx.setStatus(200);
         } else if (action.equals("deleteevent")) {
-            Date             timestamp = ctx.getTimestamp("date", "time");
-            SQLDeleteBuilder sql       = ctx.getDeleteBuilder("NutritionRecord");
+            Date timestamp = ctx.getTimestamp("date", "time");
+            SQLDeleteBuilder sql = ctx.getDeleteBuilder("NutritionRecord");
 
             sql.addAnd("Timestamp", "=", timestamp);
             executeUpdate(ctx, sql.build());
             sql.setTable("NutritionEvent");
             executeUpdate(ctx, sql.build());
-            
+
             ctx.setStatus(200);
         } else if (action.equals("removeitem")) {
             Date             timestamp   = ctx.getTimestamp("date", "time");
@@ -367,23 +463,23 @@ public class RecordNutrition extends ApplicationServer {
             String           description = ctx.getParameter("description");
             SQLDeleteBuilder sqld        = ctx.getDeleteBuilder("NutritionRecord");
             SQLUpdateBuilder sqlu        = ctx.getUpdateBuilder("NutritionEvent");
-            
+
             sqld.addAnd("Timestamp", "=", timestamp);
             sqld.addAnd("Item",      "=", item);
             sqld.addAnd("Source",    "=", source);
+            
             executeUpdate(ctx, sqld.build());
+            
             sqlu.addField("Description", description);
             sqlu.addAnd("Timestamp", "=", timestamp);
-            executeUpdate(ctx, sqlu.build());
             
+            executeUpdate(ctx, sqlu.build());
+
             ctx.setStatus(200);
         } else if (action.equals("modifyitem")) {
-            Date  timestamp    = ctx.getTimestamp("date", "time");
-            String item        = ctx.getParameter("item");
-            String source      = ctx.getParameter("source");
-            String description = ctx.getParameter("description");
-            String quantity    = ctx.getParameter("quantity");
-            String abv         = ctx.getParameter("abv");
+            Date   timestamp = ctx.getTimestamp("date", "time");
+            String item      = ctx.getParameter("item");
+            String source    = ctx.getParameter("source");
 
             SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEvent");
 
@@ -392,17 +488,8 @@ public class RecordNutrition extends ApplicationServer {
             sql.addAnd("Timestamp", "=", timestamp);
 
             ResultSet rs = updateQuery(ctx, sql.build());
-
-            if (rs.next()) {
-                rs.moveToCurrentRow();
-                rs.updateString("Description", description);
-                rs.updateRow();
-            } else {
-                rs.moveToInsertRow();
-                rs.updateString("Timestamp",   ctx.getDbTimestamp(timestamp));
-                rs.updateString("Description", description);
-                rs.insertRow();
-            }
+            updateNutritionEvent(ctx, rs);
+            
             sql.clear();
             sql.setFrom("NutritionRecord");
             sql.addField("Timestamp");
@@ -411,39 +498,20 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Quantity");
             sql.addField("ABV");
             sql.addField("IsComposite");
+            
             sql.addAnd("Timestamp", "=", timestamp);
             sql.addAnd("Item",      "=", item);
             sql.addAnd("Source",    "=", source);
 
             rs = updateQuery(ctx, sql.build());
-
-            if (rs.next()) {
-                rs.moveToCurrentRow();
-                rs.updateString("Quantity", quantity);
-
-                if (abv.length() != 0) {
-                    rs.updateString("ABV", abv);
-                }
-                rs.updateRow();
-            } else {
-                rs.moveToInsertRow();
-                rs.updateString("Timestamp",   ctx.getDbTimestamp(timestamp));
-                rs.updateString("Item",        item);
-                rs.updateString("Source",      source);
-                rs.updateString("Quantity",    quantity);
-                rs.updateString("IsComposite", ctx.getParameter("simple").equalsIgnoreCase("c")? "Y" :"N");
-
-                if (abv.length() != 0) {
-                    rs.updateString("ABV", abv);
-                }
-                rs.insertRow();
-            }
+            
+            updateNutritionRecord(ctx, rs);
             ctx.setStatus(200);
         } else if (action.equals("getactiveevent")) {
             JSONObject       data      = new JSONObject();
             Date             timestamp = ctx.getTimestamp("date", "time");
             SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
-
+            
             sql.addField("Item");
             sql.addField("Simple",       sql.setValue(""));
             sql.addField("IsVolume",     sql.setValue(""));
@@ -472,12 +540,12 @@ public class RecordNutrition extends ApplicationServer {
             Date timestamp = ctx.getTimestamp("date", "time");
 
             if (eventFor(ctx, timestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for " + ctx.getDbTimestamp(timestamp));
+                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(ctx.getDbTimestamp(timestamp));
             }
             ctx.setStatus(200);
         } else {
             ctx.dumpRequest("Action " + action + " is invalid");
-            ctx.getReplyBuffer().append("Action " + action + " is invalid");
+            ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
         }
     }
 }

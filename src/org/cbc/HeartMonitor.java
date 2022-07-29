@@ -206,7 +206,7 @@ public class HeartMonitor extends ApplicationServer {
              * Build an index to link the column header names to the corresponding row column.
              */
             for (int i = 0; i < columns.size(); i++) {
-                index.put(columns.get(i).getObject().get("Name").getString(), new Integer(i));
+                index.put(columns.get(i).getObject().get("Name").getString(), i);
             }
             
             for (int i = 0; i < rows.size(); i++) {
@@ -217,7 +217,7 @@ public class HeartMonitor extends ApplicationServer {
             ctx.setStatus(200);
         } else {
             ctx.dumpRequest("Action " + action + " is invalid");
-            ctx.getReplyBuffer().append("Action " + action + " is invalid"); 
+            ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid"); 
         }
     }
 }

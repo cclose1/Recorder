@@ -267,7 +267,7 @@ function validateDateTime(did, tid, options) {
                 dt.elm.value = dateString(result.value);
                 tm.elm.value = timeString(result.value);
             } else
-                dt.elm.value = getDateTime(result.value);
+                dt.elm.value = opts.notime ? dateString(result.value) : getDateTime(result.value);
         }
     } catch(e) {
         var elm = e.getName() === 'Time' && tm.elm !== null ? tm.elm : dt.elm;
