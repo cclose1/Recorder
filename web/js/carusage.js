@@ -39,6 +39,7 @@ function setSave(action) {
                 document.getElementById("edate").value   = document.getElementById("sdate").value;
                 document.getElementById("etime").value   = document.getElementById("stime").value;
             }
+            document.getElementById("originaltimestamp").value = document.getElementById("sdate").value + ' ' + document.getElementById("stime").value;
             break;
         default:
             reporter.fatalError('carreg.js setSave action ' + action + ' is invalid');
@@ -167,19 +168,20 @@ function requestChargers(filter) {
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function reset() {
-    document.getElementById("sessioncomment").value = "";
-    document.getElementById("mileage").value        = "";
-    document.getElementById("estduration").value    = "";
-    document.getElementById("sdate").value          = "";
-    document.getElementById("stime").value          = "";
-    document.getElementById("smiles").value         = "";
-    document.getElementById("schargepc").value      = "";
-    document.getElementById("edate").value          = "";
-    document.getElementById("etime").value          = "";
-    document.getElementById("emiles").value         = "";
-    document.getElementById("echargepc").value      = "";
-    document.getElementById("charge").value         = "";
-    document.getElementById("cost").value           = "";
+    document.getElementById("originaltimestamp").value = "";
+    document.getElementById("sessioncomment").value    = "";
+    document.getElementById("mileage").value           = "";
+    document.getElementById("estduration").value       = "";
+    document.getElementById("sdate").value             = "";
+    document.getElementById("stime").value             = "";
+    document.getElementById("smiles").value            = "";
+    document.getElementById("schargepc").value         = "";
+    document.getElementById("edate").value             = "";
+    document.getElementById("etime").value             = "";
+    document.getElementById("emiles").value            = "";
+    document.getElementById("echargepc").value         = "";
+    document.getElementById("charge").value            = "";
+    document.getElementById("cost").value              = "";
     
     requestChargeSessions();
     requestChargers();
@@ -268,6 +270,7 @@ function send(action) {
             return;
         }
     }
+    parameters = addParameterById(parameters, 'originaltimestamp');
     parameters = addParameterById(parameters, 'carreg');
     parameters = addParameterById(parameters, 'chargesource'); 
     parameters = addParameterById(parameters, 'chargeunit');    
@@ -378,8 +381,9 @@ function initialize() {
         title:           'Sessions Filter',
         forceGap:        '4px',
         initialDisplay:  false});
-    sessionFilter.addFilter('Charger', 'Charger,,fchargesource', '', true);
-    sessionFilter.addFilter('CarReg',  'CarReg,,fcarreg',        '', true);
+    sessionFilter.addFilter('Charger',  'Charger,,fchargesource', '', true);
+    sessionFilter.addFilter('CarReg',   'CarReg,,fcarreg',        '', true);
+    sessionFilter.addFilter('Weekdays', 'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
      
     var response = getList('CarUsage', {
         table:        'Car',

@@ -9,11 +9,13 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
+import java.util.Date;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.utils.system.DateFormatter;
 
 /**
  *
@@ -23,7 +25,34 @@ public class CarUsage extends ApplicationServer {
     private TableUpdater     session        = new TableUpdater("ChargeSession");
     private TableReader      sessions       = new TableReader();
     private SQLSelectBuilder sqlCarSessions = new SQLSelectBuilder("ChargeSession");
-    
+
+    private class SessionSequence {
+        public Date start   = null;
+        public Date end     = null;
+        public int  mileage = -1;
+        
+        public SessionSequence(Context ctx, String carReg, Date start, boolean previous) throws SQLException {
+            SQLSelectBuilder sql = new SQLSelectBuilder("ChargeSession");
+            ResultSet        rs;
+            
+            sql.setProtocol(ctx.getAppDb().getProtocol());
+            sql.setMaxRows(1);
+            sql.addField("CarReg");
+            sql.addField("Start");
+            sql.addField("Mileage");
+            sql.addField("End");
+            sql.addAnd("CarReg", "=", carReg);
+            sql.addAnd("Start", previous? "<=" : ">", start);
+            sql.addOrderByField("Start", previous);
+            rs = executeQuery(ctx, sql);
+            
+            if (!rs.first()) return;
+            
+            this.start = rs.getTimestamp("Start");
+            end        = rs.getTimestamp("End");
+            mileage    = rs.getInt("Mileage");
+        }
+    }
     @Override
     public String getVersion() {
         return "V1.1 Released 22-May-22";    
@@ -36,7 +65,9 @@ public class CarUsage extends ApplicationServer {
     }
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         session.setContext(ctx);
-        
+        Date test = DateFormatter.parseDate("2022-09-03 12:08:10");
+        SessionSequence next = new SessionSequence(ctx, ctx.getParameter("carreg"), test, false);
+        SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("carreg"), test, true);
         switch (action) {
             case "createsession":                
             case "updatesession":               
@@ -44,7 +75,6 @@ public class CarUsage extends ApplicationServer {
                 sqlCarSessions.clearWhere();
                 sqlCarSessions.addAnd("CarReg", "=", ctx.getParameter("carreg"));                
                 sessions.open(ctx, sqlCarSessions);
-               
                 if (action.equals("createsession")) {
                     if (sessions.rowExists()) {
                         if (ctx.getInt("mileage", -1) < sessions.getInt("Mileage")) {
