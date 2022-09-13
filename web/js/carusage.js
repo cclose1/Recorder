@@ -3,6 +3,8 @@
 var sessionFilter;
 
 function lockKey(yes) {
+    if (yes === undefined) yes = !event.target.checked;
+    
     document.getElementById("carreg").disable   = yes;
     document.getElementById("sdate").readOnly   = yes;
     document.getElementById("stime").readOnly   = yes;
@@ -28,7 +30,7 @@ function setSave(action) {
             clear = false;
             break;
         case 'Update':
-            lockKey(true);
+            lockKey(!document.getElementById("setstartchange").checked);
             clear  = false;
             remove = false;
             copy   = false;
@@ -39,15 +41,18 @@ function setSave(action) {
                 document.getElementById("edate").value   = document.getElementById("sdate").value;
                 document.getElementById("etime").value   = document.getElementById("stime").value;
             }
-            document.getElementById("originaltimestamp").value = document.getElementById("sdate").value + ' ' + document.getElementById("stime").value;
+            document.getElementById("keytimestamp").value = document.getElementById("sdate").value + ' ' + document.getElementById("stime").value;
             break;
         default:
             reporter.fatalError('carreg.js setSave action ' + action + ' is invalid');
     }
-    setHidden("clear",  clear);
-    setHidden("remove", remove);
-    setHidden("copy",   copy);
-    document.getElementById("save").value  = action;        
+    setHidden("clear",            clear);
+    setHidden("remove",           remove);
+    setHidden("copy",             copy);
+    setHidden("allowstartchange", action !== "Update");
+    document.getElementById("save").value  = action;
+    
+    if (action !== "Update") document.getElementById("setstartchange").checked = false;        
 }
 /*
  * 
@@ -131,7 +136,7 @@ function checkGreaterOrEqual(first, last) {
     return true;
 }
 function checkDuration(elm) {
-    var elm   = getElement(elm === undefined? event.target : elm);
+    elm       = getElement(elm === undefined? event.target : elm);
     var val   = elm.value;
     var valid = true;
     
@@ -155,20 +160,17 @@ function requestChargeSessions(filter) {
     
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
-function requestChargers(filter) {
+function requestChargers() {
     var parameters = createParameters('chargers');
 
     function processResponse(response) {
         loadJSONArray(response, 'chargerstable', {maxField: 19, onClick: 'btChargersRowClick(this)'});
         document.getElementById('chargerstable').removeAttribute('hidden');
     }
-//    if (filter === undefined) filter = sessionFilter.getWhere();
-//    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
-    
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function reset() {
-    document.getElementById("originaltimestamp").value = "";
+    document.getElementById("keytimestamp").value = "";
     document.getElementById("sessioncomment").value    = "";
     document.getElementById("mileage").value           = "";
     document.getElementById("estduration").value       = "";
@@ -236,7 +238,9 @@ function setNew(copy) {
     document.getElementById('stime').value = document.getElementById('stime').value.substring(0, 5);
     setSave('Create');
 }
-
+function getDateTime(prefix) {
+   return getElement(prefix + 'date', true).value + ' ' + getElement(prefix + 'time', true).value;
+}
 function send(action) {
     if (action === undefined) action = event.target.value;
     
@@ -270,7 +274,9 @@ function send(action) {
             return;
         }
     }
-    parameters = addParameterById(parameters, 'originaltimestamp');
+    parameters = addParameter(parameters, 'sdatetime', getDateTime('s'));
+    parameters = addParameter(parameters, 'edatetime', getDateTime('e'));
+    parameters = addParameterById(parameters, 'keytimestamp');
     parameters = addParameterById(parameters, 'carreg');
     parameters = addParameterById(parameters, 'chargesource'); 
     parameters = addParameterById(parameters, 'chargeunit');    
@@ -354,6 +360,7 @@ function btChargeSessionsRowClick(row) {
                 break;
         }
     }
+    document.getElementById("setstartchange").checked = false;
     setSave('Update');
 }
 function btChargersRowClick(row) {

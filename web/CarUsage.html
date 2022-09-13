@@ -29,7 +29,7 @@
                 <h1>Car Usage</h1>
             </div>
             <div id="innerfields">
-                <input id="originaltimestamp" type="hidden"/>
+                <input id="keytimestamp" type="hidden"/>
                 <div class='floatleft'>
                     <fieldset id="detailfields" class='form'>
                         <legend>Charge Session</legend>
@@ -117,6 +117,10 @@
                             <div>
                                 <label for="showfilter">Show Filter</label>
                                 <input id="showfilter" type="checkbox" onclick="setFilterVisibility('filterKey');">
+                                <span id="allowstartchange" hidden>
+                                    <label for="setstartchange" class="nogap">Allow Start Change</label>
+                                    <input id="setstartchange" type="checkbox" onclick="lockKey();">
+                                </span>
                             </div>
                             <div id="mysqldiv" hidden>
                                 <label class="nogap"></label>

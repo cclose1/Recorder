@@ -15,25 +15,49 @@ import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLSelectBuilder;
-import org.cbc.utils.system.DateFormatter;
 
 /**
  *
  * @author chris
  */
-public class CarUsage extends ApplicationServer {    
-    private TableUpdater     session        = new TableUpdater("ChargeSession");
-    private TableReader      sessions       = new TableReader();
-    private SQLSelectBuilder sqlCarSessions = new SQLSelectBuilder("ChargeSession");
-
+public class CarUsage extends ApplicationServer {
+    enum SeqCompare {NEXT, PREV, PREVEQ}
+                
+    private final TableUpdater session = new TableUpdater("ChargeSession");
+    /*
+     * Used to find the ChargeSession nearest to a particular time.
+     */
     private class SessionSequence {
         public Date start   = null;
         public Date end     = null;
         public int  mileage = -1;
-        
-        public SessionSequence(Context ctx, String carReg, Date start, boolean previous) throws SQLException {
+        /*
+         * For a particular CarReg returns the details of the record nearest to start according to compare.
+         *
+         *  Compare  Match Record
+         *     NEXT  One with the earlist timestamp after start.
+         *     PREV  One with the latest timestamp that is before start
+         *   PREVEQ  One with the latest timestamp that is before or equal to start.
+         */                
+        public SessionSequence(Context ctx, String carReg, Date start, SeqCompare compare) throws SQLException {
             SQLSelectBuilder sql = new SQLSelectBuilder("ChargeSession");
             ResultSet        rs;
+            boolean          desc = true;
+            String           test = "";
+            
+            switch (compare) {
+                case NEXT:
+                    test = ">";
+                    desc = false;
+                    break;
+                case PREV:
+                    test = "<";
+                    break;
+                case PREVEQ:
+                    test = "<=";
+                    break;
+            }
+            if (start == null) return;
             
             sql.setProtocol(ctx.getAppDb().getProtocol());
             sql.setMaxRows(1);
@@ -42,8 +66,8 @@ public class CarUsage extends ApplicationServer {
             sql.addField("Mileage");
             sql.addField("End");
             sql.addAnd("CarReg", "=", carReg);
-            sql.addAnd("Start", previous? "<=" : ">", start);
-            sql.addOrderByField("Start", previous);
+            sql.addAnd("Start", test, start);
+            sql.addOrderByField("Start", desc);
             rs = executeQuery(ctx, sql);
             
             if (!rs.first()) return;
@@ -53,53 +77,76 @@ public class CarUsage extends ApplicationServer {
             mileage    = rs.getInt("Mileage");
         }
     }
+    private void changeSession(Context ctx,  String action) throws ParseException, SQLException {
+        Date            start   = ctx.getTimestamp("sdatetime");
+        Date            end     = ctx.getTimestamp("edatetime");
+        Date            keyTime = ctx.getTimestamp("keytimestamp");
+        int             mileage = ctx.getInt("mileage", -1);
+        SeqCompare      compare = SeqCompare.PREV;
+        SessionSequence next    = new SessionSequence(ctx, ctx.getParameter("carreg"), start, SeqCompare.NEXT);
+        /*
+         * Comparing timestamps with those returned by SessionSequence runs into problems with time zones when
+         * using Date before after and equal. This seems to because record set returns a java.sql.Timestamp, which
+         * does not set a timezone. Using compareTo seems to get round this.
+         */
+        switch (action) {
+            case "deletesession":
+                checkExit(ctx, next.start != null, "Can only delete the most recent session");                
+                session.deleteRow();  
+                break;                         
+            case "createsession":
+                compare = SeqCompare.PREVEQ;
+                keyTime = start;
+                
+                // Note: Absense of break is intentional.
+                
+            case "updatesession":
+                SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("carreg"), start, compare);
+                
+                if (prev.start != null) {
+                    checkExit(ctx, mileage < prev.mileage, "Mileage must be greater or equal to previous");
+                }
+                
+                if (next.start != null && next.start.compareTo(keyTime) != 0) {
+                    checkExit(ctx, end.after(next.start),  "End time is after the start of the next session");
+                    checkExit(ctx, mileage > next.mileage, "Mileage is greater than next session");
+                }
+                if (action.equals("createsession")) {
+                    checkExit(
+                            ctx, 
+                            next.start != null, 
+                            "New session must be the latest");
+                    checkExit(
+                            ctx, 
+                            prev.start != null && prev.start.compareTo(start) == 0, 
+                            "New session must be after the latest");
+                    session.createRow();
+                }
+                else
+                    session.updateRow(keyTime.equals(start)? "" : "Start-keytimestamp");
+                break;
+        }
+    }
     @Override
     public String getVersion() {
         return "V1.1 Released 22-May-22";    
     }
+    @Override
     public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {
         databases.setApplication(
                 super.config.getProperty("btdatabase"),
                 super.config.getProperty("btuser"),
                 super.config.getProperty("btpassword"));
     }
+    @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         session.setContext(ctx);
-        Date test = DateFormatter.parseDate("2022-09-03 12:08:10");
-        SessionSequence next = new SessionSequence(ctx, ctx.getParameter("carreg"), test, false);
-        SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("carreg"), test, true);
+                
         switch (action) {
             case "createsession":                
             case "updatesession":               
-            case "deletesession":          
-                sqlCarSessions.clearWhere();
-                sqlCarSessions.addAnd("CarReg", "=", ctx.getParameter("carreg"));                
-                sessions.open(ctx, sqlCarSessions);
-                if (action.equals("createsession")) {
-                    if (sessions.rowExists()) {
-                        if (ctx.getInt("mileage", -1) < sessions.getInt("Mileage")) {
-                            ctx.getReplyBuffer().append("Mileage must be greater or equal to previous");
-                            ctx.setStatus(200);
-                            return;
-                        }
-                        if (ctx.getTimestamp("sdate", "stime").before(sessions.getDate("Start"))) {
-                            ctx.getReplyBuffer().append("Start date must not be before previous");
-                            ctx.setStatus(200);
-                            return;
-                        }
-                    }
-                    session.createRow();
-                }
-                else if (action.equals("updatesession"))
-                    session.updateRow();
-                else {
-                    if (sessions.rowExists() && ctx.getTimestamp("sdate", "stime").before(sessions.getDate("Start"))) {
-                        ctx.getReplyBuffer().append("Can only delete the most recent session");
-                        ctx.setStatus(200);
-                        return;
-                    }
-                    session.deleteRow();
-                }
+            case "deletesession":
+                changeSession(ctx, action);
                 break;
             case "chargesessions":
                 {
@@ -161,8 +208,6 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Tariff");
                     sql.addField("Location");
                     sql.addField("Comment");
-    //                session.addFilter(sql);
-    //                session.addOrderBy(sql, true);
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
                     data.append(ctx.getReplyBuffer(), "");
@@ -182,7 +227,7 @@ public class CarUsage extends ApplicationServer {
         super.init(config);
                 
         session.addField("CarReg",       true,  "carreg");
-        session.addField("Start",        true,  "sdate",     "stime");
+        session.addField("Start",        true,  "sdatetime", false, true);
         session.addField("Charger",      false, "chargesource");
         session.addField("Unit",         false, "chargeunit");
         session.addField("Comment",      false, "sessioncomment");
@@ -190,13 +235,10 @@ public class CarUsage extends ApplicationServer {
         session.addField("EstDuration",  false, "estduration", true);
         session.addField("StartPercent", false, "schargepc",   true);
         session.addField("StartMiles",   false, "smiles",      true);
-        session.addField("End",          false, "edate",       "etime");
+        session.addField("End",          false, "edatetime", false, true);
         session.addField("EndPercent",   false, "echargepc",   true);
         session.addField("EndMiles",     false, "emiles",      true);
         session.addField("Charge",       false, "charge",      true);
-        session.addField("Cost",         false, "cost",        true);
-        
-        sqlCarSessions.addField("*");
-        sqlCarSessions.addOrderByField("Start", true);
+        session.addField("Cost",         false, "cost",        true);        
     }
 }

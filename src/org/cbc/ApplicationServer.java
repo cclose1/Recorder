@@ -48,7 +48,17 @@ import org.cbc.utils.system.SecurityConfiguration;
  * @author Chris
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
-public abstract class ApplicationServer extends HttpServlet { 
+public abstract class ApplicationServer extends HttpServlet {
+    public class ErrorExit extends RuntimeException {
+        
+    }
+    public void checkExit(Context ctx, boolean test, String message) throws ErrorExit {
+        if (test) {
+            ctx.getReplyBuffer().append(message);
+            ctx.setStatus(200);
+            throw new ErrorExit();
+        }
+    }
     protected Reminder reminder = null;
     
     /*
@@ -57,7 +67,6 @@ public abstract class ApplicationServer extends HttpServlet {
     protected class DBField {
         String  name;         // DB Table field name.
         String  parameter;    // Parameter name providing the field.
-        String  hourparam;    // The hour part of a timestamp.
         boolean key;          // Forms part of the primary key
         boolean blankToNull;
         boolean isDate;
@@ -69,20 +78,12 @@ public abstract class ApplicationServer extends HttpServlet {
             this.blankToNull = false;
             this.isDate      = false;
         }
-        public DBField(String name, boolean key, String parameter, boolean blankToNull) {
+        public DBField(String name, boolean key, String parameter, boolean blankToNull, boolean isDateTime) {
             this.name        = name;
             this.key         = key;
             this.parameter   = parameter;
             this.blankToNull = blankToNull;
-            this.isDate      = false;
-        }
-        public DBField(String name, boolean key, String datePar, String timePar) {
-            this.name        = name;
-            this.key         = key;
-            this.parameter   = datePar;
-            this.hourparam   = timePar;
-            this.blankToNull = false;
-            this.isDate      = true;
+            this.isDate      = isDateTime;
         }
     }
     protected String getListSql(Context ctx, String table, String field) throws ParseException, SQLException {
@@ -446,34 +447,43 @@ public abstract class ApplicationServer extends HttpServlet {
         }
     }
     protected class TableUpdater {
+        private final String             name;
+        private final ArrayList<DBField> fields = new ArrayList<>();
         private Context            ctx;
         private ResultSet          rs;
-        private String             name;
-        private ArrayList<DBField> fields = new ArrayList<DBField>();
         private String             keyString;
         
         private void appendKeyString(String field, String value) throws SQLException {
-            if (value != null && value != "") {
-                if (keyString != "") keyString += ", ";
+            if (value != null && !"".equals(value)) {
+                if (!"".equals(keyString)) keyString += ", ";
                 
                 keyString += field + " = " + value;
             } else {
                 throw new SQLException("Table " + name + " key field " + field + " is null");
             }
         }
-        private void addKey(SQLBuilder sql, Context ctx) throws ParseException, SQLException {
+        private void addKey(SQLBuilder sql, Context ctx, String keySource) throws ParseException, SQLException {
+            HashMap<String, String> overrides = new HashMap<>();
+            
+            for(String str: keySource.split(",")) {
+                String flds[] = str.split("-");
+                
+                if (flds.length == 2) overrides.put(flds[0], flds[1]);
+            }
             keyString = "";
             
             for(DBField field : fields) {
                 String value = "";
                 
                 if (field.key) {
+                    String keyParam = overrides.containsKey(field.name)? overrides.get(field.name) : field.parameter;
+                    
                     if (field.isDate) {
-                        Date ts = ctx.getTimestamp(field.parameter, field.hourparam);                        
-                        sql.addAnd(field.name, "=", ts);
+                        Date ts = ctx.getTimestamp(keyParam);                        
+                        sql.addAnd(field.name, "=",ts );
                         value = ctx.getDbTimestamp(ts);
                     } else {
-                        value = ctx.getParameter(field.parameter);
+                        value = ctx.getParameter(keyParam);
                         sql.addAnd(field.name, "=", value);
                     }
                     appendKeyString(field.name, value);
@@ -483,7 +493,7 @@ public abstract class ApplicationServer extends HttpServlet {
         private void setFields(ResultSet rs, Context ctx) throws SQLException, ParseException {
             for(DBField field : fields) {
                 if (field.isDate)
-                    rs.updateString(field.name, ctx.getDbTimestamp(ctx.getTimestamp(field.parameter, field.hourparam)));
+                    rs.updateString(field.name, ctx.getDbTimestamp(ctx.getTimestamp(field.parameter)));
                 else
                 {
                     String value = ctx.getParameter(field.parameter);
@@ -494,12 +504,12 @@ public abstract class ApplicationServer extends HttpServlet {
                 }
             }            
         }
-        private void update(String action) throws ParseException, SQLException {
+        private void update(String action, String keyOverride) throws ParseException, SQLException {
             /*
              * Attempt to retrieve a session for the primary key.
              */
             SQLSelectBuilder sql = ctx.getSelectBuilder(name);
-            addKey(sql, ctx);
+            addKey(sql, ctx, keyOverride);
            
             rs = ctx.getAppDb().updateQuery(sql.build());
 
@@ -539,6 +549,9 @@ public abstract class ApplicationServer extends HttpServlet {
                 }
             }     
         }
+        private void update(String action) throws ParseException, SQLException {
+            update(action, "");
+        }
         public void setContext(Context context) {
             ctx = context;
         }
@@ -548,14 +561,17 @@ public abstract class ApplicationServer extends HttpServlet {
         public void addField(String name, boolean key, String parameter) {
             fields.add(new DBField(name, key, parameter));
         }
-        public void addField(String name, boolean key, String parameter, boolean blankToNull) {
-            fields.add(new DBField(name, key, parameter, blankToNull));
+        public void addField(String name, boolean key, String parameter, boolean blankToNull, boolean isDateTime) {
+            fields.add(new DBField(name, key, parameter, blankToNull, isDateTime));
         }
-        public void addField(String name, boolean key, String date, String hour) {
-            fields.add(new DBField(name, key, date, hour));
+        public void addField(String name, boolean key, String parameter, boolean blankToNull) {
+            fields.add(new DBField(name, key, parameter, blankToNull, false));
         }
         public void createRow() throws ParseException, SQLException {
             update("create");
+        }
+        public void updateRow(String keyOverride) throws ParseException, SQLException {
+            update("update", keyOverride);
         }
         public void updateRow() throws ParseException, SQLException {
             update("update");
@@ -783,7 +799,6 @@ public abstract class ApplicationServer extends HttpServlet {
         Thread.attach(config.getServletName());
         Trace t = new Trace("initRequest");
         
-        
         try {
             this.config.load(config);
             initApplication(config, this.config.databases);
@@ -871,6 +886,8 @@ public abstract class ApplicationServer extends HttpServlet {
             }
         } catch (ParseException ex) {
             Report.error(null, ex);
+        } catch (ErrorExit ex) {
+            t.report('C', "ErrorExit");            
         }
         if (repeat != 0) t.report('C', "Deadlock count " + repeat);
         
