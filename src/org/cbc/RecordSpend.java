@@ -117,7 +117,7 @@ public class RecordSpend extends ApplicationServer {
     private void copyFixed(Context ctx, String read, String update, Date date, String period) throws SQLException {
         Trace t = new Trace("copyFixed");
         
-        SQLSelectBuilder sel       = new SQLSelectBuilder(read);
+        SQLSelectBuilder sel       = new SQLSelectBuilder(read, ctx.getAppDb().getProtocol());
         Calendar         cal       = new Calendar();
         int              count     = 0;
         int              increment = period.equalsIgnoreCase("Y")? 12 : 1;

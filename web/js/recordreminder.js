@@ -156,6 +156,7 @@ function initialize() {
             'Anniversary,' +
             'Birthday,'    +
             'Dentist,'     + 
+            'Delivery,'    + 
             'Health,'      +
             'Insurance,'   +
             'Maintenance,' +

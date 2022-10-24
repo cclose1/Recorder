@@ -58,9 +58,11 @@ public class RecordReminder extends ApplicationServer {
      * This could be done using a single insert select statement. However, adding a month to a DATETIME field differs
      * for each database. The code in this routine should work for all databases.
      */
+    @Override
     public String getVersion() {        
         return "V1.0 Released 01-Nov-19";    
     }
+    @Override
     public void initApplication (ServletConfig config, ApplicationServer.Configuration.Databases databases) throws ServletException, IOException {
         this.config.load(config, databases);        
     }

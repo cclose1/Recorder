@@ -39,7 +39,8 @@ class Security {
     private String                protocol        = null;
     private String                origin          = null;
     private String                referrer        = null;
-    private DateFormatter         df              = new DateFormatter("yyyy-MM-dd HH:mm:ss");
+ //   private DateFormatter         df              = new DateFormatter("yyyy-MM-dd HH:mm:ss");
+    private DateFormatter         df              = new DateFormatter("dd-MM-yyyy HH:mm:ss");
     private HTTPRequestHandler    handler;
     private SecurityConfiguration config;
     
@@ -92,7 +93,7 @@ class Security {
         if (!loggedIn && !sessionId.isEmpty() && reply.length() == 0 && logInRequired) {
             Trace r = new Trace("checkSession Read session data", 'L');
             db.startTransaction(db.getConnection().TRANSACTION_SERIALIZABLE);
-            sql = new SQLSelectBuilder();
+            sql = new SQLSelectBuilder(null, db.getProtocol());
             sql.addField("S.SeqNo");
             sql.addField("S.SessionId");
             sql.addField("S.UserId");
@@ -117,7 +118,7 @@ class Security {
                     securityFailure = true;
                 } else {
                     Trace s = new Trace("checkSession Update", 'L');
-                    sql = new SQLSelectBuilder("Session");
+                    sql = new SQLSelectBuilder("Session", db.getProtocol());
                     sql.setParameter("SessionId", sessionId);
                     sql.addField("SeqNo");
                     sql.addField("SessionId");
@@ -167,8 +168,8 @@ class Security {
     public void login() throws SQLException, NoSuchAlgorithmException {
         String user          = handler.getParameter("user");
         SecurityHash hash    = new SecurityHash();
-        SQLUpdateBuilder upd = new SQLUpdateBuilder(getUserTable());
-        SQLSelectBuilder sel = new SQLSelectBuilder(getUserTable());
+        SQLUpdateBuilder upd = new SQLUpdateBuilder(getUserTable(), db.getProtocol());
+        SQLSelectBuilder sel = new SQLSelectBuilder(getUserTable(), db.getProtocol());
         upd.setWhere("UserId = '" + handler.getParameter("user") + '\'');
         hash.setAlgorithm(config.getHashAlgorithm());
         db.startTransaction();
@@ -228,7 +229,7 @@ class Security {
                 upd.addField("Password", password);
                 updateUser(upd);
             }
-            upd.addField("LatestLogin", df.format(new Date()));
+            upd.addField("LatestLogin", new Date());
             if (!hash.getHash(handler.getParameter("password")).equals(password)) {
                 upd.addIncrementField("LoginFails", 1);
                 if (fails >= maxAttempts) {
@@ -253,7 +254,7 @@ class Security {
             }
         }
         Connection c = db.getConnection();
-        SQLInsertBuilder insert = new SQLInsertBuilder("Session"); 
+        SQLInsertBuilder insert = new SQLInsertBuilder("Session", db.getProtocol()); 
         HttpSession session = handler.getRequest().getSession();
         sessionId = hash.getRandomString(20);
         insert.addField("SessionId", sessionId);
@@ -277,9 +278,11 @@ class Security {
         db.commit();
     }
     private void logOff(String state) throws SQLException {
-        SQLUpdateBuilder sql = new SQLUpdateBuilder("Session");
+        SQLUpdateBuilder sql = new SQLUpdateBuilder("Session", db.getProtocol());
         sql.addField("State", state);
-        sql.addField(db.getProtocol().equals("mysql") ? "`End`" : "\"End\"", df.format(new Date()));
+        
+        
+        sql.addField(db.getProtocol().equals("mysql") ? "`End`" : "\"End\"", new Date());
         sql.setWhere("SessionId = '" + sessionId + '\'');
         db.executeUpdate(sql.build());
         setSessionCookie(false);

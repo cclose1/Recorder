@@ -40,7 +40,7 @@ public class CarUsage extends ApplicationServer {
          *   PREVEQ  One with the latest timestamp that is before or equal to start.
          */                
         public SessionSequence(Context ctx, String carReg, Date start, SeqCompare compare) throws SQLException {
-            SQLSelectBuilder sql = new SQLSelectBuilder("ChargeSession");
+            SQLSelectBuilder sql = new SQLSelectBuilder("ChargeSession", ctx.getAppDb().getProtocol());
             ResultSet        rs;
             boolean          desc = true;
             String           test = "";

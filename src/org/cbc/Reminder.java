@@ -74,7 +74,7 @@ public class Reminder {
         db = session;
     }
     public void updatebyFrequency(boolean force) throws SQLException {
-        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder");
+        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder", db.getProtocol());
         /*
          * Return if not force and last update was less than a day ago; 
          */
@@ -104,7 +104,7 @@ public class Reminder {
         
         lastAlert       = now;
         state.lastCheck = now;
-        SQLSelectBuilder sql = new SQLSelectBuilder("ReminderState");
+        SQLSelectBuilder sql = new SQLSelectBuilder("ReminderState", db.getProtocol());
         
         sql.addField("Count",     sql.setFieldSource("Count(*)"));
         sql.addField("Earliest",  sql.setFieldSource("MIN(Timestamp)"));
@@ -128,9 +128,8 @@ public class Reminder {
     }
     public JSONObject getReminders(String filter, boolean showall) throws SQLException, JSONException {
         JSONObject       data = new JSONObject();
-        SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder");
+        SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder", db.getProtocol());
         
-        sql.setProtocol(db.getProtocol());
         sql.addField("RefId");
         sql.addField("Timestamp"); 
 
@@ -157,7 +156,7 @@ public class Reminder {
     }
     public boolean exists(String refid) throws SQLException {
         
-        SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder");
+        SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder", db.getProtocol());
         
         sql.addField("Timestamp");
         sql.addAnd("RefId", "=", refid);
@@ -168,7 +167,7 @@ public class Reminder {
     }
     
     public void create(String refId, Date timestamp, String type, String frequency, String warnDays, String suspended, String description, String comment) throws SQLException {
-        SQLInsertBuilder sql = new SQLInsertBuilder("Reminder");
+        SQLInsertBuilder sql = new SQLInsertBuilder("Reminder", db.getProtocol());
         
         sql.addField("RefId",       refId);
         sql.addField("Timestamp",   timestamp);
@@ -183,7 +182,7 @@ public class Reminder {
     }
 
     public void update(String refId, Date timestamp, String type, String frequency, String warnDays, String suspended, String description, String comment) throws SQLException {
-        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder");
+        SQLUpdateBuilder sql = new SQLUpdateBuilder("Reminder", db.getProtocol());
         
         sql.addField("Timestamp",   timestamp);
         sql.addField("Type",        type);

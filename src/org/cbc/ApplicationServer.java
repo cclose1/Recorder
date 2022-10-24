@@ -44,7 +44,7 @@ import org.cbc.utils.system.Environment;
 import org.cbc.utils.system.SecurityConfiguration;
 
 /**
- *
+ *k
  * @author Chris
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
@@ -262,17 +262,22 @@ public abstract class ApplicationServer extends HttpServlet {
         public String getTimestamp(Date date, String format) { 
             return date == null? null : (new SimpleDateFormat(format)).format(date);
         }
-        public String getDbTimestamp(Date date) { 
-            return date == null? null : (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(date);
+        public String getDbTimestamp(Date date) {
+            return date == null? null : DatabaseSession.getDateTimeString(date, appDb.getProtocol());
         }
-        public String getDbDate(Date date) { 
-            return date == null? null : (new SimpleDateFormat("yyyy-MM-dd")).format(date);
+        public String getDbDate(Date date) {
+            return date == null? null : DatabaseSession.getDateString(date, appDb.getProtocol());
         }
         public String getDbTime(Date date) { 
-            return date == null? null : (new SimpleDateFormat("HH:mm:ss")).format(date);
+            return date == null? null : DatabaseSession.getTimeString(date);
         }
         public java.sql.Timestamp getSQLTimestamp(Date date) {
             return date == null? null : new java.sql.Timestamp(date.getTime());
+        }        
+        public void close() {
+            if (appDb != null) appDb.close();
+            if (secDb != null) secDb.close();
+            if (remDb != null) remDb.close();
         }
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
             Trace           t       = new Trace("openDatabase");
@@ -375,30 +380,22 @@ public abstract class ApplicationServer extends HttpServlet {
                 remDb = appDb;
         }
         public SQLSelectBuilder getSelectBuilder(String table) {
-            SQLSelectBuilder builder = table == null? new SQLSelectBuilder() : new SQLSelectBuilder(table);
-            
-            builder.setProtocol(appDb.getProtocol());
+            SQLSelectBuilder builder = new SQLSelectBuilder(table, appDb.getProtocol());
             
             return builder;
         }
         public SQLUpdateBuilder getUpdateBuilder(String table) {
-            SQLUpdateBuilder builder = new SQLUpdateBuilder(table);
-            
-            builder.setProtocol(appDb.getProtocol());
+            SQLUpdateBuilder builder = new SQLUpdateBuilder(table, appDb.getProtocol());
             
             return builder;
         }
         public SQLInsertBuilder getInsertBuilder(String table) {
-            SQLInsertBuilder builder = new SQLInsertBuilder(table);
-            
-            builder.setProtocol(appDb.getProtocol());
-            
+            SQLInsertBuilder builder = new SQLInsertBuilder(table, appDb.getProtocol());
+                        
             return builder;
         }
         public SQLDeleteBuilder getDeleteBuilder(String table) {
-            SQLDeleteBuilder builder = new SQLDeleteBuilder(table);
-            
-            builder.setProtocol(appDb.getProtocol());
+            SQLDeleteBuilder builder = new SQLDeleteBuilder(table, appDb.getProtocol());
             
             return builder;
         }
@@ -647,7 +644,7 @@ public abstract class ApplicationServer extends HttpServlet {
     }
     protected boolean exists(Context ctx, String table, SQLNamedValues where) throws SQLException {
         ResultSet        rs;
-        SQLSelectBuilder sel = new SQLSelectBuilder(table);
+        SQLSelectBuilder sel = new SQLSelectBuilder(table, ctx.getAppDb().getProtocol());
         
         sel.addField("Count", "1");
         sel.addAnd(where);
@@ -899,6 +896,7 @@ public abstract class ApplicationServer extends HttpServlet {
         
         if (config.getLogReply()) Report.comment(null, ctx.getReplyBuffer().toString());
         
+        ctx.close();
         t.exit();
         m.report(true, "Action " + action);
         Thread.detach();
