@@ -60,7 +60,6 @@ public abstract class ApplicationServer extends HttpServlet {
         }
     }
     protected Reminder reminder = null;
-    
     /*
      * Describes a table field.
      */

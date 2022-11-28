@@ -7,6 +7,7 @@
         <link href="css/carusage.css" rel="stylesheet" type="text/css">
         <script src="js/platform.js"></script>
         <script src="js/json.js"></script>
+        <script src="js/dbtableupdater.js"></script> 
         <script src="js/formutils.js"></script>  
         <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
@@ -140,6 +141,31 @@
                         </thead>
                         <tr><td></td></tr>
                     </table>
+                    <fieldset id='testtable1' class='form centreminwidth'>
+                        <legend>Test</legend>
+                        <div>
+                            <label class = 'largelab'>Charge Source</label>
+                            <input type='text' name='Charge Source' size='13' tabindex="0">
+                        </div>
+                        <div>
+                            <label class = 'largelab'>Charge Type</label>
+                            <input type='text' name='ChargeType' size='10'   tabindex="0">
+                        </div>
+                    </fieldset>
+                    <div id='testtable2' class='form centreminwidth' data-table='TestTable'>
+                        <h2 class='centre'>Test</h2>
+                        <div data-name='Col1' data-isprime='y'>
+                            <label class = 'largelab'>Charge Source</label>
+                            <input type='text' name='Charge Source' size='13' tabindex="0" data-nullable='yes' data-primekey='yes'>
+                        </div>
+                        <div>
+                            <label class = 'largelab'>Charge Type</label>
+                            <input type='text' name='ChargeType' size='10'   tabindex="0">
+                        </div>
+                                
+                        <label></label>
+                        <input name="TestTable" type="button" value="ReadTable" onclick="readTable();">
+                    </div>
                 </div>
             </div> 
             <table id="chargesessionstable">

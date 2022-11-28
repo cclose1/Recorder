@@ -10,11 +10,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.Iterator;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.utils.data.DatabaseSession;
 
 /**
  *
@@ -76,6 +78,23 @@ public class CarUsage extends ApplicationServer {
             end        = rs.getTimestamp("End");
             mileage    = rs.getInt("Mileage");
         }
+    }
+    private void test(Context ctx) throws SQLException, JSONException {
+        DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition("Car");
+        DatabaseSession.Column          col;
+        String                          name;
+        JSONObject                      json;
+        
+        Iterator<DatabaseSession.Column> it = table.iterator();
+        
+        while (it.hasNext()) {
+            col = it.next();
+            name = col.getName();
+        }
+        table.getColumn("Modified").setDisplayName("Modified x");
+        name = table.getName();
+        json = table.toJson(true);
+        json = table.toJson();
     }
     private void changeSession(Context ctx,  String action) throws ParseException, SQLException {
         Date            start   = ctx.getTimestamp("sdatetime");
@@ -141,7 +160,7 @@ public class CarUsage extends ApplicationServer {
     @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         session.setContext(ctx);
-                
+        test(ctx);
         switch (action) {
             case "createsession":                
             case "updatesession":               
@@ -227,7 +246,7 @@ public class CarUsage extends ApplicationServer {
         super.init(config);
                 
         session.addField("CarReg",       true,  "carreg");
-        session.addField("Start",        true,  "sdatetime", false, true);
+        session.addField("Start",        true,  "sdatetime",   false, true);
         session.addField("Charger",      false, "chargesource");
         session.addField("Unit",         false, "chargeunit");
         session.addField("Comment",      false, "sessioncomment");
@@ -235,7 +254,7 @@ public class CarUsage extends ApplicationServer {
         session.addField("EstDuration",  false, "estduration", true);
         session.addField("StartPercent", false, "schargepc",   true);
         session.addField("StartMiles",   false, "smiles",      true);
-        session.addField("End",          false, "edatetime", false, true);
+        session.addField("End",          false, "edatetime",   false, true);
         session.addField("EndPercent",   false, "echargepc",   true);
         session.addField("EndMiles",     false, "emiles",      true);
         session.addField("Charge",       false, "charge",      true);

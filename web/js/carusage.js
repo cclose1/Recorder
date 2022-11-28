@@ -379,8 +379,58 @@ function btChargersRowClick(row) {
         }
     }
 }
+function readTable1(id) {
+    var table = document.getElementById(id);
+    var children = table.childNodes;
+    var col = new TableColumn('Abcd');
+    var tab = new DatabaseTable('Test');
+    
+    tab.addColumn('col1');
+    tab.addColumn('col2');
+    
+    var exists = tab.existsColumn('col1');
+    exists = tab.existsColumn('col4');
+    
+    col = tab.getColumn('col2');
+    col = tab.getColumn('col1');
+    col.setAttributes({label: 'abc', size: 50});
+    col.setAttribute('label', 'long label');
+    var attr = col.getAttribute('size');
+    col.setAttribute('size', 100);
+    attr = col.getAttribute('size');
+    
+    var atts = col._attributes;
+    for(var i=0; i<children.length; i++){
+        var child = children[i];
+        var tag = child.localName;
+        console.log('At ' + i + ' Tag ' + tag);
+    }
+}
+function readTable2(id) {
+    var table = document.getElementById(id);
+    var child = table.firstElementChild;
+    var i     = 0;
+    
+    var c = getChildren(table);
+    while (child !== null) {
+        var tag = child.localName;
+        console.log('At ' + i + ' Tag ' + tag);
+        i++;
+        child=child.nextElementSibling;
+    }
+}
+function readTable() {
+    var execute = event.target;
+    var table   = execute.parentElement;
+    var action  = execute.value;
+    var name    = table.dataset.table;
+    
+    console.log(table.id);
+}
 function initialize() {
-    reporter.setFatalAction('error');  
+    reporter.setFatalAction('throw');  
+    readTable1('testtable2');
+    readTable2('testtable2');
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
         allowAutoSelect: true, 
@@ -388,8 +438,9 @@ function initialize() {
         title:           'Sessions Filter',
         forceGap:        '4px',
         initialDisplay:  false});
-    sessionFilter.addFilter('Charger',  'Charger,,fchargesource', '', true);
     sessionFilter.addFilter('CarReg',   'CarReg,,fcarreg',        '', true);
+    sessionFilter.addFilter('Charger',  'Charger,,fchargesource', '', true);
+    sessionFilter.addFilter('Unit',     'Unit,,fchargeunit',      '', true);
     sessionFilter.addFilter('Weekdays', 'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
      
     var response = getList('CarUsage', {
@@ -405,9 +456,17 @@ function initialize() {
         keepValue:    true,
         async:        false,
         allowBlank:   true});
-    var response = getList('CarUsage', {
+    getList('CarUsage', {
         table:        'ChargerLocation',
         name:         'fchargesource',
+        field:        'Name',
+        keepValue:    false,
+        async:        false,
+        allowBlank:   true},
+        true);
+    getList('CarUsage', {
+        table:        'ChargerUnit',
+        name:         'fchargeunit',
         field:        'Name',
         keepValue:    false,
         async:        false,
