@@ -17,6 +17,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -110,6 +112,13 @@ public abstract class ApplicationServer extends HttpServlet {
         String field = ctx.getParameter("field");
 
         getList(ctx, table, field);
+    }
+    protected void getTableDefinition(Context ctx) throws SQLException, ParseException, JSONException {
+        DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
+        
+        table.getColumn("Modified").setDisplay(false);
+        table.toJson(true).append(ctx.getReplyBuffer());
+        ctx.setStatus(200);
     }
     public static long getPID() {
         String processName
@@ -258,6 +267,11 @@ public abstract class ApplicationServer extends HttpServlet {
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
         
+        public void addAnd(SQLBuilder sql, String field, String operator, String paramName) {
+            String value = getParameter(paramName);
+            
+            if (value.trim().length() != 0) sql.addAnd(field, operator, value);
+        }
         public String getTimestamp(Date date, String format) { 
             return date == null? null : (new SimpleDateFormat(format)).format(date);
         }
@@ -322,6 +336,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }   
         public String getParameter(String name) {
             return handler.getParameter(name);
+        }
+        public String[] getParameters(String name) {
+            return handler.getRequest().getParameterValues(name);
         }
         public int getInt(String name, int nullDefault) {
             String value = handler.getParameter(name);
@@ -512,7 +529,7 @@ public abstract class ApplicationServer extends HttpServlet {
             if (rs.next()) {
                 switch (action) {
                     case "create":
-                        ctx.getReplyBuffer().append(name + " row already exists for " + keyString);
+                        ctx.getReplyBuffer().append(name).append(" row already exists for ").append(keyString);
                         break;
                     case "update":
                         rs.moveToCurrentRow();
@@ -620,13 +637,14 @@ public abstract class ApplicationServer extends HttpServlet {
         measureSQL.end(sql);
         return rs;
     }
-    protected void updateQuery(Context ctx, SQLBuilder sql) throws SQLException {
-        updateQuery(ctx, sql.build());
+    protected ResultSet updateQuery(Context ctx, SQLBuilder sql) throws SQLException {
+        return updateQuery(ctx, sql.build());
     }
-    protected void executeUpdate(Context ctx, String sql) throws SQLException {
+    protected int executeUpdate(Context ctx, String sql) throws SQLException {
         measureSQL.start();
-        ctx.getAppDb().executeUpdate(sql);
+        int cnt = ctx.getAppDb().executeUpdate(sql);
         measureSQL.end(sql);
+        return cnt;
     }
     protected ResultSet executeUpdateGetKey(Context ctx, SQLBuilder sql) throws SQLException {
         ResultSet rs;
@@ -638,8 +656,8 @@ public abstract class ApplicationServer extends HttpServlet {
         
         return rs;
     }
-    protected void executeUpdate(Context ctx, SQLBuilder sql) throws SQLException {
-        executeUpdate(ctx, sql.build());
+    protected int executeUpdate(Context ctx, SQLBuilder sql) throws SQLException {
+        return executeUpdate(ctx, sql.build());
     }
     protected boolean exists(Context ctx, String table, SQLNamedValues where) throws SQLException {
         ResultSet        rs;
@@ -651,11 +669,102 @@ public abstract class ApplicationServer extends HttpServlet {
         
         return rs.next();
     }
-    
     public abstract String getVersion();
     public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
     public abstract void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException;
     
+    private void setKeyMessage(Context ctx, String prefix, String table, String key) {
+        ctx.getReplyBuffer().append('!').append(prefix).append('!').append(table).append('!').append(key);
+    }
+    protected void updateTable(Context ctx) throws JSONException, ParseException, SQLException {
+        String     fields[]  = ctx.getParameter("table").split(",");
+        String     table     = fields[0];
+        String     action    = fields.length == 1 ? "Update" : fields[1];
+        String     columns[] = ctx.getParameters("column");
+        String     name;
+        String     value;
+        String     type;
+        String     pKey      = "";
+        boolean    isPKey;
+        ResultSet  rs;
+        
+        SQLBuilder sql = null;
+        
+        switch (action) {
+            case "Read":
+                sql = new SQLSelectBuilder(table, ctx.appDb.getProtocol());
+                break;
+            case "Create":
+                sql = new SQLInsertBuilder(table, ctx.appDb.getProtocol());
+                break;
+            case "Update":
+                sql = new SQLUpdateBuilder(table, ctx.appDb.getProtocol());
+                break;
+            case "Delete":
+                sql = new SQLDeleteBuilder(table, ctx.appDb.getProtocol());
+                break;
+        }
+        for (String col: columns) {
+            fields = col.split(",");
+            name   = fields[0];
+            value  = fields[1];
+            type   = fields[2];
+            isPKey = fields[3].equalsIgnoreCase("true");
+            
+            if (isPKey) {
+                if (pKey.length() != 0) pKey += ", ";
+                
+                pKey += name + "=" +value;
+            }
+            switch (action) {
+                case "Create":
+                    sql.addField(name, value, type);
+                    break;
+                case "Update":
+                    if (!isPKey) sql.addField(name, value, type);
+                    break;
+                case "Read":
+                    ((SQLSelectBuilder)sql).addField(name);
+                    break;
+                case "Delete":
+                    // Only where clause required for delete.
+            }
+            if (!action.equals("Create") && isPKey) sql.addAnd(name, "=", value, type);
+        }
+        switch (action) {
+            case "Read":           
+                JSONObject data = new JSONObject();
+
+                rs = executeQuery(ctx, sql);
+                data.add("TableRow", rs);
+
+                if (data.get("Data").getArray().size() == 0)
+                    setKeyMessage(ctx, "Not found", table, pKey);
+                else
+                    data.append(ctx.getReplyBuffer());
+                break;
+            case "Update":
+            case "Delete":      
+                int cnt = executeUpdate(ctx, sql);
+                
+                if (cnt == 0) setKeyMessage(ctx, "Not found",  table, pKey);
+                
+                break;
+            case "Create":
+                try {
+                    executeUpdate(ctx, sql);
+                } catch (SQLException ex) {
+                    if (ex.getMessage().startsWith("Duplicate"))
+                        setKeyMessage(ctx, "Already exists",  table, pKey);
+                    else
+                        throw ex;
+                }
+                break;
+            default:
+                Report.error("", "Action " + action + " not valid");
+        }
+        ctx.setStatus(200);
+    }
     private void addRowColumn(JSONArray row, String colName) throws JSONException {
         JSONObject col = new JSONObject();
         
@@ -680,25 +789,22 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         if (request.equals("Show Env")) {
             Map<String, String> envs = new TreeMap<>(System.getenv());
-            Iterator            it   = envs.entrySet().iterator();
             
             addRowColumn(row, "Variable");
             addRowColumn(row, "Value");
             rows = new JSONArray();
             data.add("Data", rows);
 
-            while (it.hasNext()) {
-                Map.Entry<String, String> env = (Map.Entry<String, String>) it.next();
-
-                value = env.getValue();
-
+            for (String key : envs.keySet()) {
+                value = envs.get(key);
+                
                 if (max == -1 || value.length() <= max) {
                     row = new JSONArray();
                     rows.add(row);
-                    row.add(new JSONValue(env.getKey()));
+                    row.add(new JSONValue(key));
                     row.add(new JSONValue(value));
                 }
-            }            
+            }
         } else if (request.equals("Report Streams")) {
             HashMap<String, Process.Stream.Summary> streams = Process.getProcess(config.getAppName()).getStreamSummaries();
             
@@ -751,7 +857,9 @@ public abstract class ApplicationServer extends HttpServlet {
                 ctx.setStatus(200);        
             } else if (action.equals("loggedin")) {
                 ctx.getReplyBuffer().append(security.isLoggedIn()? "true" : "false");
-                ctx.setStatus(200);        
+                ctx.setStatus(200);
+            } else if (action.equals("updatetable")) {
+                updateTable(ctx);        
             } else if (action.equals("debug")) {
                 debugAction(ctx);
             } else if (action.equals("")) {

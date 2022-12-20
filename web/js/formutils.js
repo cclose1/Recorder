@@ -267,7 +267,7 @@ function validateDateTime(did, tid, options) {
                 dt.elm.value = dateString(result.value);
                 tm.elm.value = timeString(result.value);
             } else
-                dt.elm.value = opts.notime ? dateString(result.value) : getDateTime(result.value);
+                dt.elm.value = opts.notime ? dateString(result.value) : dateTimeString(result.value);
         }
     } catch(e) {
         var elm = e.getName() === 'Time' && tm.elm !== null ? tm.elm : dt.elm;
@@ -385,7 +385,9 @@ function checkTime(elm, required) {
         } catch (err) {
             displayAlert('Validation Error', err.message, {focus: elm});
         }
-    }
+    } else
+        ok = true;
+    
     return ok;
 }
 function checkTimestamp(elm, required) {
@@ -2010,7 +2012,27 @@ function getFloatValue(elm, defaultValue) {
     
     return isNaN(value) && defaultValue !== undefined && defaultValue !== null? defaultValue : value;
 }
+/*
+ * Returns the value of the elm, unless required is true or undefined and the value is empty, 
+ *         in which case a field validation failure is displayed and undefined is returned
+ */
+function getFieldValue(elm, required) {
+    elm = getElement(elm);
+    
+    var value = trim(elm.value);
+
+    if (value === "" && (required === undefined || required)) {
+        displayAlert('Field Validation', "Enter a value for " + getElementLabel(elm), {focus: elm});
+        return undefined;
+    }
+    return value;
+}
+/*
+ * Rewritten to use the above. The former content has been commented out, in case there is a problem. The
+ * comment should be removed if no problems occur.
+ */
 function fieldHasValue(elm, required) {
+    /*
     elm = getElement(elm);
     
     var value = trim(elm.value);
@@ -2022,6 +2044,10 @@ function fieldHasValue(elm, required) {
         return false;
     }
     return true;
+    */
+   var value = getFieldValue(elm, required);
+   
+   return value !== "";
 }
 /*
  * Executes a none blocking AJAX call.

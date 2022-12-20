@@ -338,8 +338,8 @@ public class RecordNutrition extends ApplicationServer {
             if (ctx.existsParameter("filter")) {
                 sql.addAnd(ctx.getParameter("filter"));
             } else {
-                sql.addAnd("WeekDay",     "=",    ctx.getParameter("day"));
-                sql.addAnd("Description", "LIKE", ctx.getParameter("description"));
+                ctx.addAnd(sql, "Weekday",     "=",    "day");
+                ctx.addAnd(sql, "Description", "LIKE", "description");
             }
             ResultSet rs = executeQuery(ctx, sql);
 
@@ -349,9 +349,6 @@ public class RecordNutrition extends ApplicationServer {
             ctx.setStatus(200);
         } else if (action.equals("requestitemlist")) {
             JSONObject       data   = new JSONObject();
-            String           source = ctx.getParameter("source");
-            String           type   = ctx.getParameter("type");
-            String           item   = ctx.getParameter("item");
             SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionItem");
 
             sql.addField("Item");
@@ -368,9 +365,9 @@ public class RecordNutrition extends ApplicationServer {
             sql.addField("Carbohydrate");
             sql.setOrderBy("Item");
 
-            sql.addAnd("source", "=",    source);
-            sql.addAnd("type",   "=",    type);
-            sql.addAnd("item",   "LIKE", item);
+            ctx.addAnd(sql, "Source", "=",    "source");
+            ctx.addAnd(sql, "Type",   "=",    "type");
+            ctx.addAnd(sql, "Item",   "LIKE", "item");
             addItemStartTime(ctx, sql);
 
             ResultSet rs = executeQuery(ctx, sql.build());

@@ -379,58 +379,8 @@ function btChargersRowClick(row) {
         }
     }
 }
-function readTable1(id) {
-    var table = document.getElementById(id);
-    var children = table.childNodes;
-    var col = new TableColumn('Abcd');
-    var tab = new DatabaseTable('Test');
-    
-    tab.addColumn('col1');
-    tab.addColumn('col2');
-    
-    var exists = tab.existsColumn('col1');
-    exists = tab.existsColumn('col4');
-    
-    col = tab.getColumn('col2');
-    col = tab.getColumn('col1');
-    col.setAttributes({label: 'abc', size: 50});
-    col.setAttribute('label', 'long label');
-    var attr = col.getAttribute('size');
-    col.setAttribute('size', 100);
-    attr = col.getAttribute('size');
-    
-    var atts = col._attributes;
-    for(var i=0; i<children.length; i++){
-        var child = children[i];
-        var tag = child.localName;
-        console.log('At ' + i + ' Tag ' + tag);
-    }
-}
-function readTable2(id) {
-    var table = document.getElementById(id);
-    var child = table.firstElementChild;
-    var i     = 0;
-    
-    var c = getChildren(table);
-    while (child !== null) {
-        var tag = child.localName;
-        console.log('At ' + i + ' Tag ' + tag);
-        i++;
-        child=child.nextElementSibling;
-    }
-}
-function readTable() {
-    var execute = event.target;
-    var table   = execute.parentElement;
-    var action  = execute.value;
-    var name    = table.dataset.table;
-    
-    console.log(table.id);
-}
 function initialize() {
-    reporter.setFatalAction('throw');  
-    readTable1('testtable2');
-    readTable2('testtable2');
+    reporter.setFatalAction('throw'); 
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
         allowAutoSelect: true, 
@@ -472,6 +422,8 @@ function initialize() {
         async:        false,
         allowBlank:   true},
         true);
+    var tab = getTableDefinition('CarUsage', 'Test', 'testtable1');
+    tab.createForm();
     reset();
 }
 

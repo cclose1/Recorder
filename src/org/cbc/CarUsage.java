@@ -17,7 +17,6 @@ import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.utils.data.DatabaseSession;
-
 /**
  *
  * @author chris
@@ -85,6 +84,8 @@ public class CarUsage extends ApplicationServer {
         String                          name;
         JSONObject                      json;
         
+        name = Utils.splitToWords("CarSession");
+        name = Utils.splitToWords("aCarSession");
         Iterator<DatabaseSession.Column> it = table.iterator();
         
         while (it.hasNext()) {
@@ -160,7 +161,7 @@ public class CarUsage extends ApplicationServer {
     @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         session.setContext(ctx);
-        test(ctx);
+        
         switch (action) {
             case "createsession":                
             case "updatesession":               
@@ -235,6 +236,9 @@ public class CarUsage extends ApplicationServer {
                 }
             case "getList":
                 getList(ctx);
+                break;
+            case "getTableDefinition":
+                getTableDefinition(ctx);
                 break;
             default:
                 ctx.dumpRequest("Action " + action + " is invalid");
