@@ -13,12 +13,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -113,10 +110,16 @@ public abstract class ApplicationServer extends HttpServlet {
 
         getList(ctx, table, field);
     }
+    protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
+        /*
+         * No action required as a sub class can override this to update the table with
+         * application relevant changes.
+         */
+    }
     protected void getTableDefinition(Context ctx) throws SQLException, ParseException, JSONException {
         DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
         
-        table.getColumn("Modified").setDisplay(false);
+        updateTableDefinition(ctx, table);
         table.toJson(true).append(ctx.getReplyBuffer());
         ctx.setStatus(200);
     }
@@ -267,7 +270,7 @@ public abstract class ApplicationServer extends HttpServlet {
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
         
-        public void addAnd(SQLBuilder sql, String field, String operator, String paramName) {
+        public void addAnd(SQLBuilder sql, String field, String operator, String paramName) throws SQLException {
             String value = getParameter(paramName);
             
             if (value.trim().length() != 0) sql.addAnd(field, operator, value);
@@ -676,62 +679,115 @@ public abstract class ApplicationServer extends HttpServlet {
     private void setKeyMessage(Context ctx, String prefix, String table, String key) {
         ctx.getReplyBuffer().append('!').append(prefix).append('!').append(table).append('!').append(key);
     }
+    /*
+     * Holds an unpcacked table update request from the HTML client. The request consists of the following parameters:
+     *
+     *   Name    Value
+     *   Table   The table name to be updated.
+     *   Action  The operation to be performed on the table and is one Read, Update, Create or Delete.
+     *   Columns An array of values identifying the column column and consists of the following fields:
+     *
+     *              Name    Column
+     *              Type    Data type of the value.
+     *              IsPkey  True if the column is part of the primary key.
+     *              Value   The value to be used in updating the table. It can contain commas.
+     */
+    protected class TableUpdateRequest {
+        public class Column {
+            private final String  name;
+            private final boolean isPkey;
+            private final String  type;
+            private final String  value;
+            
+            public Column(String column) {
+                String fields[] = column.split(",", 4);
+                name   = fields[0];
+                type   = fields[1];
+                isPkey = fields[2].equalsIgnoreCase("true");
+                value  = fields[3];
+            }
+            public String getName() {
+                return name;
+            }
+            public boolean isPkey() {
+                return isPkey;
+            }
+            public String getValue() {
+                return value;
+            }
+            public String getType() {
+                return type;
+            }
+        }
+        private final String table;
+        private final String action;
+        private final ArrayList<Column> columns;
+        
+        public TableUpdateRequest(Context ctx) {
+            this.columns = new ArrayList<>();
+            
+            String  fields[] = ctx.getParameter("table").split(",");
+            String reqcols[] = ctx.getParameters("column");
+        
+            table   = fields[0];
+            action  = fields.length == 1 ? "Update" : fields[1];
+
+            for (String col : reqcols) {
+                columns.add(new Column(col));
+            }
+        }
+        public String getTable() {
+            return table;
+        }
+        public String getAction() {
+            return action;
+        }
+        public ArrayList<Column> getColumns() {
+            return columns;
+        }
+    }
     protected void updateTable(Context ctx) throws JSONException, ParseException, SQLException {
-        String     fields[]  = ctx.getParameter("table").split(",");
-        String     table     = fields[0];
-        String     action    = fields.length == 1 ? "Update" : fields[1];
-        String     columns[] = ctx.getParameters("column");
-        String     name;
-        String     value;
-        String     type;
-        String     pKey      = "";
-        boolean    isPKey;
-        ResultSet  rs;
+        String             pKey    = "";
+        ResultSet          rs;
+        TableUpdateRequest request = new TableUpdateRequest(ctx);
+        SQLBuilder         sql     = null;
         
-        SQLBuilder sql = null;
-        
-        switch (action) {
+        switch (request.getAction()) {
             case "Read":
-                sql = new SQLSelectBuilder(table, ctx.appDb.getProtocol());
+                sql = new SQLSelectBuilder(request.getTable(), ctx.appDb.getProtocol());
                 break;
             case "Create":
-                sql = new SQLInsertBuilder(table, ctx.appDb.getProtocol());
+                sql = new SQLInsertBuilder(request.getTable(), ctx.appDb.getProtocol());
                 break;
             case "Update":
-                sql = new SQLUpdateBuilder(table, ctx.appDb.getProtocol());
+                sql = new SQLUpdateBuilder(request.getTable(), ctx.appDb.getProtocol());
                 break;
             case "Delete":
-                sql = new SQLDeleteBuilder(table, ctx.appDb.getProtocol());
+                sql = new SQLDeleteBuilder(request.getTable(), ctx.appDb.getProtocol());
                 break;
         }
-        for (String col: columns) {
-            fields = col.split(",");
-            name   = fields[0];
-            value  = fields[1];
-            type   = fields[2];
-            isPKey = fields[3].equalsIgnoreCase("true");
-            
-            if (isPKey) {
+        for(TableUpdateRequest.Column col: request.getColumns()) {
+            if (col.isPkey) {
                 if (pKey.length() != 0) pKey += ", ";
                 
-                pKey += name + "=" +value;
+                pKey += col.getName() + "=" + col.getValue();
             }
-            switch (action) {
+            switch (request.getAction()) {
                 case "Create":
-                    sql.addField(name, value, type);
+                    sql.addField(col.getName(), col.getValue(), col.getType());
                     break;
                 case "Update":
-                    if (!isPKey) sql.addField(name, value, type);
+                    if (!col.isPkey()) sql.addField(col.getName(), col.getValue(), col.getType());
                     break;
                 case "Read":
-                    ((SQLSelectBuilder)sql).addField(name);
+                    ((SQLSelectBuilder)sql).addField(col.getName());
                     break;
                 case "Delete":
                     // Only where clause required for delete.
             }
-            if (!action.equals("Create") && isPKey) sql.addAnd(name, "=", value, type);
+            if (!request.getAction().equals("Create") && col.isPkey()) sql.addAnd(col.getName(), "=", col.getValue(), col.getType());
         }
-        switch (action) {
+        switch (request.getAction()) {
             case "Read":           
                 JSONObject data = new JSONObject();
 
@@ -739,7 +795,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 data.add("TableRow", rs);
 
                 if (data.get("Data").getArray().size() == 0)
-                    setKeyMessage(ctx, "Not found", table, pKey);
+                    setKeyMessage(ctx, "Not found", request.getTable(), pKey);
                 else
                     data.append(ctx.getReplyBuffer());
                 break;
@@ -747,7 +803,7 @@ public abstract class ApplicationServer extends HttpServlet {
             case "Delete":      
                 int cnt = executeUpdate(ctx, sql);
                 
-                if (cnt == 0) setKeyMessage(ctx, "Not found",  table, pKey);
+                if (cnt == 0) setKeyMessage(ctx, "Not found",  request.getTable(), pKey);
                 
                 break;
             case "Create":
@@ -755,13 +811,13 @@ public abstract class ApplicationServer extends HttpServlet {
                     executeUpdate(ctx, sql);
                 } catch (SQLException ex) {
                     if (ex.getMessage().startsWith("Duplicate"))
-                        setKeyMessage(ctx, "Already exists",  table, pKey);
+                        setKeyMessage(ctx, "Already exists",  request.getTable(), pKey);
                     else
                         throw ex;
                 }
                 break;
             default:
-                Report.error("", "Action " + action + " not valid");
+                Report.error("", "Action " + request.getAction() + " not valid");
         }
         ctx.setStatus(200);
     }
@@ -862,6 +918,8 @@ public abstract class ApplicationServer extends HttpServlet {
                 updateTable(ctx);        
             } else if (action.equals("debug")) {
                 debugAction(ctx);
+            } else if (action.equals("getTableDefinition")) {
+                getTableDefinition(ctx);
             } else if (action.equals("")) {
                 ctx.getHandler().dumpRequest("No action parameter"); 
             } else {                

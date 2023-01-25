@@ -134,7 +134,7 @@ public class RecordNutrition extends ApplicationServer {
                 super.config.getProperty("ntpassword"));
     }
 
-    private void addItemStartTime(Context ctx, SQLSelectBuilder sql) throws ParseException {
+    private void addItemStartTime(Context ctx, SQLSelectBuilder sql) throws ParseException, SQLException {
         Date startTime = ctx.getTimestamp("starttime");
 
         sql.addAndStart(startTime == null ? new Date() : startTime);
@@ -185,7 +185,7 @@ public class RecordNutrition extends ApplicationServer {
     private void updateNutritionRecord(Context ctx, ResultSet rs) throws SQLException, ParseException {
         Date   timestamp = ctx.getTimestamp("date", "time");
         String item      = ctx.getParameter("item");
-        String source    = ctx.getParameter("sourcr");
+        String source    = ctx.getParameter("source");
         String quantity  = ctx.getParameter("quantity");
         String abv       = ctx.getParameter("abv");
         

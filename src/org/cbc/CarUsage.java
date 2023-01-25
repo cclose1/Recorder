@@ -146,6 +146,28 @@ public class CarUsage extends ApplicationServer {
                     session.updateRow(keyTime.equals(start)? "" : "Start-keytimestamp");
                 break;
         }
+    }    
+    @Override
+    protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
+        String name = table.getName();
+        
+        switch (name) {
+            case "Test2":
+                table.getColumn("Text21").setSource("ChargerNetwork", "Name");
+                break;
+            case "Test3":
+                table.setParent("Test2");
+                break;
+            default:
+                // Ignore all other tables.
+        }
+    }
+    @Override
+    /*
+     * Added to confirm that override works as expected. Can be removed.
+     */
+    protected void getTableDefinition(Context ctx) throws SQLException, ParseException, JSONException {
+        super.getTableDefinition(ctx);
     }
     @Override
     public String getVersion() {
@@ -236,9 +258,6 @@ public class CarUsage extends ApplicationServer {
                 }
             case "getList":
                 getList(ctx);
-                break;
-            case "getTableDefinition":
-                getTableDefinition(ctx);
                 break;
             default:
                 ctx.dumpRequest("Action " + action + " is invalid");
