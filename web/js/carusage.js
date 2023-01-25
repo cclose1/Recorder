@@ -241,6 +241,17 @@ function setNew(copy) {
 function getDateTime(prefix) {
    return getElement(prefix + 'date', true).value + ' ' + getElement(prefix + 'time', true).value;
 }
+function tableSelected() {
+    var table = event.target.value;
+    
+    if (table === 'None')
+        setHidden('updatetable', true);
+    else {
+        var tab   = getTableDefinition('CarUsage', table, 'updatetable');
+        tab.createForm();
+        setHidden('updatetable', false);
+    }
+}
 function send(action) {
     if (action === undefined) action = event.target.value;
     
@@ -422,8 +433,7 @@ function initialize() {
         async:        false,
         allowBlank:   true},
         true);
-    var tab = getTableDefinition('CarUsage', 'Test', 'testtable1');
-    tab.createForm();
+    setHidden('updatetable', true);
     reset();
 }
 

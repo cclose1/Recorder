@@ -12,7 +12,6 @@
  */
 var tableForms = {};
 
-
 function tableFormChange(key) {
     var table = tableForms[key];
     
@@ -25,6 +24,7 @@ function ColumnOptions() {
     BaseOptions.call(this, false);
     
     this.addSpec({name: 'label',      type: 'string',  default: null,      mandatory: false});
+    this.addSpec({name: 'source',     type: 'string',  default: null,      mandatory: false});
     this.addSpec({name: 'isPrimeKey', type: 'boolean', default: false,     mandatory: false});
     this.addSpec({name: 'type',       type: 'string',  default: 'VARCHAR', mandatory: false});
     this.addSpec({name: 'mandatory',  type: 'boolean', default: false,     mandatory: false});
@@ -60,6 +60,23 @@ class TableColumn {
     get name() {
         return this._name;
     }
+    /*
+     * Returns null if the column does not have a source, otherwise returns an with field table and column.
+     */
+    get source() {
+        var spec = this.getAttribute('source');
+        
+        if (spec === null) return null;
+        
+        var flds = spec.split('.');
+        
+        if (flds.length !== 2) reporter.fatalError('Column ' + name + ' source spec -' + spec + '- invalid');
+        
+        return {
+            table:  flds[0],
+            column: flds[1]
+        };
+    }
     setAttributes(values) {
         this._attributes.load(values);
         this._tableUpdate();
@@ -71,6 +88,30 @@ class TableColumn {
     getAttribute(name) {
         return this._attributes.getValue(name);
     }
+    /*
+     * Set key field to single value, the default, or a select list of allowed values.
+     * 
+     * @param {type} yes If select list.
+     */
+    setKeyFieldMulti(yes) {
+        var celm = this.element;
+        var nelm;
+        
+        if (!this.isPrimeKey) {
+            console.log('Col ' + this.name + ' is not part of the prime key');
+            return;
+        }
+        if (celm.tagName === (yes? 'select' : 'input')) return; /* Already correct tag. */
+        
+        if (yes)
+            nelm = createElement(document, 'select');
+        else
+            nelm = createElement(document, 'input', {type: this.htmlType, size: this.size});
+        
+        nelm.setAttribute('onchange', 'tableFormChange("' + this._table.formId + '");');
+        celm.parentElement.replaceChild(nelm, celm);
+        this.setAttribute('colElement', nelm);
+    } 
     get htmlType() {
         switch (this.getAttribute('type')) {
             case 'INT':
@@ -82,141 +123,34 @@ class TableColumn {
             return 'text';
         }
     }
+    get isPrimeKey() {
+        return this.getAttribute('isPrimeKey');
+    }
+    get element() {
+        return this.getAttribute('colElement');
+    }
     addRequestParameter(parameters) {
-        var value = this.name + ',' + 
-                this.getAttribute('colElement').value + ',' + 
+        var value = this.name                         + ',' + 
                 this.getAttribute('type')             + ',' + 
-                this.getAttribute('isPrimeKey');
+                this.getAttribute('isPrimeKey')       + ',' +
+                this.getAttribute('colElement').value ;
         
         return addParameter(parameters, 'column', value);
     }
 }
 class DatabaseTable {
     _formId;
+    _buttons;
+    _next;
     _name;
+    _parent;
     _server;
+    _formUsage;
     _displayName;
     _columns      = [];
     _index        = new Map();
     _maxLabelSize = -1
     _calcMaxLabel = true
-    
-    _checkEnteredValue(colName) {
-        var col = this.getColumn(colName);
-        var elm = col.getAttribute('colElement');
-        var lab = elm.parentElement.firstChild;
-        var val = getFieldValue(elm, col.getAttribute('mandatory'));
-        
-        if (val === undefined) return false;
-        
-        switch (col.getAttribute('type')) {
-            case 'DATETIME':
-                return checkTimestamp(elm, false);
-                break;
-            case 'DATE':
-                return checkDate(elm, false);
-                break;
-            case 'TIME':
-                return checkTime(elm, false);
-                break;
-            default:
-                console.log('Column ' + col.name + ' type ' + col.getAttribute('type'));
-        }
-        return true;
-    }
-    _executeCommand() {
-        var btn        = event.target;
-        var action     = btn.value;
-        var cols       = this._columns;
-        var check;
-        var add;
-        var parameters = createParameters('updatetable');
-        parameters = addParameter(parameters, 'table', this.name + ',' + action);
-        
-        for (const col of this.getColumns()){
-            switch (action) {
-                case 'Read':
-                    check = col.getAttribute('isPrimeKey');
-                    add   = true;
-                    break;
-                case 'Create':
-                    check = true;
-                    add   = true;
-                case 'Update':
-                    check = true;
-                    add   = true;
-                    break;
-                case 'Delete':
-                    check = col.getAttribute('isPrimeKey');
-                    add = check;
-            }
-            
-            if (check && !this._checkEnteredValue(col.name)) return false;
-            
-            if (add) parameters = col.addRequestParameter(parameters);
-        }
-        function processResponse(response) {
-            if (action === 'Read' && response.startsWith('{')) {
-                var json  = stringToJSON(response);
-                var jdata = json.getMember('Data', true).value;
-                var jcols;
-                var jcol;
-                var col;
-                var i     = 0;
-                
-                jdata.setFirst();
-                
-                if (jdata.isNext()) {
-                    jcols = jdata.next().value;
-                    jcols.setFirst;
-                    
-                    while (jcols.isNext()) {
-                        col  = cols[i++];
-                        jcol = jcols.next();
-                        col.getAttribute('colElement').value = jcol.value;
-                    }
-                } else
-                    console.log('Server error-json column data is empty');
-            } else {
-                if (response.startsWith('!')) {
-                    var fields = response.split('!');
-                    
-                    displayAlert(action + ' Failure', fields[1] + ' in ' + fields[2]);
-                } else if (response.length > 2) {
-                    displayAlert(action + ' Failure', response);
-                }
-            }
-        }
-        ajaxLoggedInCall(this.server, processResponse, parameters);
-        return true;
-    }
-    _onevent(key) {
-        var type    = event.target.type;
-        var parent  = event.target.parentElement;
-        var colName = 'N/A';
-        /*
-         * Each column is contained in a div element that data attribute the contains the database column name
-         * allowing the relevent column object to be retrieved.
-         */
-        if (type === 'button')
-            this._executeCommand();
-        else {
-            colName = parent.dataset.name;
-            this._checkEnteredValue(colName);
-        }
-        
-        console.log('OnEvent called for ' + key + ' type ' + type + ' column ' + colName);
-    }
-    /*
-     * This allows changes to a column that changes the table as a whole to be taken account of. At the moment
-     * this is the calculation of the max label size. This requires that the columns are created with the
-     * table as the owner.
-     */
-    _columnChanged(col) {
-        var lab = col._attributes['label'];
-        
-        if (lab !== null && this._calcMaxLabel && lab.length > this._maxLabelSize) this._maxLabelSize = lab.length;
-    }
     /*
      * If maxLabelSize is undefined, the max label size is calculated, otherwise, it should be an
      * integer that is the size of the largest field label.
@@ -234,8 +168,17 @@ class DatabaseTable {
             this._calcMaxLabel = false;
         }
     }
+    get formId() {
+        return this._formId;
+    }
     get name() {
         return this._name;
+    }
+    set parent(name) {
+        this._parent = name;
+    }
+    get parent() {
+        return this._parent;
     }
     get server() {
         return this._server;
@@ -290,6 +233,207 @@ class DatabaseTable {
     getColumns() {
         return this._columns;
     }
+    get keyColumns() {
+        var key = [];
+        
+        for (const col of this.getColumns()){
+            if (col.isPrimeKey) key.push(col);
+        }
+        return key;
+    }    
+    /*
+     * This allows changes to a column that changes the table as a whole to be taken account of. At the moment
+     * this is the calculation of the max label size. This requires that the columns are created with the
+     * table as the owner.
+     */
+    _columnChanged(col) {
+        var lab = col._attributes['label'];
+        
+        if (lab !== null && this._calcMaxLabel && lab.length > this._maxLabelSize) this._maxLabelSize = lab.length;
+    }
+    _createFormRow(form, col) {
+        var fRow = createElement(document, 'div', {append: form, 'data-name': col.name});
+        
+        return fRow;
+    }
+    _removeButtons() {
+        removeChildren(this._buttons);
+    }
+    _addButton(name, value) {
+        var elm  = createElement(document, 'input', {append: this._buttons, name: name, type: 'button', value: value});
+        
+        elm.setAttribute('onclick', 'tableFormChange("' + this._formId + '");');
+    }
+    _updateNext(action, options) {
+        var elm;
+        
+        switch (action) {
+            case 'create':
+                elm = createElement(document, 'div', {append: getElement(this._formId), class: 'centre'});
+                createElement(document, 'label', {append: elm, text: 'Next', forceGap: '4px'});
+                this._next = createElement(document, 'select', {append: elm});
+                this._next.setAttribute('onchange', 'tableFormChange("' + this._formId + '");');
+                addOption(this._next, '');
+                break;
+            case 'clear':
+                this._next.innerHTML = "";
+                break;
+            case 'add':
+                var opts = options.split(',');
+                
+                for (const option of opts){
+                    addOption(this._next, option.trim());
+                }
+                break;
+            default:
+                console.log('Next action ' + action + ' is invalid');
+        }
+    }
+    _populateListField(col, source, filter) {
+        col.setKeyFieldMulti(true);
+        getList(this.server, {
+            table:      source.table,
+            field:      source.column,
+            element:    col.element,
+            filter:     filter,
+            keepValue:  false,
+            async:      false,
+            allowBlank: true});        
+    }
+    _checkEnteredValue(colName) {
+        var col = this.getColumn(colName);
+        var elm = col.getAttribute('colElement');
+        var lab = elm.parentElement.firstChild;
+        var val = getFieldValue(elm, col.getAttribute('mandatory'));
+        
+        if (val === undefined) return false;
+        
+        switch (col.getAttribute('type')) {
+            case 'DATETIME':
+                return checkTimestamp(elm, false);
+                break;
+            case 'DATE':
+                return checkDate(elm, false);
+                break;
+            case 'TIME':
+                return checkTime(elm, false);
+                break;
+            default:
+                console.log('Column ' + col.name + ' type ' + col.getAttribute('type'));
+        }
+        return true;
+    }
+    _executeCommand() {
+        var btn        = event.target;
+        var action     = btn.value;
+        var cols       = this._columns;
+        var check;
+        var add;
+        var parameters = createParameters('updatetable');
+        
+        parameters = addParameter(parameters, 'table', this.name + ',' + action);
+        
+        if (action === 'New') {
+            this._removeButtons();
+            this._addButton('Create Row', 'Create');
+            this._initialiseTableForm('create');
+            return;
+        }
+        for (const col of this.getColumns()){
+            switch (action) {
+                case 'New':
+                    break;
+                case 'Read':
+                    check = col.isPrimeKey;
+                    add   = true;
+                    break;
+                case 'Create':
+                    check = true;
+                    add   = true;
+                case 'Update':
+                    check = true;
+                    add   = true;
+                    break;
+                case 'Delete':
+                    check = col.isPrimeKey;
+                    add   = check;
+            }
+            
+            if (check && !this._checkEnteredValue(col.name)) return false;
+            
+            if (add) parameters = col.addRequestParameter(parameters);
+        }
+        function processResponse(response) {
+            if (action === 'Read' && response.startsWith('{')) {
+                var json  = stringToJSON(response);
+                var jdata = json.getMember('Data', true).value;
+                var jcols;
+                var jcol;
+                var col;
+                var i     = 0;
+                
+                jdata.setFirst();
+                
+                if (jdata.isNext()) {
+                    jcols = jdata.next().value;
+                    jcols.setFirst;
+                    
+                    while (jcols.isNext()) {
+                        col  = cols[i++];
+                        jcol = jcols.next();
+                        col.getAttribute('colElement').value = jcol.value;
+                    }
+                } else
+                    console.log('Server error-json column data is empty');
+            } else {
+                if (response.startsWith('!')) {
+                    var fields = response.split('!');
+                    
+                    displayAlert(action + ' Failure', fields[1] + ' in ' + fields[2]);
+                } else if (response.length > 2) {
+                    displayAlert(action + ' Failure', response);
+                }
+            }
+        }
+        ajaxLoggedInCall(this.server, processResponse, parameters);
+        return true;
+    }
+    _displayForm(usage) {
+        if (usage === '') return;
+        /*
+         * Put a check here to add warning for unsaved changes.
+         */
+        switch (usage) {
+            case 'Read':
+                break;
+            case 'Create':
+                break;
+            case 'Update':
+                break
+            case 'Delete':
+                break;
+            default:
+                console.warn('Usage ' + usage + ' not implemented');
+        }
+    }
+    _onevent(key) {
+        var type    = event.target.type;
+        var parent  = event.target.parentElement;
+        var colName = parent.dataset.name;
+        /*
+         * Each column is contained in a div element that data attribute the contains the database column name
+         * allowing the relevent column object to be retrieved.
+         */
+        if (type === 'button')
+            this._executeCommand();
+        else if (type === 'select-one') {
+            if (event.target === this._next)
+                this._displayForm(event.target.value);
+            else
+                this._setSelectKey(colName);
+        } else
+            this._checkEnteredValue(colName);
+    }
     logObject(jobj) {
         while (jobj.isNext()) {
             var jmem = jobj.next();
@@ -304,12 +448,14 @@ class DatabaseTable {
         var col;
         
         this.displayName = jhdr.getMember('DisplayName', true).value;
+        this.parent      = jhdr.getMember('Parent',      true).value;
         
         while (jcols.isNext()) {
             var jcol = jcols.next().value;
             
             col = this.addColumn(jcol.getMember('Name', true).value);
             col.setAttribute('label',       jcol.getMember('Label',      true).value);
+            col.setAttribute('source',      jcol.getMember('Source',     true).value);
             col.setAttribute('isPrimeKey',  jcol.getMember('PKeyColumn', true).value);
             col.setAttribute('type',        jcol.getMember('Type',       true).value);
             col.setAttribute('mandatory',  !jcol.getMember('Nullable',   true).value);
@@ -317,15 +463,83 @@ class DatabaseTable {
             col.setAttribute('size',        jcol.getMember('Size',       true).value);
         }
     }
-    _createFormRow(form, col) {
-        var fRow = createElement(document, 'div', {append: form, 'data-name': col.name});
+    _setSelectKey(selectedColumn) {        
+        var filter    = '';
+        var clear     = false;
+        var useNext   = false;
+        var value     = '';
+        var inParent;
+        var listCol;
+        var source;
         
-        return fRow;
+        if (selectedColumn !== undefined && !this.getColumn(selectedColumn).isPrimeKey) return; // Ignore non prime key column selects.
+        
+        for (const col of this.keyColumns){
+            value  = col.element.value;
+            source = col.source;
+            
+            if (this._formUsage !== 'create')
+                source = {table: this.name, column: col.name};
+            else {
+                inParent = true;
+                
+                if (source === null) 
+                    inParent = false; // This field does not have list.
+                else if (source.table !== this.parent) {
+                    /*
+                     * This column has list but not sourced by parent.
+                     */
+                    this._populateListField(col, source, '');
+                    inParent = false;
+                }
+                if (!inParent) {
+                    setReadOnly(col.element, false);
+                    continue;
+                }
+            }
+            setReadOnly(col.element, false);
+            
+            if (clear) {
+                /*
+                 * The first blank key column has been found, so clear value and lock against update.
+                 */
+                col.element.value = '';
+                setReadOnly(col.element, true);
+            } else if (value !== '' && !useNext) {
+                /*
+                 * This field to be added to list filter. If value was established by
+                 * selection from the list, set useNext to trigger list creation for 
+                 * following field.
+                 */
+                filter  = addDBFilterField(filter, col.element, col.name);
+                useNext = selectedColumn !== undefined && col.name === selectedColumn;
+            } else {
+                /*
+                 * This is the first blank key field or the one following a list selection and 
+                 * is the field that needs a list of allowed values.
+                 */
+                listCol = col;
+                clear   = true;
+            }
+        }
+        if (listCol !== undefined) this._populateListField(listCol, {table: this.name, column: listCol.name}, filter);
     }
-    _addButton(parent, name, value) {
-        var elm  = createElement(document, 'input', {append: parent, name: name, type: 'button', value: value});
+    _initialiseTableForm(usage) {
+        if (usage === undefined) 
+            usage = this._formUsage;
+        else
+            this._formUsage = usage;
         
-        elm.setAttribute('onclick', 'tableFormChange("' + this._formId + '");');
+        switch (usage) {
+            case 'read':
+                this._setSelectKey();
+                break;
+            case 'create':
+                this._setSelectKey();
+                break;
+            default:
+                console.warn('Usage ' + usage + ' not implemented');
+        }
     }
     createForm() {
         var root = getElement(this._formId);
@@ -336,9 +550,7 @@ class DatabaseTable {
         var type;
         var elm;
         
-        while (root.lastElementChild) {
-            root.removeChild(root.lastElementChild);
-        }
+        removeChildren(root);
         createElement(document, 'h2', {append: root, text: this.displayName, class: 'centre'});
         
         for (var i=0; i < cols.length; i++){
@@ -356,11 +568,11 @@ class DatabaseTable {
             col.setAttribute('colElement', elm);            
             elm.setAttribute('onchange', 'tableFormChange("' + this._formId + '");');
         }
-        fRow = createElement(document, 'div', {append: root, class: 'centre'});
-        this._addButton(fRow, 'Create Row', 'Create');
-        this._addButton(fRow, 'Read Row',   'Read');
-        this._addButton(fRow, 'Update Row', 'Update');
-        this._addButton(fRow, 'Delete Row', 'Delete');
+        this._buttons = createElement(document, 'div', {append: root, class: 'centre'});
+        this._addButton('Read Row', 'Read');
+        this._updateNext('create');
+        this._updateNext('add', 'Read,Update, Delete');
+        this._initialiseTableForm('read');
     }
 }
 function getTableDefinition(server, tableName, formId) {

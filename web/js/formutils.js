@@ -1,5 +1,38 @@
 'use strict';
 /*
+ * object can be one of the following:
+ *  Object         Element
+ *  undefined    event.target
+ *  null              "
+ *  empty string      "
+ *  string       Element for object string or null if no element for object
+ *  otherwise    object
+ *  
+ * withValue     undefined or false element is returned, otherwise returns a structure, with the element, its value as a string which is
+ *               empty if value element value is undefined and empty set to true if value is the empty string.
+ */
+function getElement(object, withValue) {
+    var elm = object;
+    
+    if (object === undefined || object === null)
+        elm = event.target;
+    else if (typeof object === 'string') { 
+        if (trim(object) === '')
+            elm = event.target;
+        else
+            elm = document.getElementById(object);
+    }    
+    var val = elm === null || elm.value === undefined? "" : trim(elm.value);
+    
+    if (withValue === undefined || !withValue) return elm;
+    
+    return {
+        elm:   elm,
+        value: val,
+        empty: val.length === 0
+    };
+}
+/*
  * Returns an array of the elements children. If tagName is defined only children with tagName are returned.
  */
 function getChildren(element, tagName) {
@@ -11,6 +44,13 @@ function getChildren(element, tagName) {
         }
     }
     return children;
+}
+function removeChildren(element) {
+    element = getElement(element);
+    
+    while (element.lastElementChild) {
+        element.removeChild(element.lastElementChild);
+    }
 }
 function getParameter(value, defaultValue) {
     return value === undefined? defaultValue : value;
@@ -395,39 +435,6 @@ function checkTimestamp(elm, required) {
 }
 function checkDateTime(did, tid, required) {
     return validateDateTime(did, tid, {required: required}).valid;
-}
-/*
- * object can be one of the following:
- *  Object         Element
- *  undefined    event.target
- *  null              "
- *  empty string      "
- *  string       Element for object string or null if no element for object
- *  otherwise    object
- *  
- * withValue     undefined or false element is returned, otherwise returns a structure, with the element, its value as a string which is
- *               empty if value element value is undefined and empty set to true if value is the empty string.
- */
-function getElement(object, withValue) {
-    var elm = object;
-    
-    if (object === undefined || object === null)
-        elm = event.target;
-    else if (typeof object === 'string') { 
-        if (trim(object) === '')
-            elm = event.target;
-        else
-            elm = document.getElementById(object);
-    }    
-    var val = elm === null || elm.value === undefined? "" : trim(elm.value);
-    
-    if (withValue === undefined || !withValue) return elm;
-    
-    return {
-        elm:   elm,
-        value: val,
-        empty: val.length === 0
-    };
 }
 function triggerClick(element) {
     var event;
@@ -940,7 +947,8 @@ function loadOptionsJSONOptions(pOptions){
     BaseOptions.call(this, true);
     
     setObjectName(this, 'loadOptionsJSONOptions');
-    this.addSpec({name: 'name',         type: null});   
+    this.addSpec({name: 'name',         type: null,      default: ''});   
+    this.addSpec({name: 'element',      type: 'object',  default: null, mandatory: false});   
     this.addSpec({name: 'keepValue',    type: 'boolean', default: true});     
     this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
     this.addSpec({name: 'allowBlank',   type: 'boolean', default: false});
@@ -950,6 +958,7 @@ function loadOptionsJSONOptions(pOptions){
 }
 loadOptionsJSONOptions.prototype = {    
     get name()         {return this.getValue('name');},
+    get element()      {return this.getValue('element');},
     get keepValue()    {return this.getValue('keepValue');},
     get defaultValue() {return this.getValue('defaultValue');},
     get allowBlank()   {return this.getValue('allowBlank');}};
@@ -1863,7 +1872,7 @@ function loadOptionsJSON(jsonOptions, loadOptions) {
     try {        
         var options = new loadOptionsJSONOptions(loadOptions);        
         var json    = jsonOptions;
-        var select  = getElement(options.name);
+        var select  = getElement(options.element === null? options.name : options.element);
         var initial = options.keepValue ? select.value : options.defaultValue !== null ? options.defaultValue : "";
         /*
          * For the Datalist options setting select.options = 0 has no effe
@@ -2150,6 +2159,12 @@ function setHidden(name, yes) {
      */
     element.style.display = yes ? 'none' : show;
 }
+function setReadOnly(name, yes) {
+    var element = getElement(name);
+    
+    element.readOnly = yes;
+}
+
 function setLabel(name, caption) {
     document.getElementById(name).innerHTML = caption;
 }
@@ -2263,7 +2278,7 @@ function getList(server, options, returnResponse) {
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {
-        if (options.name !== undefined)loadListResponse(response, options);
+        loadListResponse(response, options);
         
         if (returnResponse !== undefined && returnResponse) save = response;
     }
