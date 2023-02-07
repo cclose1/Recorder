@@ -5,6 +5,7 @@ var useBrowserAlert = true;
 var confirm;
 var focusElement;
 var clearValue = false;
+var alertData;
 
 var al;
 
@@ -159,7 +160,7 @@ function dismissAlert() {
     if (!useBrowserAlert) al.display(false, false);
     
     if (confirm !== undefined) {
-        confirm.actionCancel(confirm);
+        confirm.actionCancel(confirm, alertData);
     }    
     if (focusElement !== undefined) {
         if (clearValue) focusElement.value = '';
@@ -174,7 +175,7 @@ function invokeConfirmAction() {
     if (confirm === undefined)
         dismissAlert();
     else {
-        confirm.actionClick(confirm);
+        confirm.actionClick(confirm, alertData);
         dismissAlert();
     }        
 }
@@ -195,17 +196,19 @@ function displayAlert(title, text, options) {
         confirm      = options.confirm;
         focusElement = options.focus;
         clearValue   = options.clear;
+        alertData    = options.alertData;
     } else {
         confirm      = undefined;
         focusElement = undefined;      
         clearValue   = false;
+        alertData    = undefined;
     }
     if (useBrowserAlert) {
         if (confirm === undefined)
             alert(text);
         else {
             if (prompt(title, text) !== null)
-                confirm.actionClick();
+                confirm.actionClick(confirm, alertData);
             else
                 dismissAlert();
         }

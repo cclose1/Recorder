@@ -1,6 +1,11 @@
+/* global reporter, getElement */
+
 'use strict';
 
 var sessionFilter;
+var prcur  = null;
+var prlast = null;
+var prgap  = 5;
 
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
@@ -169,22 +174,25 @@ function requestChargers() {
     }
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
+function clearElement(id) {
+    document.getElementById(id).value = "";    
+}
 function reset() {
-    document.getElementById("keytimestamp").value = "";
-    document.getElementById("sessioncomment").value    = "";
-    document.getElementById("mileage").value           = "";
-    document.getElementById("estduration").value       = "";
-    document.getElementById("sdate").value             = "";
-    document.getElementById("stime").value             = "";
-    document.getElementById("smiles").value            = "";
-    document.getElementById("schargepc").value         = "";
-    document.getElementById("edate").value             = "";
-    document.getElementById("etime").value             = "";
-    document.getElementById("emiles").value            = "";
-    document.getElementById("echargepc").value         = "";
-    document.getElementById("charge").value            = "";
-    document.getElementById("cost").value              = "";
-    
+    clearElement("keytimestamp");
+    clearElement("sessioncomment");
+    clearElement("mileage");
+    clearElement("estduration");
+    clearElement("sdate");
+    clearElement("stime");
+    clearElement("smiles");
+    clearElement("schargepc");
+    clearElement("edate");
+    clearElement("etime");
+    clearElement("emiles");
+    clearElement("echargepc");
+    clearElement("charge");
+    clearElement("cost");
+    updateProgress(true);
     requestChargeSessions();
     requestChargers();
     setSave('New');
@@ -231,7 +239,6 @@ function setNew(copy) {
                         break;
                 }
             }
-            var i;
         }
     }
     setDateTime('sdate', 'stime');
@@ -239,7 +246,83 @@ function setNew(copy) {
     setSave('Create');
 }
 function getDateTime(prefix) {
-   return getElement(prefix + 'date', true).value + ' ' + getElement(prefix + 'time', true).value;
+    return getElement(prefix + 'date', true).value + ' ' + getElement(prefix + 'time', true).value;
+}
+/*
+ * Returns the Date object for the element ids date and time. If time is undefined, the date element
+ * contains date and time, otherwise date contains just the date and time the time string. 
+ */
+function getDate(date, time) {
+    var datetime = getElement(date).value;
+    
+    if (time !== undefined) datetime += ' ' + getElement(time).value;
+    
+    return datetime.trim() === '' ? null : toDate(datetime);
+}
+function exitTable() {
+    setHidden('selecttable', false);
+    setHidden('updatetable', true);    
+}
+function setRate(id, from, to) {
+    var pcdiff = to.perc - from.perc;
+    var rate   = null;
+    
+    if (pcdiff !== 0) {
+        /*
+         * Have to allow for charge not changed since last update.
+         */
+        rate = (dateDiff(from.time, to.time, 'minutes') / pcdiff).toFixed(2);
+    }
+    getElement(id).value = rate === null ? '' : rate;
+    
+    return rate;
+}
+/*
+ * The variables prcur and prlast point to objects
+ */
+function copyProgressState(state) {
+    return {time: new Date(state.time.getTime()), perc: state.perc};
+}
+function stateBefore(statea, stateb) {
+    if (statea === null || stateb === null) return false;
+    
+    return statea.time.getTime() < stateb.time.getTime();
+}
+function updateProgress(reset) {
+    if (reset) {
+        prcur  = null;
+        prlast = null;
+        clearElement('prgsrate');
+        clearElement('prgcrate');
+        clearElement('prgcomplete');
+        return;
+    }
+    var start = {time: getDate('sdate', 'stime'), perc: getElement('schargepc').value};
+    var end   = {time: getDate('edate', 'etime'), perc: getElement('echargepc').value};
+    var rate;
+    /*
+     * The end time may have been set earlier, so ajdust prcur and prlast if necessary.
+     */
+    if (stateBefore(end, prlast)) prlast = null;
+    if (stateBefore(end, prcur))  prcur  = null;
+    
+    if (prcur === null) prcur = copyProgressState(start);
+    
+    if (prlast === null) 
+        prlast = copyProgressState(end);
+    else if (dateDiff(prcur.time, end.time, 'minutes') >= prgap) {
+        prcur  = copyProgressState(prlast);
+        prlast = null;
+    }
+    rate = setRate('prgsrate', start, end);
+    rate = setRate('prgcrate', prcur, end);
+    
+    if (rate !== null) {
+        var minToComplete = rate * (100 - end.perc);
+        var complete      = new Date(end.time.getTime() + minToComplete*60000);
+        
+        getElement('prgcomplete').value = dateTimeString(complete);
+    }
 }
 function tableSelected() {
     var table = event.target.value;
@@ -248,8 +331,10 @@ function tableSelected() {
         setHidden('updatetable', true);
     else {
         var tab   = getTableDefinition('CarUsage', table, 'updatetable');
-        tab.createForm();
+        event.target.selectedIndex = -1;
+        tab.createForm(exitTable);
         setHidden('updatetable', false);
+        setHidden('selecttable', true);
     }
 }
 function send(action) {
@@ -270,7 +355,7 @@ function send(action) {
     var dt = validateDateTime("sdate", "stime", {required: true});
     if (!dt.valid) return;
     
-    if (action !== 'delete') {
+    if (action !== 'Delete') {
         var tm = validateDateTime("edate", "etime");
         if (!tm.valid) return;
 
@@ -311,6 +396,8 @@ function send(action) {
             return;
         }
         requestChargeSessions();
+        
+        if (action === 'Update') updateProgress();
         
         if (action === 'Delete')
             clearData();

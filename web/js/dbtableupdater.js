@@ -34,6 +34,17 @@ function ColumnOptions() {
         
     this.clear();
 }
+function setFormFieldsOptions(pOptions) {        
+    BaseOptions.call(this, false);
+
+    this.addSpec({name: 'lock',      type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'lockPrime', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'clear',     type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'update',    type: 'boolean', default: false, mandatory: false});
+
+     this.clear();
+     this.load(pOptions, true);
+ }
 /*
  * The _ indicates that the variable is private to the implementation of the class. According to
  * the documentation for a class, starting a variable with # should ensure a variable is private,
@@ -89,18 +100,14 @@ class TableColumn {
         return this._attributes.getValue(name);
     }
     /*
-     * Set key field to single value, the default, or a select list of allowed values.
+     * Set field to single value, the default, or a select list of allowed values.
      * 
      * @param {type} yes If select list.
      */
-    setKeyFieldMulti(yes) {
+    setFieldToList(yes) {
         var celm = this.element;
         var nelm;
-        
-        if (!this.isPrimeKey) {
-            console.log('Col ' + this.name + ' is not part of the prime key');
-            return;
-        }
+                                       
         if (celm.tagName === (yes? 'select' : 'input')) return; /* Already correct tag. */
         
         if (yes)
@@ -146,11 +153,13 @@ class DatabaseTable {
     _parent;
     _server;
     _formUsage;
+    _exitHandler     = null;
     _displayName;
-    _columns      = [];
-    _index        = new Map();
-    _maxLabelSize = -1
-    _calcMaxLabel = true
+    _changesNotSaved = false;
+    _columns         = [];
+    _index           = new Map();
+    _maxLabelSize    = -1
+    _calcMaxLabel    = true
     /*
      * If maxLabelSize is undefined, the max label size is calculated, otherwise, it should be an
      * integer that is the size of the largest field label.
@@ -167,6 +176,15 @@ class DatabaseTable {
             this._maxLabelSize = maxLabelSize;
             this._calcMaxLabel = false;
         }
+    };
+    actionCancel(table, alertData) {
+        console.log('Cancel called');
+        this._next.value = '';
+    }
+    actionClick(table, alertData) {
+        console.log('Click called');
+        this._unsavedChanges = false;
+        table._displayForm(alertData.usage);
     }
     get formId() {
         return this._formId;
@@ -290,7 +308,9 @@ class DatabaseTable {
         }
     }
     _populateListField(col, source, filter) {
-        col.setKeyFieldMulti(true);
+        var value = col.element.value;
+        
+        col.setFieldToList(true);
         getList(this.server, {
             table:      source.table,
             field:      source.column,
@@ -299,6 +319,7 @@ class DatabaseTable {
             keepValue:  false,
             async:      false,
             allowBlank: true});        
+        col.element.value = value;
     }
     _checkEnteredValue(colName) {
         var col = this.getColumn(colName);
@@ -323,26 +344,24 @@ class DatabaseTable {
         }
         return true;
     }
+    set _unsavedChanges(yes) {
+        this._changesNotSaved = yes && this._formUsage !== 'read';
+    }
+    get _unsavedChanges() {
+        return this._changesNotSaved;
+    }
     _executeCommand() {
-        var btn        = event.target;
-        var action     = btn.value;
-        var cols       = this._columns;
+        var btn    = event.target;
+        var action = btn.value;
+        var cols   = this._columns;
         var check;
         var add;
         var parameters = createParameters('updatetable');
         
         parameters = addParameter(parameters, 'table', this.name + ',' + action);
         
-        if (action === 'New') {
-            this._removeButtons();
-            this._addButton('Create Row', 'Create');
-            this._initialiseTableForm('create');
-            return;
-        }
         for (const col of this.getColumns()){
             switch (action) {
-                case 'New':
-                    break;
                 case 'Read':
                     check = col.isPrimeKey;
                     add   = true;
@@ -390,31 +409,186 @@ class DatabaseTable {
                     var fields = response.split('!');
                     
                     displayAlert(action + ' Failure', fields[1] + ' in ' + fields[2]);
+                    return false;
                 } else if (response.length > 2) {
                     displayAlert(action + ' Failure', response);
+                    return false;
                 }
             }
         }
         ajaxLoggedInCall(this.server, processResponse, parameters);
+        this._unsavedChanges = false;
+        
         return true;
     }
+    _setSelectKey(selectedColumn) {        
+        var filter    = '';
+        var clear     = false;
+        var useNext   = false;
+        var value     = '';
+        var inParent;
+        var listCol;
+        var listSrc;
+        var source;
+        
+        if (selectedColumn !== undefined && !this.getColumn(selectedColumn).isPrimeKey) return; // Ignore non prime key column selects.
+        
+        for (const col of this.keyColumns){
+            value  = col.element.value;
+            source = col.source;
+            
+            if (this._formUsage !== 'create')
+                source = {table: this.name, column: col.name};
+            else {
+                inParent = true;
+                
+                if (source === null) 
+                    inParent = false; // This field does not have list.
+                else if (source.table !== this.parent) {
+                    /*
+                     * This column has list but not sourced by parent.
+                     */
+                    this._populateListField(col, source, '');
+                    inParent = false;
+                }
+                if (!inParent) {
+                    continue;
+                }
+            }
+            setReadOnly(col.element, false);
+            
+            if (clear) {
+                /*
+                 * The first blank key column has been found, so clear value and lock against update.
+                 */
+                col.element.value = '';
+                this._setReadOnly(col, true);
+            } else if (value !== '' && !useNext) {
+                if (col.element.tagName !== 'SELECT') {
+                    /*
+                     * Convert back to a select list with value as selected
+                     */
+                    this._populateListField(col, source, filter);
+                    col.element.value = value;
+                }
+                /*
+                 * This field to be added to list filter. If value was established by
+                 * selection from the list, set useNext to trigger list creation for 
+                 * following field.
+                 */
+                filter  = addDBFilterField(filter, col.element, col.name);
+                useNext = selectedColumn !== undefined && col.name === selectedColumn;
+            } else {
+                /*
+                 * This is the first blank key field or the one following a list selection and 
+                 * is the field that needs a list of allowed values.
+                 */
+                listCol = col;
+                listSrc = source;
+                clear   = true;
+            }
+        }
+        if (listCol !== undefined) this._populateListField(listCol, {table: this.name, column: listCol.name}, filter);
+    }
+    /*
+     * The column read only. If the element is a select box, it is converted to a text box and
+     * its selected value is copied.
+     */
+    _setReadOnly(col, on) {
+        if (col.element.tagName === 'SELECT') {
+            if (on) {
+                /*
+                 * A select cannot be made read only, so convert it to a text input and
+                 * set it to the selected value.
+                 */
+                var val = col.element.value;
+                
+                col.setFieldToList(false);
+                col.element.value = val;
+                setReadOnly(col.element, on);
+            }
+        } else 
+            setReadOnly(col.element, on);
+    }
+    _setFormFields(options) {
+        options = new setFormFieldsOptions(options);
+        
+        for (const col of this.getColumns()){
+            if (col.isPrimeKey) {
+                if (options.lockPrime) this._setReadOnly(col, true);
+            } else {
+                if (options.clear) col.element.value = '';
+                if (options.lock)  this._setReadOnly(col, true);
+                if (options.update) {
+                    this._setReadOnly(col, false);
+                    
+                    if (col.source !== null) this._populateListField(col, col.source, '');
+                }
+            }
+        }
+    }
     _displayForm(usage) {
+        var next = 'Read, Create, Update, Exit';
+        
         if (usage === '') return;
+        
+        if (usage === undefined) 
+            usage = this._formUsage;
+        else
+            this._formUsage = usage;
+        
+        this._removeButtons();
         /*
          * Put a check here to add warning for unsaved changes.
          */
         switch (usage) {
-            case 'Read':
+            case 'read':
+                this._setSelectKey();
+                this._setFormFields({clear: true, lock: true});
+                this._addButton('Read Row', 'Read');
+                next = 'Create, Update, Delete';
                 break;
-            case 'Create':
+            case 'create':                
+                for (const col of this.keyColumns){
+                    /*
+                     * For create clear key column values.
+                     */
+                    col.setFieldToList(false);
+                    col.element.value = '';
+                }
+                this._setSelectKey();
+                this._addButton('Create Row', 'Create');
+                this._setFormFields({clear: true, update: true});
+                next = 'Read, Update, Delete';
                 break;
-            case 'Update':
-                break
-            case 'Delete':
+            case 'update':
+                this._setFormFields({lockPrime: true, update: true});
+                this._addButton('Update Row', 'Update');
+                next = 'Read, Create, Delete';
                 break;
+            case 'delete':
+                this._setFormFields({lockPrime: true, lock: true});
+                this._addButton('Delete Row', 'Delete');
+                next = 'Read, Create, Update';
+                break;
+            case 'exit':
+                if (this._exitHandler !== null) this._exitHandler();
+                
+                return;
             default:
                 console.warn('Usage ' + usage + ' not implemented');
         }
+        this._updateNext('clear');
+        this._updateNext('add', ',' + next + ',Exit');
+    }
+    _checkUnsavedData(usage) {
+        if (this._unsavedChanges)        
+            displayAlert(
+                'Warning', 
+                'Discard unsaved data?',
+                {confirm: this, alertData: {usage: usage}});
+        else
+            this._displayForm(usage);               
     }
     _onevent(key) {
         var type    = event.target.type;
@@ -428,11 +602,15 @@ class DatabaseTable {
             this._executeCommand();
         else if (type === 'select-one') {
             if (event.target === this._next)
-                this._displayForm(event.target.value);
-            else
+                this._checkUnsavedData(event.target.value.toLowerCase());
+            else {
+                this._unsavedChanges = true;
                 this._setSelectKey(colName);
-        } else
+            }
+        } else {
+            this._unsavedChanges = true;
             this._checkEnteredValue(colName);
+        }
     }
     logObject(jobj) {
         while (jobj.isNext()) {
@@ -463,85 +641,7 @@ class DatabaseTable {
             col.setAttribute('size',        jcol.getMember('Size',       true).value);
         }
     }
-    _setSelectKey(selectedColumn) {        
-        var filter    = '';
-        var clear     = false;
-        var useNext   = false;
-        var value     = '';
-        var inParent;
-        var listCol;
-        var source;
-        
-        if (selectedColumn !== undefined && !this.getColumn(selectedColumn).isPrimeKey) return; // Ignore non prime key column selects.
-        
-        for (const col of this.keyColumns){
-            value  = col.element.value;
-            source = col.source;
-            
-            if (this._formUsage !== 'create')
-                source = {table: this.name, column: col.name};
-            else {
-                inParent = true;
-                
-                if (source === null) 
-                    inParent = false; // This field does not have list.
-                else if (source.table !== this.parent) {
-                    /*
-                     * This column has list but not sourced by parent.
-                     */
-                    this._populateListField(col, source, '');
-                    inParent = false;
-                }
-                if (!inParent) {
-                    setReadOnly(col.element, false);
-                    continue;
-                }
-            }
-            setReadOnly(col.element, false);
-            
-            if (clear) {
-                /*
-                 * The first blank key column has been found, so clear value and lock against update.
-                 */
-                col.element.value = '';
-                setReadOnly(col.element, true);
-            } else if (value !== '' && !useNext) {
-                /*
-                 * This field to be added to list filter. If value was established by
-                 * selection from the list, set useNext to trigger list creation for 
-                 * following field.
-                 */
-                filter  = addDBFilterField(filter, col.element, col.name);
-                useNext = selectedColumn !== undefined && col.name === selectedColumn;
-            } else {
-                /*
-                 * This is the first blank key field or the one following a list selection and 
-                 * is the field that needs a list of allowed values.
-                 */
-                listCol = col;
-                clear   = true;
-            }
-        }
-        if (listCol !== undefined) this._populateListField(listCol, {table: this.name, column: listCol.name}, filter);
-    }
-    _initialiseTableForm(usage) {
-        if (usage === undefined) 
-            usage = this._formUsage;
-        else
-            this._formUsage = usage;
-        
-        switch (usage) {
-            case 'read':
-                this._setSelectKey();
-                break;
-            case 'create':
-                this._setSelectKey();
-                break;
-            default:
-                console.warn('Usage ' + usage + ' not implemented');
-        }
-    }
-    createForm() {
+    createForm(exitHandler) {
         var root = getElement(this._formId);
         var cols = this.getColumns();
         var col;
@@ -550,6 +650,8 @@ class DatabaseTable {
         var type;
         var elm;
         
+        if (exitHandler !== undefined && exitHandler !== null) this._exitHandler = exitHandler;
+    
         removeChildren(root);
         createElement(document, 'h2', {append: root, text: this.displayName, class: 'centre'});
         
@@ -569,10 +671,8 @@ class DatabaseTable {
             elm.setAttribute('onchange', 'tableFormChange("' + this._formId + '");');
         }
         this._buttons = createElement(document, 'div', {append: root, class: 'centre'});
-        this._addButton('Read Row', 'Read');
         this._updateNext('create');
-        this._updateNext('add', 'Read,Update, Delete');
-        this._initialiseTableForm('read');
+        this._displayForm('read');
     }
 }
 function getTableDefinition(server, tableName, formId) {

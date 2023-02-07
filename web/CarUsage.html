@@ -142,9 +142,26 @@
                         <tr><td></td></tr>
                     </table>
                     <div class='centre'>
+                        <fieldset id="progress" class='form centreminwidth'>
+                            <legend>Progress</legend>
+                            <div>
+                                <label for='prgsrate' class='prglabwidth'>Session Rate (min/%)</label>
+                                <input type="text" readonly size ="15" id="prgsrate" tabindex="0">                          
+                            </div>
+                            <div>
+                                <label for='prgcrate' class='prglabwidth'>Current Rate (min/%)</label>
+                                <input type="text" readonly size ="15" id="prgcrate" tabindex="0">                            
+                            </div>
+                            <div>
+                                <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
+                                <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
+                            </div>
+                        </fieldset>
+                    </div>
+                    <div class='centre'>
                     <label for='selecttable' class='largelab'>Update Table</label>
                     <select id='selecttable' onchange='tableSelected();'>
-                        <option value='None'>None</option>
+                        <option value='None'></option>
                         <option value='Test'>Test</option>
                         <option value='Test2'>Test2</option>
                         <option value='Test3'>Test3</option>

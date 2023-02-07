@@ -158,6 +158,12 @@ public class CarUsage extends ApplicationServer {
             case "Test3":
                 table.setParent("Test2");
                 break;
+            case "ChargerLocation":                
+                table.getColumn("Network").setSource("ChargerNetwork", "Name");
+                break;
+            case "ChargerUnit":                
+                table.getColumn("Location").setSource("ChargerLocation", "Name");
+                break;
             default:
                 // Ignore all other tables.
         }

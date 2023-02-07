@@ -218,8 +218,20 @@ function toDate(timestamp, notime) {
             }
         }
         date[1] = toNumber(date[1]) - 1;
-        
-        var datetime = new Date();
+        /*
+         * The following used to use new Date() to create the initial time. However, this caused an issue
+         * with the time field validation below. A problem arises if the current day number is 30 or 31 and
+         * the current month has 30 days or more, e.g. 2021-01-31. If the date being validated is for Sep,
+         * setting the month to Sep e.g 2021-09-31 will change the date to 2021 -10-03, because the date object
+         * always allows a day number in the range 1 to 31 and if that is not valid for the month it steps
+         * to the month and changes the number to start of the, i.e. for the above 31-28. 
+         * 
+         * The following ensures that setting the fields in the order year, month, day will not cause the
+         * initial values to cause overflow to the next field. Entering 2021-09-31 will cause the date to
+         * change to 2021-10-03 when the day number is set and the validation will correctly fail this as
+         * an invalid date.
+         */
+        var datetime = new Date('1901-01-01');
 
         datetime.setFullYear(date[2]);
         datetime.setMonth(date[1]);
