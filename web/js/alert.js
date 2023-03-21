@@ -1,14 +1,40 @@
+/* global BaseOptions, reporter  */
+
 'use strict';
 
+/*
+ * blockByContent is an option to use contenteditable rather than disable, to block updates to elements. However,
+ * it is useless for this purpose. Content is defined as the text between the element start and end tag, i.e.
+ * for <tag>xxx</tag> xxx is the content. Some elements e.g. <input> cannot have an end tag. So for 
+ * <label contenteditable="true">Description</label>, the user would be able to change description. 
+ * 
+ * The default setting for this attribute is false. 
+ */
 var alertTime;
 var useBrowserAlert = true;
-var confirm;
-var focusElement;
-var clearValue = false;
-var alertData;
-
+var alertOptions    = new AlertOptions();
+var alertOnDisplay  = false;
+var blockByContent  = false;
 var al;
 
+/*
+ * Defines the options for AlertDisply.
+ */
+function AlertOptions() {   
+    BaseOptions.call(this, false);
+    
+    this.addSpec({name: 'confirm',       type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'focus',         type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'clearValue',    type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'alertData',     type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'autoDismiss',   type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'blockApp',      type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'minWidth',      type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'minHeight',     type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'blockElements', type: undefined, default: null,  mandatory: false});
+       
+    this.clear();
+}
 function position() {
     var elm  = new Object();
     
@@ -124,6 +150,51 @@ function mouseMove(event) {
             alert(event.type);
     }
 }
+function getReportId(elm) {
+    if (elm.id   !== undefined && elm.id   !== null) return elm.id;
+    if (elm.name !== undefined && elm.name !== null) return elm.name;
+    
+    return elm.tagName;
+}
+/*
+ * Checks list to see if it contains blockable elements. A blockable element is one that implements the
+ * disable attribute.
+ * 
+ * list              if present, is either an error of elements, or a single element. Elements can either
+ *                   be an element object or, an element identifier string. Identifier
+ * errorNotBlockable If this is true, a fatal error is reported if the element is not blockable. Otherwise,
+ *                   none blockable elements are not returned.
+ * 
+ * @returns An array, which may be empty, of blockable elements.
+ */
+function getBlockList(list, errorNotBlockable) {
+    var res = new Array();
+    var elm;
+    
+    if (list === null || list === undefined) return res;
+    
+    if (!Array.isArray(list)) list = new Array(list);
+    
+    for (var i = 0; i < list.length; i++) {
+        elm = getElement(list[i]);
+        
+        if (elm === null) reporter.fatalError(list[i] + ' is not a valid element');
+        
+        if (elm.disabled === undefined && !blockByContent) {
+            /*
+             * hasAttribute returns true if the element has the disabled attribute, i.e. if elm.disabled
+             * returns true. It seems the elm.disabled returns undefined if the element does not implement
+             * the disabled attribute.
+             * 
+             * Don't know if this is a reliable way of doing this.
+             */
+            if (errorNotBlockable !== undefined && errorNotBlockable)
+                reporter.fatalError(getReportId(elm) + ' does not implement the disabled attribute');
+        } else
+            res.push(elm);      
+    }
+    return res;
+}
 function div_show(lenTitle, lenText, width) {    
     traceAlertDiv();
     
@@ -142,11 +213,32 @@ function div_show(lenTitle, lenText, width) {
     d.style.top  = (100 * top  / h).toFixed(2) + "%";
 }
 /*
+ * Checks if an application block is defined and sets it if on is true and removes it if on is false.
+ * 
+ * An application block is defined, if option blockApp is true or, option blockElements is not null.
+ */
+function setBlock(on) {
+    var blkElms = getBlockList(alertOptions.blockElements, false);
+    
+    if (blkElms.length === 0 && alertOptions.blockApp) blkElms = getBlockList(al.getAppId());
+    
+    for (var i = 0; i < blkElms.length; i++) {
+        if (blockByContent)
+            blkElms[i].setAttribute('contenteditable', false);
+        else
+            blkElms[i].disabled = on;
+    }
+}
+/*
+ * If alertOptions.autoDismiss is false, autoDismiss overridden and this function returns.
+ * 
  * Will cancel the message alert if the there is a click outside of it. The delay is required because the
  * on action event can fire after the alert screen is established, e.g. if a button onclick event is
  * used to call displayMessage, the onclick event fires after the function call.
  */
 function checkAlert(e) {
+    if (!alertOptions.autoDismiss) return;
+    
     var aDiv   = document.getElementById(al.getContainerId());
     var target = (e && e.target) || (event && event.srcElement);
 
@@ -154,81 +246,92 @@ function checkAlert(e) {
 
     var inDisplay = al.inDisplay(target);
     
-    if (!inDisplay) dismissAlert();
+    if (!inDisplay) invokeCancelAction();
 }
 function dismissAlert() {
-    if (!useBrowserAlert) al.display(false, false);
+    alertOnDisplay = false;
+    setBlock(false);
     
-    if (confirm !== undefined) {
-        confirm.actionCancel(confirm, alertData);
-    }    
-    if (focusElement !== undefined) {
-        if (clearValue) focusElement.value = '';
+    if (!useBrowserAlert) al.display(false, false);
+}
+
+function invokeCancelAction() {
+    if (alertOptions.confirm !== null) alertOptions.confirm.actionCancel(alertOptions,confirm, alertOptions.alertData);
         
-        focusElement.focus();
+    if (alertOptions.focus !== null) {
+        if (alertOptions.clearValue) alertOptions.focus.value = '';
+        
+        alertOptions.focus.focus();
     }
-    focusElement = undefined;
-    confirm      = undefined;
-    clearValue   = false;
-}
+    dismissAlert();
+}  
 function invokeConfirmAction() {
-    if (confirm === undefined)
-        dismissAlert();
-    else {
-        confirm.actionClick(confirm, alertData);
-        dismissAlert();
-    }        
-}
+    if (alertOptions.confirm !== undefined) alertOptions.confirm.actionClick(alertOptions.alertData);
+    
+    dismissAlert();
+}  
 /*
  * Title is the first line of displayed alert and is emboldened.
  * Text  is the alert description and is the second line of the displayed text.
  * Options can contain the following fields:
- *  - confirm      If present it sets up confirmation alert. The value is an object that must have actionClick and actionCancel methods.
- *                 Note: confirm is passed as a parameter. The invoked method when referencing this get the alert object rather than the
- *                 this of the object which the method is defined in. Don't know if this is the way this should work; it does not seem
- *                 right to me.
- *  - focusElement If present the screen element to which focus is set in the event of cancel.
+ * 
+ *  - confirm       If present a confirmation alert is displayed. The value is an object that must have 
+ *                  actionClick and actionCancel methods having a single parameter. The parameter is used to
+ *                  pass the object passed in alertData. See below
+ *  - focus         If present the screen element to which focus is set in the event of cancel.
+ *  - clearValue    If true, on cancel the focus element value is cleared. Ignored if focus element is null.
+ *  - alertData     Passed as a parameter to the actionClick and actionCancel methods of the confirm object.
+ *                  If confirm is null, this is never used.
+ *  - autoDismiss   If autoDismiss is enabled, the default, clicking outside of the alert message panel, causes the cancel
+ *                  action to be invoked. Setting this to false disables autoDismiss, i.e. the cancel or accept button
+ *                  must be clicked dismiss the alert message.
+ *  - blockApp      If true, access to other fields in the calling app are blocked, if possible. The element that is
+ *                  blocked is the one identified by the appId parameter of configureAlert. This can be overridden
+ *                  be passing an object in blockElements. A block is attempted, if this option is true, or blockElement
+ *                  has a none null value. The element(s) are blocked using the disabled attribute.
+ *                 
+ *                  Note: Most elements do not have a disabled attribute.
+ *  - blockElements Takes an array of elements that are blocked while the alert is on display. This will raise
+ *                  a fatal error if any of the elements do not implement the disabled attribute.
  */
 function displayAlert(title, text, options) {
+    if (alertOnDisplay) dismissAlert();
+    
+    alertOptions.clear();
+    alertOptions.load(options);
+    alertOnDisplay = true;
+    
     if (title === null || title === undefined) title = '';
     
-    if (options !== undefined) {
-        confirm      = options.confirm;
-        focusElement = options.focus;
-        clearValue   = options.clear;
-        alertData    = options.alertData;
-    } else {
-        confirm      = undefined;
-        focusElement = undefined;      
-        clearValue   = false;
-        alertData    = undefined;
-    }
     if (useBrowserAlert) {
-        if (confirm === undefined)
+        if (alertOptions.confirm === null)
             alert(text);
         else {
-            if (prompt(title, text) !== null)
-                confirm.actionClick(confirm, alertData);
+            if (confirm(text))
+                alertOptions.confirm.actionClick(alertOptions.alertData);
             else
                 dismissAlert();
         }
     }
     else {
-        al.getElementById("alertCancel").value = confirm === undefined? 'Cancel' : 'No';
+        setBlock(true);
+        
+        al.reset();
+        al.getElementById("alertCancel").value = alertOptions.confirm === null? 'Cancel' : 'No';
         pos.mouseClear();
         alertTime = new Date().getTime();
         al.getElementById("alertTitle").innerHTML   = title;
         al.getElementById("alertMessage").innerHTML = text; 
-        al.getElementById("alertCancel").onclick    = dismissAlert;
+        al.getElementById("alertCancel").onclick    = invokeCancelAction;
         
         var alOK = al.getElementById('alertOK');
         
         if (alOK) {
             alOK.onclick = invokeConfirmAction;
-            setHidden(alOK, confirm === undefined);
+            setHidden(alOK, alertOptions.confirm === null);
         }
-        div_show(title.length, text.length);
-        al.display(true, false);
+//        div_show(title.length, text.length);
+        al.display(true, false, alertOptions.minWidth, alertOptions.minHeight);
     }
 }
 function configureAlert(browserAlert, autoDismiss, homeElementId, appId) {

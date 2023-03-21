@@ -39,9 +39,14 @@ textarea {
 .filter {
     width: max-content;
 }
+.fitcontent {
+    width: fit-content;
+    height: fit-content;
+}
 .centreminwidth {
     margin: auto;
     width: max-content;
+    height: max-content;
 }
 
 .frame {

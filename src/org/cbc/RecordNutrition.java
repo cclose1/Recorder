@@ -266,6 +266,19 @@ public class RecordNutrition extends ApplicationServer {
             fields.append(ctx.getReplyBuffer());
 
             ctx.setStatus(200);
+        } else if (action.equals("getitemcount")) {
+            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
+            
+            sql.addField("Count",  sql.setFieldSource("Count(*)"));
+
+            sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
+            sql.addAnd("Source", "=", ctx.getParameter("isource"));
+
+            ResultSet rs = executeQuery(ctx, sql);
+
+            ctx.getReplyBuffer().append(rs.next()? rs.getInt("Count") : 0);
+
+            ctx.setStatus(200);
         } else if (action.equals("applyitemupdate")) {
             Date   start    = ctx.getTimestamp("start");
             Date   end      = ctx.getTimestamp("end");

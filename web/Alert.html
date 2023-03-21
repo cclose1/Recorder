@@ -11,12 +11,12 @@ and open the template in the editor.
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Display Message</title>
     </head>
-    <body id="alertdiv" onmouseout="top.mouseMove(event)" onmousedown="top.mouseMove(event)" onmousemove="top.mouseMove(event)" onmouseup="top.mouseMove(event)">
+    <body id="alertdiv" class="centered-abs-xy" onmouseout="top.mouseMove(event)" onmousedown="top.mouseMove(event)" onmousemove="top.mouseMove(event)" onmouseup="top.mouseMove(event)">
         <div>
             <h1 id="alertTitle">Display Message</h1>
         </div>
         <div>
-            <label id="alertMessage" class="centre"></label>
+            <p id="alertMessage" class="centre"></p>
         </div>
         <div id="alertDismiss">
             <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">

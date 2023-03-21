@@ -16,9 +16,9 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Car Usage</title>
     </head>
-    <body onload="configureAlert(false, true, 'alertframe'); connectToServer('CarUsage', 'loginframe', initialize)">
-        <div id="alertdiv" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
-            <iframe id="alertframe" src="Alert.html" scrolling="no">
+    <body onload="configureAlert(false, true, 'alertframe'); connectToServer('CarUsage', 'loginframe', initialize)" >
+        <div class='centered-abs-xy' id="alertpopup" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
+            <iframe id="alertframe" src="Alert.html">
             </iframe>
         </div>
         <div id="loginfields" hidden >
@@ -61,7 +61,7 @@
                             <fieldset id="startfields" class = 'form'>
                                 <legend>Start</legend>
                                 <div>
-                                    <label for="sdate">Date</label>
+                                    <label  contenteditable="true" for="sdate">Date</label>
                                     <input type="text" name="Start Date" id="sdate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
                                     <label for="stime" class="nogap">Time</label>
                                     <input type="text" name="starttime" size="8" id="stime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
@@ -102,6 +102,10 @@
                                 <div>
                                     <label for="cost">Cost</label>
                                     <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                </div>
+                                <div>
+                                    <label for="currenttime" class="nogap">Use Current Time</label>
+                                    <input id="currenttime" type="checkbox">
                                 </div>
                             </fieldset>                            
                             <div>
@@ -144,15 +148,27 @@
                     <div class='centre'>
                         <fieldset id="progress" class='form centreminwidth'>
                             <legend>Progress</legend>
-                            <div>
+                            <div class='left'>
                                 <label for='prgsrate' class='prglabwidth'>Session Rate (min/%)</label>
-                                <input type="text" readonly size ="15" id="prgsrate" tabindex="0">                          
+                                <input type="text" readonly size ="3" id="prgsrate" tabindex="0">                          
                             </div>
-                            <div>
+                            <div class='left'>
+                                <label for='prgcstart' class='prglabwidth'>Current Start</label>
+                                <input type="text" readonly size ="15" id='prgcstart' tabindex="0">                          
+                            </div>
+                            <div class='left'>
+                                <label for='prgpcgain' class='prglabwidth'>Current % Gain</label>
+                                <input type="text" readonly size ="3" id="prgpcgain" tabindex="0">                            
+                            </div>
+                            <div class='left'>
+                                <label for='prgcgap' class='prglabwidth'>Current Elapsed</label>
+                                <input type="text" readonly size ="4" id="prgcgap" tabindex="0">                            
+                            </div>
+                            <div class='left'>
                                 <label for='prgcrate' class='prglabwidth'>Current Rate (min/%)</label>
-                                <input type="text" readonly size ="15" id="prgcrate" tabindex="0">                            
+                                <input type="text" readonly size ="3" id="prgcrate" tabindex="0">                            
                             </div>
-                            <div>
+                            <div class='left'>
                                 <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
                                 <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
                             </div>
@@ -171,7 +187,7 @@
                         <option value='ChargeSession'>Charge Session</option>
                     </select>
                     </div>
-                    <fieldset id='updatetable' class='form centreminwidth'>
+                    <fieldset id='updatetable' name='UpdateTable' class='form centreminwidth'>
                     </fieldset>
                 </div>
             </div> 

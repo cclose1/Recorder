@@ -37,10 +37,10 @@ function ColumnOptions() {
 function setFormFieldsOptions(pOptions) {        
     BaseOptions.call(this, false);
 
-    this.addSpec({name: 'lock',      type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'lockPrime', type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'clear',     type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'update',    type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'lock',       type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'lockPrime',  type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'clearValue', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'update',     type: 'boolean', default: false, mandatory: false});
 
      this.clear();
      this.load(pOptions, true);
@@ -177,14 +177,14 @@ class DatabaseTable {
             this._calcMaxLabel = false;
         }
     };
-    actionCancel(table, alertData) {
+    actionCancel(alertData) {
         console.log('Cancel called');
         this._next.value = '';
     }
-    actionClick(table, alertData) {
+    actionClick(alertData) {
         console.log('Click called');
         this._unsavedChanges = false;
-        table._displayForm(alertData.usage);
+        this._displayForm(alertData.usage);
     }
     get formId() {
         return this._formId;
@@ -517,8 +517,8 @@ class DatabaseTable {
             if (col.isPrimeKey) {
                 if (options.lockPrime) this._setReadOnly(col, true);
             } else {
-                if (options.clear) col.element.value = '';
-                if (options.lock)  this._setReadOnly(col, true);
+                if (options.clearValue) col.element.value = '';
+                if (options.lock)       this._setReadOnly(col, true);
                 if (options.update) {
                     this._setReadOnly(col, false);
                     
@@ -586,7 +586,13 @@ class DatabaseTable {
             displayAlert(
                 'Warning', 
                 'Discard unsaved data?',
-                {confirm: this, alertData: {usage: usage}});
+                {
+                    confirm:       this, 
+                    autoDismiss:   false, 
+                    minWidth:      500,
+                    minHeight:     500,
+                    blockElements: [this.formId, 'detailfields'], 
+                    alertData:     {usage: usage}});
         else
             this._displayForm(usage);               
     }

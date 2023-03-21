@@ -264,18 +264,20 @@ function exitTable() {
     setHidden('updatetable', true);    
 }
 function setRate(id, from, to) {
-    var pcdiff = to.perc - from.perc;
-    var rate   = null;
+    var params = {
+        pcdiff:  to.perc - from.perc,
+        elapsed: dateDiff(from.time, to.time, 'seconds'),
+        rate:    null};
     
-    if (pcdiff !== 0) {
+    if (params.pcdiff !== 0) {
         /*
          * Have to allow for charge not changed since last update.
          */
-        rate = (dateDiff(from.time, to.time, 'minutes') / pcdiff).toFixed(2);
+        params.rate = (params.elapsed / (60 * params.pcdiff)).toFixed(2);
     }
-    getElement(id).value = rate === null ? '' : rate;
+    getElement(id).value = params.pcdiff === null ? '' : params.rate;
     
-    return rate;
+    return params;
 }
 /*
  * The variables prcur and prlast point to objects
@@ -293,13 +295,16 @@ function updateProgress(reset) {
         prcur  = null;
         prlast = null;
         clearElement('prgsrate');
+        clearElement('prgcstart');
+        clearElement('prgpcgain');
+        clearElement('prgcgap');
         clearElement('prgcrate');
         clearElement('prgcomplete');
         return;
     }
-    var start = {time: getDate('sdate', 'stime'), perc: getElement('schargepc').value};
-    var end   = {time: getDate('edate', 'etime'), perc: getElement('echargepc').value};
-    var rate;
+    var start    = {time: getDate('sdate', 'stime'), perc: getElement('schargepc').value};
+    var end      = {time: getDate('edate', 'etime'), perc: getElement('echargepc').value};
+    var rateData;
     /*
      * The end time may have been set earlier, so ajdust prcur and prlast if necessary.
      */
@@ -314,13 +319,16 @@ function updateProgress(reset) {
         prcur  = copyProgressState(prlast);
         prlast = null;
     }
-    rate = setRate('prgsrate', start, end);
-    rate = setRate('prgcrate', prcur, end);
+    rateData = setRate('prgsrate', start, end);
+    rateData = setRate('prgcrate', prcur, end);
     
-    if (rate !== null) {
-        var minToComplete = rate * (100 - end.perc);
+    if (rateData.rate !== null) {
+        var minToComplete = rateData.rate * (100 - end.perc);
         var complete      = new Date(end.time.getTime() + minToComplete*60000);
         
+        getElement('prgcstart').value   = dateTimeString(prcur.time);
+        getElement('prgpcgain').value   = end.perc - prcur.perc;        
+        getElement('prgcgap').value     = convertDuration(rateData.elapsed / 3600);
         getElement('prgcomplete').value = dateTimeString(complete);
     }
 }
@@ -353,9 +361,21 @@ function send(action) {
         return;
     }
     var dt = validateDateTime("sdate", "stime", {required: true});
+    
     if (!dt.valid) return;
     
-    if (action !== 'Delete') {
+    if (action === 'Update' && getElement('currenttime').checked) {
+        /*
+         * setDateTime only sets the time if the fields are empty. 
+         * 
+         * Probably should change this to conditionally overwrite, but need to assess current usage.
+         */
+        clearElement("edate");
+        clearElement("etime");
+        setDateTime('edate', 'etime'); 
+    }
+    
+    if (action !== 'Delete') {        
         var tm = validateDateTime("edate", "etime");
         if (!tm.valid) return;
 
@@ -366,7 +386,7 @@ function send(action) {
         if (!checkGreaterOrEqual("schargepc", "echargepc")) return;
 
         if (!dt.empty && !tm.empty && tm.value < dt.value) {
-            displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: "edate"});
+            displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: getElement("etime")});
             return;
         }
     }

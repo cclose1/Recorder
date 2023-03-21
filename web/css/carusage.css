@@ -10,4 +10,10 @@ and open the template in the editor.
 .prglabwidth {
     width: 150px;
 }
-
+.inputwidth {
+    width: 100px;
+}
+.left {
+    margin: auto;
+    text-align: left;
+}

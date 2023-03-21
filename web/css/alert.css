@@ -1,16 +1,33 @@
 #alertdiv {
-    position: absolute;
-    margin-top:0;
-    margin-right:auto;
-    margin-bottom:0;
-    margin-left:auto;
-    width:auto;
+    width: max-content;
+    height: fit-content;
     padding: 5px 5px 5px 5px;
     background-color:#f3f3f3;
     border-style: solid;
     border-color: black;
     border-radius:3px;
     text-align: center;
+}
+#alertdivx {
+    position: absolute;
+    padding: 5px 5px 5px 5px;
+    background-color:#f3f3f3;
+    border-style: solid;
+    border-color: black;
+    border-radius:3px;
+    text-align: center;
+}
+.centered-rel-xy {
+    position: relative;
+    left: 50%;
+    top: 50%;
+    -webkit-transform: translate(-50%,-50%);
+}
+.centered-abs-xy {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    -webkit-transform: translate(-50%,-50%);
 }
 /*
  * Override global label properties

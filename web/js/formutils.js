@@ -744,12 +744,21 @@ function BaseOptions(pAccessByGet) {
             }
         }
     };
+    this.allowedOptionName = function(name) {
+        if (this.accessByGet) return true;
+        
+        var test = eval('this.' + name);
+        
+        return test === undefined;
+    };
     this.addSpec = function(option) {
         var spec = {};
         
         spec.name = option.name;
         
-        if (spec.name === undefined || spec.name === null)  error(this, 'Option must have a name proprty');
+        if (spec.name === undefined || spec.name === null)  error(this, 'Option must have a name property');
+        
+        if (!this.allowedOptionName(option.name)) error(this, 'Option name ' + option.name + ' is not allowed');
         
         for (name in option) {
             switch (name) {
@@ -992,6 +1001,7 @@ function popUp() {
     var frameId;
 
     this.initialise         = initialise;
+    this.reset              = reset;
     this.display            = display;
     this.getElementById     = getElementById;
     this.getValueById       = getValueById;
@@ -1029,26 +1039,40 @@ function popUp() {
         }
         document.getElementById(this.popUpTopId).style.display = 'none';
     }
+    /*
+     * Set to initial state for a new alert. The only action required is to clear
+     * the width and height for the popUpId element.
+     */
+    function reset() {
+        if (getFrameId() === '') {
+            getElementById(popUpId).style.width  = "";
+            getElementById(popUpId).style.height = "";
+        }
+    }
     function getAppId() {
         return this.appId;
     }
     function getContainerId() {
         return this.popUpTopId;
     }
-    function display(yes, switchApp) {
+    function display(yes, switchApp, minWidth, minHeight) {
         setHidden(this.popUpTopId, !yes);
 
         if (switchApp)
             setHidden(this.appId, yes);
         
-        if (yes && frameId !== '') {
+        if (yes) {
             var pu = getElementById(popUpId);
-            var fr = document.getElementById(frameId).style;
-            var wd = pu.offsetWidth  + pu.offsetLeft;
-            var ht = pu.offsetHeight + pu.offsetTop;
+            var wd = pu.offsetWidth;
+            var ht = pu.offsetHeight;
             
-            setSize(document.getElementById(frameId),         wd, ht, "0px 0px 0px 0px");
-            setSize(document.getElementById(this.popUpTopId), wd, ht, "0px 0px 0px 0px");
+            if (minWidth  !== null && wd < minWidth)  wd = minWidth;
+            if (minHeight !== null && ht < minHeight) ht = minHeight;
+            
+             if (frameId !== '')
+                 setSize(document.getElementById(frameId),         wd, ht, "0px 0px 0px 0px");
+             else
+                 setSize(document.getElementById(this.popUpTopId), wd, ht, "0px 0px 0px 0px");
         }
     }
     function getElementById(id) {
@@ -1069,11 +1093,11 @@ function popUp() {
     }
     function inDisplay(event) {
         var target    = event;
-        var containor = document.getElementById(this.popUpTopId);
+        var container = document.getElementById(this.popUpTopId);
         var frame     = frameId !== ''? getElementById(popUpId) : undefined;
         
         while (target.parentNode) {
-            if (target === containor || frame !== undefined && target === frame) return true;
+            if (target === container || frame !== undefined && target === frame) return true;
             
             target = target.parentNode;
         }
@@ -1882,7 +1906,10 @@ function addOption(select, value) {
 }
 function loadOptionsJSON(jsonOptions, loadOptions) {
     try {        
-        var options = new loadOptionsJSONOptions(loadOptions);        
+        var options = new loadOptionsJSONOptions(loadOptions);
+        
+        if (options.element === null && options.name === '') return; // No list element to load values.
+        
         var json    = jsonOptions;
         var select  = getElement(options.element === null? options.name : options.element);
         var initial = options.keepValue ? select.value : options.defaultValue !== null ? options.defaultValue : "";

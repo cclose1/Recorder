@@ -19,12 +19,12 @@
         <title>Record Nutrition Details</title>
     </head>
     <body onload="configureAlert(false, true); connectToServer('Nutrition', 'loginframe', initialize);">                      
-            <div id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
+            <div class='centered-abs-xy' id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
             <div>
                 <h1 id="alertTitle">Display Message</h1>
             </div>
             <div>
-                <label id="alertMessage" class="centre"></label>
+                <p id="alertMessage" class="centre"></p>
             </div>
             <div id="alertDismiss">
                 <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
@@ -69,7 +69,7 @@
                         </div>
                         <div>
                             <label for='icalories'>Calories</label>
-                            <input id='icalories' type='text' maxlength='6' onkeypress='allowedInNumberField();'>
+                            <input id='icalories' type='text' maxlength='6' onkeypress='allowedInNumberField();' onchange='valItem.updateCalculated();'>
                             <label for='icalculated'>Calculated</label>
                             <input id='icalculated' type='text' maxlength='6' readonly class='number' tabindex="-1">
                             <label for='ipcdiff'>%Diff</label>

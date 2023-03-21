@@ -1,3 +1,5 @@
+/* global getElement, getFloatValue */
+
 'use strict';
 
 var evnFilter;
@@ -137,11 +139,12 @@ function ValidateItem() {
     };
     function checkCalculated(obj) {  
         var diff = getFloatValue('ipcdiff', 0);
+        var calc = getFloatValue('icalculated', 0).toFixed(2);
         
         if (diff > obj.calDiffThreshold)
             displayAlert(
                 'Accept', 
-                'Calculated calories ' + getFloatValue('icalculated', 0) + ' not equal to calories value ' + getFloatValue('icalories', 0) + ', %diff ' + diff.toFixed(2), 
+                'Calculated calories ' + calc + ' not equal to calories value ' + getFloatValue('icalories', 0) + ', %diff ' + diff.toFixed(2), 
                 {confirm: obj});
         else
             obj.actionClick();                
@@ -272,12 +275,13 @@ function ValidateItem() {
         if (!sd.valid || !ed.valid) return false;
         
         if (ed.value <= sd.value) {
-            displayAlert('Validation Error', 'End timestamp must be after start timestamp', {focus: "edate"});
+            displayAlert('Validation Error', 'End timestamp must be after start timestamp', {focus: getElement("edate")});
             return false;
         }
         if (!fieldHasValue('iitem'))   return false;
         if (!fieldHasValue('isource')) return false;
-        if (!fieldHasValue('itype'))   return false;
+        if (!fieldHasValue('itype'))   return false;        
+        if (!checkItemCount())         return false;
         
         if (!this.checkItemField('icalories'))     return false;
         if (!this.checkItemField('ifat'))          return false;
@@ -804,6 +808,41 @@ function setUpdateItem(item, source) {
     }
     ajaxLoggedInCall('Nutrition', processResponse, parameters);
 }
+
+function getItemCount(item, source) {    
+    var parameters = createParameters('getitemcount');
+    var count;
+    
+    parameters = setItemStartTime(parameters);
+    parameters = addParameter(parameters, 'iitem',   item);
+    parameters = addParameter(parameters, 'isource', source);
+
+    function processResponse(response) {
+        count = parseInt(response);
+    }
+    ajaxLoggedInCall('Nutrition', processResponse, parameters, false);
+    
+    return count;
+}
+function checkItemCount() {
+    var item;
+    var source;
+    var valid;
+    
+    if (getElement('icreate').value !== 'Create') return true;
+    
+    item   = getElement('iitem').value;
+    source = getElement('isource').value;
+    
+    if (item === '' || source === '') return true;
+    
+    valid = getItemCount(item, source) === 0;
+    
+    if (!valid)
+        displayAlert('Error', 'Item ' + item + ' source ' + source + ' already exists');
+    
+    return valid;
+}
 function applyItemUpdate(previousVersionTime) {
     var parameters = createParameters('applyitemupdate');
     
@@ -871,8 +910,12 @@ function confirmListCreate(field) {
         function processResponse(response) {
         }
         ajaxLoggedInCall("Nutrition", processResponse, parameters, false);
-        updateFilteredLists();
-        dismissAlert(false);
+        getList('Nutrition',
+                {name:       'iSourceList',
+                 field:      'source',
+                 keepValue:  true,
+                 allowBlank: true,
+                 async:      false}); 
     }
 }
 function checkExists() {
@@ -919,5 +962,6 @@ function initialize() {
     evnFilter.addFilter('Source', 'Source,,fsource', '', true);
     evnFilter.addFilter('Type',   'Type,,ftype',     '', true);
     evnFilter.addFilter('Item',   'Item,,fitem');
+    displayAlert('Test', 'A longish message', {minWidth: 500, minHeight: 500});
     reload();
 }
