@@ -15,11 +15,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Bank Transaction</title>
     </head>
-    <body onload="configureAlert(false, true, 'alertframe'); connectToServer('BankTransaction', 'loginframe', initialize)">
-        <div id="alertpopup" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
-            <iframe id="alertframe" src="Alert.html" scrolling="no">
-            </iframe>
-        </div>
+    <body onload="configureAlert(); connectToServer('BankTransaction', 'loginframe', initialize)">
         <div id="loginfields" hidden >
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>

@@ -16,11 +16,8 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Car Usage</title>
     </head>
-    <body onload="configureAlert(false, true, 'alertframe'); connectToServer('CarUsage', 'loginframe', initialize)" >
-        <div class='centered-abs-xy' id="alertpopup" onmouseout="mouseMove(event)" onmousedown="mouseMove(event)" onmousemove="mouseMove(event)" onmouseup="mouseMove(event)">
-            <iframe id="alertframe" src="Alert.html">
-            </iframe>
-        </div>
+    <body onload="configureAlert({rootId: 'alertdiv'}); connectToServer('CarUsage', 'loginframe', initialize)" >
+        <div class='centered-abs-xy' id="alertdiv"></div>
         <div id="loginfields" hidden >
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>

@@ -7,7 +7,8 @@
 'use strict';
 /*
  * Stores the table definitions under a unique key. It is updated by the DatabaseTable constructor. It is used by
- * the function tableFormChange, which is passed to on handlers with tableForms key for the relevant DatabaseTable
+ * the function tableFormChange, which
+ *  is passed to on handlers with tableForms key for the relevant DatabaseTable
  * object for the form accessed.
  */
 var tableForms = {};

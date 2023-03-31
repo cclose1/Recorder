@@ -1,4 +1,72 @@
 'use strict';
+class elementMover {
+    _tag;
+    _isDown;
+    _stScrX;
+    _stScrY;
+    _crScrX;
+    _crScrY;
+    _offsetX;
+    _offsetY;
+    _elm;
+    
+    constructor(tag) {
+        this._tag    = tag;
+        this._isDown = false;
+    }    
+    mouseStart(event) {
+        this._isDown  = true;
+        this._stScrX  = event.screenX;
+        this._stScrY  = event.screenY;
+        this._crScrX  = event.screenX;
+        this._crScrY  = event.screenY;
+        this._offsetX = this._elm.offsetLeft - event.clientX;
+        this._offsetY = this._elm.offsetTop  - event.clientY;
+    };
+    mouseMove(event) {
+        if (!this._isDown) return false;
+        
+        this._elm.style.left = (event.clientX + this._offsetX) + 'px';
+        this._elm.style.top  = (event.clientY + this._offsetY) + 'px';
+        this._ctScrX         = event.screenX;
+        this._ctScrY         = event.screenY;
+        return true;
+    }
+    mouseUp() {
+        this._isDown = false;
+    }
+    mouseClear() {
+        this._isDown = false;
+    }
+    move(event) {
+        var result = true;
+        
+        event.preventDefault();
+        this._elm = event.currentTarget;
+        
+        switch (event.type) {
+            case 'mousedown':
+                trace(event, true);
+                result = this.mouseStart(event);
+                break;
+            case 'mousemove':
+                result = this.mouseMove(event);
+                
+                if (result) traceAlertDiv(false);
+                
+                trace(event, false);
+                break;
+            case 'mouseup':
+                result = this.mouseUp();
+                break;
+            case 'mouseout':
+                break;
+            default:
+                alert(event.type);
+        }
+        return result;
+    }
+}
 /*
  * object can be one of the following:
  *  Object         Element
@@ -995,6 +1063,125 @@ function resizeFrame(id) {
 }
 function popUp() {
     var popUpDoc;
+    var containerId;
+    var popUpId;
+    var appId;
+    var frameId;
+
+    this.initialise         = initialise;
+    this.reset              = reset;
+    this.display            = display;
+    this.getElementById     = getElementById;
+    this.getValueById       = getValueById;
+    this.setValueById       = setValueById;
+    this.getAppId           = getAppId;
+    this.getContainerId     = getContainerId;
+    this.getFrameId         = getFrameId;
+    this.inDisplay          = inDisplay;
+    this.setDocumentOnClick = setDocumentOnClick;
+    
+    function setSize(element, width, height) {
+        var style = element.style;
+        
+        style.width  = width  + 'px';
+        style.height = height + 'px';
+    }
+    function initialise(containerId, appId) {
+        var home = document.getElementById(containerId);
+        var body;
+        
+        this.containerId = containerId;
+        this.popUpId     = containerId;
+        this.appId       = appId === undefined ? 'appframe' : appId;
+
+        if (home.tagName === 'IFRAME') {             
+            this.popUpDoc    = document.getElementById(containerId).contentWindow.document;
+            body             = this.popUpDoc.body;
+            this.popUpId     = body.id !== ''? body.id : body.firstElementChild.id;
+            this.frameId     = containerId;
+            this.containerId = home.parentElement.id;
+        } else {
+            this.popUpId  = this.containerId;
+            this.popUpDoc = document;
+            this.frameId  = '';
+        }
+        document.getElementById(this.containerId).style.display = 'none';
+    }
+    function getContainerId() {
+        return this.containerId;
+    }
+    /*
+     * Set to initial state for a new alert. The only action required is to clear
+     * the width and height for the popUpId element.
+     */
+    function reset() {
+        getElement(this.getContainerId()).style.left = "";
+        getElement(this.getContainerId()).style.top  = "";
+        
+        if (this.getFrameId() === '') {
+            this.getElementById(this.popUpId).style.width  = "";
+            this.getElementById(this.popUpId).style.height = "";
+        }
+    }
+    function getAppId() {
+        return this.appId;
+    }
+    function display(yes, switchApp, minWidth, minHeight) {
+        setHidden(this.containerId, !yes);
+
+        if (switchApp)
+            setHidden(this.appId, yes);
+        
+        if (yes) {
+            var pu = this.getElementById(this.popUpId);
+            var wd = pu.offsetWidth;
+            var ht = pu.offsetHeight;
+            
+            if (minWidth  !== null && wd < minWidth)  wd = minWidth;
+            if (minHeight !== null && ht < minHeight) ht = minHeight;
+            
+             if (this.frameId !== '')
+                 setSize(document.getElementById(this.frameId),     wd, ht);
+             else
+                 setSize(document.getElementById(this.containerId), wd, ht);
+        }
+    }
+    function getElementById(id) {
+        return (this.containerId === id || this.frameId === id ? document : this.popUpDoc).getElementById(id);
+    }
+    function getValueById(id) {
+        return trim(this.getElementById(id).value);
+    }
+    function setValueById(id, value, ignoreIfNotFound) {
+        var el =this/getElementById(id);
+        
+        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound) return;
+        
+        el.value = value;
+    }
+    function getFrameId() {
+        return this.frameId;
+    }
+    function inDisplay(event) {
+        var target    = event;
+        var container = document.getElementById(this.containerId);
+        var frame     = this.frameId !== ''? this.getElementById(this.popUpId) : undefined;
+        
+        while (target.parentNode) {
+            if (target === container || frame !== undefined && target === frame) return true;
+            
+            target = target.parentNode;
+        }
+        return false;
+    }
+    function setDocumentOnClick(action) {
+        document.onclick = action;
+        
+        if (this.frameId !== '') this.popUpDoc.onclick = action;
+    }
+}
+function popUpOld() {
+    var popUpDoc;
     var popUpTopId;
     var popUpId;
     var appId;
@@ -1039,11 +1226,17 @@ function popUp() {
         }
         document.getElementById(this.popUpTopId).style.display = 'none';
     }
+    function getContainerId() {
+        return this.popUpTopId;
+    }
     /*
      * Set to initial state for a new alert. The only action required is to clear
      * the width and height for the popUpId element.
      */
     function reset() {
+        getElement(this.getContainerId()).style.offsetLeft = "";
+        getElement(this.getContainerId()).style.offsetTop  = "";
+        
         if (getFrameId() === '') {
             getElementById(popUpId).style.width  = "";
             getElementById(popUpId).style.height = "";
@@ -1051,9 +1244,6 @@ function popUp() {
     }
     function getAppId() {
         return this.appId;
-    }
-    function getContainerId() {
-        return this.popUpTopId;
     }
     function display(yes, switchApp, minWidth, minHeight) {
         setHidden(this.popUpTopId, !yes);

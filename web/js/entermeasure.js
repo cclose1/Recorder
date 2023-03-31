@@ -88,7 +88,7 @@ function modify(deleteRow) {
     }
     function processResponse(response) {
         if (response.length >= 3) {
-            alert(response);
+            displayAlert('Validation Error', response);
             return true;
         }
         document.getElementById("ukindividual").value = "";

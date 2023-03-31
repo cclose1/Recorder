@@ -15,11 +15,13 @@ var useBrowserAlert = true;
 var alertOptions    = new AlertOptions();
 var alertOnDisplay  = false;
 var blockByContent  = false;
+var alertMover      = new elementMover();
 var al;
 
 /*
  * Defines the options for AlertDisply.
  */
+
 function AlertOptions() {   
     BaseOptions.call(this, false);
     
@@ -35,37 +37,19 @@ function AlertOptions() {
        
     this.clear();
 }
-function position() {
-    var elm  = new Object();
+function ConfigureAlertOptions(pOptions) {   
+    BaseOptions.call(this, false);
     
-    this.mouseStart = mouseStart;
-    this.mouseMove  = mouseMove;
-    this.mouseUp    = mouseUp;
-    this.mouseClear = mouseClear;
-    
-    function mouseStart(event) {
-        elm.startX     = event.screenX;
-        elm.startY     = event.screenY;;
-    }    
-    function mouseMove(event) {        
-        var ct   = document.getElementById(al.getContainerId());
-        if (elm.startX === -1) return false;
-        
-        ct.style.left = (ct.offsetLeft + event.screenX - elm.startX) + 'px';
-        ct.style.top  = (ct.offsetTop  + event.screenY - elm.startY) + 'px';
-        elm.startX    = event.screenX;
-        elm.startY    = event.screenY;
-        
-        return true;
-    }
-    function mouseUp(event) {
-        elm.startX = -1;
-    }
-    function mouseClear() {
-        elm.startX = -1;
-    }
+    this.addSpec({name: 'useBrowser',  type: 'boolean',  default: false,       mandatory: false});
+    this.addSpec({name: 'appId',       type: 'string',   default: 'appframe',  mandatory: false});
+    this.addSpec({name: 'rootId',      type: 'string',   default: 'alertdiv',  mandatory: false});
+    this.addSpec({name: 'build',       type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'enableMove',  type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'autoDismiss', type: 'boolean',  default: true,        mandatory: false});
+       
+    this.clear();
+    this.load(pOptions, false);
 }
-var pos = new position();
 
 function alertDebug() {
     var el = al.getElementById('alertDebug');
@@ -123,32 +107,10 @@ function trace(ev, initial) {
         if (el !== null) el.value = initial? 0 : parseInt(el.value, 10) + 1;
     }
 }
-function mouseMove(event) {
-    if (!al.inDisplay(event.target)) {
-        pos.mouseClear();
-        return;
-    }
+function alertMouseMove() {
     event.preventDefault();
-    traceTarget(event.target);
-    
-    switch (event.type) {
-        case 'mousedown':
-            pos.mouseStart(event);
-            trace(event, true);
-            break;
-        case 'mousemove':       
-            if (pos.mouseMove(event)) traceAlertDiv(false);
-            
-            trace(event, false);
-            break;
-        case 'mouseup':
-            pos.mouseUp(event);
-            break;
-        case 'mouseout':
-            break;
-        default:
-            alert(event.type);
-    }
+    traceTarget(event.currentTarget);
+    return alertMover.move(event);
 }
 function getReportId(elm) {
     if (elm.id   !== undefined && elm.id   !== null) return elm.id;
@@ -194,23 +156,6 @@ function getBlockList(list, errorNotBlockable) {
             res.push(elm);      
     }
     return res;
-}
-function div_show(lenTitle, lenText, width) {    
-    traceAlertDiv();
-    
-    var w   = screen.availWidth;
-    var h   = screen.availHeight;
-    var d   = document.getElementById(al.getContainerId());
-    var lpx = 15  * lenTitle;
-    var tpx = 8.5 * lenText;
-    d.style.width = (lpx > tpx ? lpx : tpx) + 'px';
-
-    if (width > 0) d.style.width = width + 'px';
-    
-    var top  = 0.5 * h - parseInt(d.clientHeight);
-    var left = 0.5 * w - parseInt(d.clientWidth);
-    d.style.left = (100 * left / w).toFixed(2) + "%";
-    d.style.top  = (100 * top  / h).toFixed(2) + "%";
 }
 /*
  * Checks if an application block is defined and sets it if on is true and removes it if on is false.
@@ -318,7 +263,6 @@ function displayAlert(title, text, options) {
         
         al.reset();
         al.getElementById("alertCancel").value = alertOptions.confirm === null? 'Cancel' : 'No';
-        pos.mouseClear();
         alertTime = new Date().getTime();
         al.getElementById("alertTitle").innerHTML   = title;
         al.getElementById("alertMessage").innerHTML = text; 
@@ -330,26 +274,46 @@ function displayAlert(title, text, options) {
             alOK.onclick = invokeConfirmAction;
             setHidden(alOK, alertOptions.confirm === null);
         }
-//        div_show(title.length, text.length);
         al.display(true, false, alertOptions.minWidth, alertOptions.minHeight);
     }
 }
-function configureAlert(browserAlert, autoDismiss, homeElementId, appId) {
+function configureAlert(options) {    
+    var opts = new ConfigureAlertOptions(options);
+    var root = document.getElementById(opts.rootId);
+    
+    useBrowserAlert = opts.useBrowser;    
+    
+    if (useBrowserAlert) return;
+    
+    if (root === null) root = createElement(document, 'div', {id: opts.rootId, append: document.body, class: 'centered-abs-xy'});
+    
+    if (opts.enableMove) {
+        root.addEventListener('mousedown', alertMouseMove);
+        root.addEventListener('mousemove', alertMouseMove);
+        root.addEventListener('mouseup',   alertMouseMove);
+    }
     try {
         al = new popUp();
     } catch (err) {
         alert('alertjs popUp undefined');
         return;
     }
-    useBrowserAlert = browserAlert;
+        
+    if (opts.build) {
+        var flds;
+        var div;
+        
+        removeChildren(root);
+        flds = createElement(document, 'div', {append: root, class: 'centered-rel-xy'});
+        div  = createElement(document, 'div', {append: flds});
+        createElement(document, 'h2', {append: div, id: 'alertTitle'});
+        div = createElement(document, 'div', {append: flds});
+        createElement(document, 'p', {append: div, id: 'alertMessage', class: 'centre'});
+        div = createElement(document, 'div', {append: flds, id: 'alertDismiss'});
+        createElement(document, 'input', {append: div, id: 'alertOK',     type: 'button', value: 'Yes',    onclick: "dismissAlert()"});
+        createElement(document, 'input', {append: div, id: 'alertCancel', type: 'button', value: 'Cancel', onclick: "dismissAlert()"});
+    }
+    al.initialise(opts.rootId, opts.appId);
     
-    if (homeElementId === undefined) homeElementId = 'alertdiv';
-    
-    if (document.getElementById(homeElementId) === null) {
-        useBrowserAlert = true;
-        return;
-    }        
-    al.initialise(homeElementId, appId);
-    
-    if (autoDismiss) al.setDocumentOnClick(checkAlert);
+    if (opts.autoDismiss) al.setDocumentOnClick(checkAlert);
 }

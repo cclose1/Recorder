@@ -300,6 +300,7 @@ function updateProgress(reset) {
         clearElement('prgcgap');
         clearElement('prgcrate');
         clearElement('prgcomplete');
+        document.getElementById("currenttime").checked = false;
         return;
     }
     var start    = {time: getDate('sdate', 'stime'), perc: getElement('schargepc').value};
@@ -331,6 +332,7 @@ function updateProgress(reset) {
         getElement('prgcgap').value     = convertDuration(rateData.elapsed / 3600);
         getElement('prgcomplete').value = dateTimeString(complete);
     }
+    if (end.perc > 99) getElement('currenttime').checked = false;
 }
 function tableSelected() {
     var table = event.target.value;
@@ -372,7 +374,7 @@ function send(action) {
          */
         clearElement("edate");
         clearElement("etime");
-        setDateTime('edate', 'etime'); 
+        setDateTime('edate', 'etime');
     }
     
     if (action !== 'Delete') {        
@@ -479,6 +481,7 @@ function btChargeSessionsRowClick(row) {
         }
     }
     document.getElementById("setstartchange").checked = false;
+    document.getElementById("currenttime").checked    = false;
     setSave('Update');
 }
 function btChargersRowClick(row) {

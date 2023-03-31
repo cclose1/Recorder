@@ -18,19 +18,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Nutrition Details</title>
     </head>
-    <body onload="configureAlert(false, true); connectToServer('Nutrition', 'loginframe', initialize);">                      
-            <div class='centered-abs-xy' id="alertdiv" onmouseout="mouseMove(event, 'up')" onmousedown="mouseMove(event, 'down')" onmousemove="mouseMove(event, 'move')" onmouseup="mouseMove(event, 'up')">
-            <div>
-                <h1 id="alertTitle">Display Message</h1>
-            </div>
-            <div>
-                <p id="alertMessage" class="centre"></p>
-            </div>
-            <div id="alertDismiss">
-                <input id="alertOK"     type = 'button' value = 'Yes'    onclick="dismissAlert()">
-                <input id="alertCancel" type = 'button' value = 'Cancel' onclick="dismissAlert()">
-            </div>
-        </div>
+    <body onload="configureAlert(); connectToServer('Nutrition', 'loginframe', initialize);">  
         <div id="loginfields" hidden >
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>
