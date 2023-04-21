@@ -962,6 +962,5 @@ function initialize() {
     evnFilter.addFilter('Source', 'Source,,fsource', '', true);
     evnFilter.addFilter('Type',   'Type,,ftype',     '', true);
     evnFilter.addFilter('Item',   'Item,,fitem');
-    displayAlert('Test', 'A longish message', {minWidth: 500, minHeight: 500});
     reload();
 }

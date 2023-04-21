@@ -1,0 +1,16 @@
+/* 
+    Created on : 21 Apr 2023, 10:28:55
+    Author     : cclose
+*/
+/*
+ * Overrides login.css values in the login.html. 
+ *
+ * This is test customising the login form for a particular application. This added to login.html 
+ * style sheets in the application on load initializer.
+ */
+fieldset {
+    background:  antiquewhite;
+}
+fieldset div {
+    background: cornsilk;
+}

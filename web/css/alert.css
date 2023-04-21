@@ -1,39 +1,10 @@
-#alertdiv {
-    width: max-content;
-    height: fit-content;
+
+.alertcontainer {
     padding: 5px 5px 5px 5px;
     background-color:#f3f3f3;
     border-style: solid;
     border-color: black;
     border-radius:3px;
-    text-align: center;
-}
-#alertdivx {
-    position: absolute;
-    padding: 5px 5px 5px 5px;
-    background-color:#f3f3f3;
-    border-style: solid;
-    border-color: black;
-    border-radius:3px;
-    text-align: center;
-}
-.centered-rel-xy {
-    position: relative;
-    left: 50%;
-    top: 50%;
-    -webkit-transform: translate(-50%,-50%);
-}
-.centered-abs-xy {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    -webkit-transform: translate(-50%,-50%);
-}
-/*
- * Override global label properties
- */
-#alertdiv label {    
-    width:auto;
     text-align: center;
 }
 #alertDebug {
@@ -58,10 +29,4 @@
 }
 #alertDebug.hidden {
     display: none;
-}
-#alertDismiss{
-    padding:10px 10px 10px 10px;
-}
-#trmoveid input {
-    width: 100px;
 }

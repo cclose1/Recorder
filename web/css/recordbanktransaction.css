@@ -57,4 +57,13 @@ body.iefix {
         float: left;
         margin: 40px;
     }
-}   
+} 
+/*
+ * This is to test override of the default log in screen settings. This overrides the rule in login.css.
+ */
+#loginframe {
+    width:  700px !important;
+    height: 700px !important;
+    border-style: solid;
+    background-color: aliceblue;
+}

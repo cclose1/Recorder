@@ -100,6 +100,18 @@ function getElement(object, withValue) {
         empty: val.length === 0
     };
 }
+function addStyleSheetToiFrame(iFrame, file) {    
+    iFrame   = getElement(iFrame);
+    
+    var frameDoc = (iFrame.contentWindow || iFrame.contentDocument);
+    var link     = document.createElement("link");
+    
+    link.href = file;
+    link.rel  = "stylesheet";
+    link.type = "text/css";
+    
+    frameDoc.document.head.appendChild(link);
+}
 /*
  * Returns an array of the elements children. If tagName is defined only children with tagName are returned.
  */
@@ -2285,7 +2297,7 @@ function fieldHasValue(elm, required) {
     */
    var value = getFieldValue(elm, required);
    
-   return value !== "";
+   return value !== undefined;
 }
 /*
  * Executes a none blocking AJAX call.

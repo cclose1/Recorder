@@ -2,18 +2,23 @@
     Created on : 28-Mar-2015, 16:03:41
     Author     : Chris
 */
-
-#loginfields {
+/*
+ * When using an iframe a width and height is calculate. There does not seem to be a way to get it to make
+ * the calculated values to be large enough to cover the max frame content size.
+ * Using the following forces the calculated value to this. However, it will have to ve changed if login form
+ * exceeds this.
+ */
+#loginform {
     width: 480px;
 }
-#loginfields .nogap {
+#loginform .nogap {
     width: auto;
 }
-#loginfields label {
+#loginform label {
     display: inline-block;
     width: 150px;
     text-align: right;
 }
-#loginfields input {
+#loginform input {
     background-color: white;
 }

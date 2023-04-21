@@ -16,8 +16,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Car Usage</title>
     </head>
-    <body onload="configureAlert({rootId: 'alertdiv'}); connectToServer('CarUsage', 'loginframe', initialize)" >
-        <div class='centered-abs-xy' id="alertdiv"></div>
+    <body onload="configureAlert(); connectToServer('CarUsage', 'loginframe', initialize)" >
         <div id="loginfields" hidden >
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>
@@ -58,7 +57,7 @@
                             <fieldset id="startfields" class = 'form'>
                                 <legend>Start</legend>
                                 <div>
-                                    <label  contenteditable="true" for="sdate">Date</label>
+                                    <label for="sdate">Date</label>
                                     <input type="text" name="Start Date" id="sdate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
                                     <label for="stime" class="nogap">Time</label>
                                     <input type="text" name="starttime" size="8" id="stime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">

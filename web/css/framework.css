@@ -48,7 +48,18 @@ textarea {
     width: max-content;
     height: max-content;
 }
-
+.centered-rel-xy {
+    position: relative;
+    left: 50%;
+    top: 50%;
+    -webkit-transform: translate(-50%,-50%);
+}
+.centered-abs-xy {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    -webkit-transform: translate(-50%,-50%);
+}
 .frame {
     margin-right: auto;
     margin-left: auto;
@@ -143,6 +154,9 @@ table {
     table-layout: fixed;
     margin: auto;
     background-color: lightpink;
+}
+iframe {
+    border-style: none;
 }
 thead {
     display: block;

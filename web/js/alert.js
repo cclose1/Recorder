@@ -42,7 +42,7 @@ function ConfigureAlertOptions(pOptions) {
     
     this.addSpec({name: 'useBrowser',  type: 'boolean',  default: false,       mandatory: false});
     this.addSpec({name: 'appId',       type: 'string',   default: 'appframe',  mandatory: false});
-    this.addSpec({name: 'rootId',      type: 'string',   default: 'alertdiv',  mandatory: false});
+    this.addSpec({name: 'rootId',      type: 'string',   default: 'alertid',   mandatory: false});
     this.addSpec({name: 'build',       type: 'boolean',  default: true,        mandatory: false});
     this.addSpec({name: 'enableMove',  type: 'boolean',  default: true,        mandatory: false});
     this.addSpec({name: 'autoDismiss', type: 'boolean',  default: true,        mandatory: false});
@@ -285,7 +285,7 @@ function configureAlert(options) {
     
     if (useBrowserAlert) return;
     
-    if (root === null) root = createElement(document, 'div', {id: opts.rootId, append: document.body, class: 'centered-abs-xy'});
+    if (root === null) root = createElement(document, 'div', {id: opts.rootId, append: document.body, class: 'centered-abs-xy alertcontainer'});
     
     if (opts.enableMove) {
         root.addEventListener('mousedown', alertMouseMove);

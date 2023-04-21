@@ -137,7 +137,11 @@ function setAction(value) {
         checkCurrencyField("paccount");
     }
 }
-function reset() {
+/*
+ * This function was originally name reset. However, this stops it from being call by an HTML event handler as
+ * the HTML built in function with the same name is called.
+ */
+function resetTxn() {
     document.getElementById("line").value         = "";
     document.getElementById("cdate").value        = "";
     document.getElementById("ctime").value        = "";
@@ -176,15 +180,6 @@ function reset() {
     setCreate(true);
     selectedAccount = 'paccount';
     requestTransactions();
-}
-/*
- * Added this as defining reset for the onclick for element clear in RecordBankTransaction.html did not invoke the function.
- * Unable to find the underlying reason.
- * 
- * @returns {undefined}
- */
-function resetTxn() {
-    reset();
 }
 function send() {
     var parameters = createParameters('create');
@@ -246,7 +241,7 @@ function send() {
                 return;
             }
         }
-        reset();
+        resetTxn();
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
     return true;
@@ -263,7 +258,7 @@ function deleteData() {
     parameters = addParameterById(parameters, 'txnid');
     parameters = addParameterById(parameters, 'line');
 
-    ajaxLoggedInCall('BankTransaction', reset, parameters);
+    ajaxLoggedInCall('BankTransaction', resetTxn, parameters);
 }
 function btTransactionsRowClick(row) {
     var rdr = new rowReader(row);
@@ -439,7 +434,11 @@ function initialize() {
     txnFilter.addFilter('Usages',      'Usage', response);
     txnFilter.addFilter('Description', 'Description');
     requestAccounts();
-    reset();
+    resetTxn();
+    /*
+     * This is to test adding a style sheet to a frame.
+     */
+    addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
 }
 
 
