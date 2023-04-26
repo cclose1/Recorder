@@ -366,9 +366,17 @@ function requestAccounts() {
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
 }
-function initialize() {
+function initialize(loggedIn) {
     var action = document.getElementById('action');
     var response;
+    var bURI = getFileRoot();
+    /*
+     * This is to test adding a style sheet to a frame.
+     */
+    addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
+    addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
+    
+    if (!loggedIn) return;
     
     action.innerHTML = "";
     /*
@@ -435,10 +443,6 @@ function initialize() {
     txnFilter.addFilter('Description', 'Description');
     requestAccounts();
     resetTxn();
-    /*
-     * This is to test adding a style sheet to a frame.
-     */
-    addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
 }
 
 

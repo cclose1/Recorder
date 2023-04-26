@@ -944,6 +944,7 @@ function unitsChange() {
 }
 function initialize() {
     var wl = window.location;
+    var bURI = getFileRoot();
     
     hstFilter = getFilter('filter1', document.getElementById('eventfilter'), requestEventHistory, {
         allowAutoSelect: true, 

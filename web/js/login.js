@@ -139,7 +139,7 @@ function login(server, event) {
             setHidden("logoff", false);
             
             if (appMYSQLUpdater !== undefined) setUsingMYSQL(appMYSQLUpdater);
-            if (appReset        !== undefined) appReset();
+            if (appReset        !== undefined) appReset(true);
         } else
             displayAlert("Security Failure", params[0]);
     }
@@ -209,10 +209,15 @@ function configureLogin(secserver, homeElementId) {
         ajaxLoggedInCall(secserver, processResponse, addParameter('', 'action', 'enablemysql'), false);
     }
 }
+/*
+ * Reset, if present, allows the application to perform relevant initialisation. It takes a boolean paramater,
+ * indicating if it is logged into the server. This allows it to perform initialisation that does not
+ * require retrieving information from the server.
+ */
 function connectToServer(server, homeElementId, reset) {
     configureLogin(server, homeElementId);
     appMYSQLUpdater = document.getElementById('mysqldiv');
     appReset        = reset;
     
-    if (serverAcceptingRequests(server) && reset !== undefined) appReset();
+    if (reset !== undefined) appReset(serverAcceptingRequests(server));
 }

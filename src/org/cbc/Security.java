@@ -290,6 +290,8 @@ class Security {
     }
 
     public void logOff() throws SQLException {
+        if (!loggedIn) return;
+        
         db.startTransaction();
         logOff("Closed");
         db.commit();

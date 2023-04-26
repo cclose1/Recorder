@@ -100,17 +100,52 @@ function getElement(object, withValue) {
         empty: val.length === 0
     };
 }
+/*
+ * Returns the root to be prefixed to relative href file names.
+ * 
+ * If there is a base element its href value is returned.
+ * 
+ * Otherwise, it is derived from window.location.href by strip off the field following the final /
+ * which is the html file name. This will provide the correct result, provided thehtml file is at the
+ * same location as the resourse folders.
+ */
+function getFileRoot() {
+    var base    =  document.getElementsByTagName('base');
+    var baseURI;
+    
+    if (base.length !== 0)
+        baseURI = base[0].href;
+    else {
+        var flds = window.location.href.split("/"); 
+        
+        delete flds[flds.length - 1]; 
+        baseURI = flds.join("/");
+    }
+    return baseURI;
+}
 function addStyleSheetToiFrame(iFrame, file) {    
     iFrame   = getElement(iFrame);
     
-    var frameDoc = (iFrame.contentWindow || iFrame.contentDocument);
-    var link     = document.createElement("link");
+    var frameDoc = (iFrame.contentWindow || iFrame.contentDocument).document;
+    var links    = frameDoc.getElementsByTagName('link');
+    var link;
     
+    file = getFileRoot() + file;
+    /*
+     * Check to see if link already present and return if it is.
+     * 
+     * Note: Adding the link more than once does not seem to cause a problem.
+     */
+    for (var i = 0; i < links.length; i++) {
+        if (links[i].href === file) return;
+    }
+      
+    link      = document.createElement("link");
     link.href = file;
     link.rel  = "stylesheet";
     link.type = "text/css";
     
-    frameDoc.document.head.appendChild(link);
+    frameDoc.head.appendChild(link);
 }
 /*
  * Returns an array of the elements children. If tagName is defined only children with tagName are returned.
