@@ -24,7 +24,7 @@
             <div>
                 <h1>Record Blood Pressure</h1>
             </div>
-            <div id='innerfields' class='form'>
+            <div class='form innerfields'>
                 <div id='insertfields'>
                     <div>
                         <label>Name</label>
@@ -34,6 +34,11 @@
                         <label>Session</label>
                         <input name="session" id="session" readonly size="20" tabindex="-1">
                         <input id="newsession" name="newsession" type="button" value="New Session" onclick="newSession();" tabindex="-1">
+                    </div>
+                    <div>
+                        <label for="maxsession">Max Session</label>
+                        <input class='smallnumber' type="text" name="Max Session" size ="1" id="maxsession" onkeypress="validateIntegerField(1, 50);">
+                        <label class='nogap'>Minutes</label>
                     </div>
                     <div>
                         <label for="side">Side</label>

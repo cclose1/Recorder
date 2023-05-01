@@ -369,11 +369,9 @@ function requestAccounts() {
 function initialize(loggedIn) {
     var action = document.getElementById('action');
     var response;
-    var bURI = getFileRoot();
     /*
      * This is to test adding a style sheet to a frame.
      */
-    addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
     addStyleSheetToiFrame('loginframe', 'css/rcdtxnlogin.css');
     
     if (!loggedIn) return;
@@ -388,12 +386,6 @@ function initialize(loggedIn) {
     addOption(action, 'Transfer');
     addOption(action, 'Exchange');
     setAction('Debit');
-    
-    addIEFixClass([
-        document.getElementsByTagName('body')[0],
-        'transactions',
-        'detailfields',
-        'filter']);
     
     txnFilter = getFilter('filter1', document.getElementById('filter'), requestTransactions, {
         allowAutoSelect: true, 

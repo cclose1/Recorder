@@ -17,14 +17,14 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Reminder Handler</title>
     </head>
-    <body onload="configureAlert(); initialize(true);">          
+    <body onload="configureAlert(); connectToServer('Reminder', 'loginframe', initialize);">          
         <div id="loginfields" hidden >
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>
         </div>    
         <form class="frame" id="appframe" autocomplete="off">
             <h1>Reminder Handler</h1>
-            <div id="innerfields">
+            <div class="innerfields">
                 <div class='floatleft'>
                     <fieldset id="detailfields" class='form'>
                         <legend>Reminder Details</legend>

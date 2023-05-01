@@ -21,11 +21,16 @@
             <iframe id="loginframe" src="Login.html" scrolling="no">
             </iframe>
         </div>  
+        <!-- 
+        The following fieldset is added to allow all fields to be disabled by a blocking alert. The alert call
+        filters out those that are not required to be locked.
+        -->
+        <fieldset class='noborder'>
         <form class="frame" id="appframe" autocomplete="off">
             <div>
                 <h1>Car Usage</h1>
             </div>
-            <div id="innerfields">
+            <div class = "innerfields">
                 <input id="keytimestamp" type="hidden"/>
                 <div class='floatleft'>
                     <fieldset id="detailfields" class='form'>
@@ -171,17 +176,17 @@
                         </fieldset>
                     </div>
                     <div class='centre'>
-                    <label for='selecttable' class='largelab'>Update Table</label>
-                    <select id='selecttable' onchange='tableSelected();'>
-                        <option value='None'></option>
-                        <option value='Test'>Test</option>
-                        <option value='Test2'>Test2</option>
-                        <option value='Test3'>Test3</option>
-                        <option value='ChargerNetwork'>Charger Network</option>
-                        <option value='ChargerLocation'>Charger Location</option>
-                        <option value='ChargerUnit'>Charger Unit</option>
-                        <option value='ChargeSession'>Charge Session</option>
-                    </select>
+                        <label for='selecttable' class='largelab'>Update Table</label>
+                        <select id='selecttable' onchange='tableSelected();'>
+                            <option value='None'>None</option>
+                            <option value='Test'>Test</option>
+                            <option value='Test2'>Test2</option>
+                            <option value='Test3'>Test3</option>
+                            <option value='ChargerNetwork'>Charger Network</option>
+                            <option value='ChargerLocation'>Charger Location</option>
+                            <option value='ChargerUnit'>Charger Unit</option>
+                            <option value='ChargeSession'>Charge Session</option>
+                        </select>
                     </div>
                     <fieldset id='updatetable' name='UpdateTable' class='form centreminwidth'>
                     </fieldset>
@@ -195,5 +200,6 @@
                 <tr><td></td></tr>
             </table>
         </form>
+        </fieldset>
     </body>
 </html>

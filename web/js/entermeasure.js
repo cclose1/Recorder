@@ -1,3 +1,5 @@
+/* global getElement */
+
 'use strict';
 
 var timer;
@@ -7,16 +9,27 @@ function showUpdate(yes) {
     setHidden('updatefields', !yes);
 }
 function newSession() {
-    document.getElementById("session").value = currentDateTime();
+    var ts = new Date();
+    
+    document.getElementById("session").value = currentDateTime(ts);
     document.getElementById("time").value = "";
     document.getElementById("timer").value = "";
     document.getElementById("try").value = 1;
     document.getElementById("systolic").focus();
+    
+    return ts;
 }
-function setTime() {
+function setTime() {    
     if (trim(document.getElementById("time").value) === "") {
-        var date = new Date();
-        document.getElementById("time").value = currentTime(date);
+        var date       = new Date();
+        var session    = null;
+        var maxsession = getElement('maxsession').value === '' ? 15 : getElement('maxsession').value;
+        
+        if (document.getElementById("session").value !== "") session = toDate(document.getElementById("session").value);
+        
+        if (session === null || dateDiff(session, date, 'minutes') > maxsession) date = newSession();
+        
+        document.getElementById("time").value      = currentTime(date);
         document.getElementById("timestamp").value = currentDateTime(date);
         timer.start();
     }
@@ -162,13 +175,16 @@ function requestHistory() {
 function updateOrientationList(name, dbField) {
     getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowBlank: true}); 
 }
-function initialize() {    
+function initialize(loggedIn) {  
+    if (!loggedIn) return;
+    
     timer = new Timer(document.getElementById("timer"));
-    newSession();
+ //   newSession();
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');
     getList('Record', {name: "commentList", table: 'Measure', field: 'Comment', firstValue: ' ', async:false, allowBlank: true});
     requestHistory();
     showUpdate(false);
+    getElement('maxsession').value = 15;
 }
 

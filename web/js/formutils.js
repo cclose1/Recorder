@@ -68,6 +68,12 @@ class elementMover {
     }
 }
 /*
+ * Returns true if object is undefined or null;
+ */
+function isNull(object) {
+    return object === undefined || object === null;
+}
+/*
  * object can be one of the following:
  *  Object         Element
  *  undefined    event.target
@@ -82,7 +88,7 @@ class elementMover {
 function getElement(object, withValue) {
     var elm = object;
     
-    if (object === undefined || object === null)
+    if (isNull(object))
         elm = event.target;
     else if (typeof object === 'string') { 
         if (trim(object) === '')
@@ -99,6 +105,19 @@ function getElement(object, withValue) {
         value: val,
         empty: val.length === 0
     };
+}
+/*
+ * Return true element or any of its parents is disabled.
+ */
+function isDisabled(element) {
+    while (!isNull(element)) {
+        var disabled = element.disabled;
+        
+        if (disabled !== undefined && disabled) return true;
+        
+        element = element.parentNode;
+    }
+    return false;
 }
 /*
  * Returns the root to be prefixed to relative href file names.
@@ -166,6 +185,22 @@ function removeChildren(element) {
     while (element.lastElementChild) {
         element.removeChild(element.lastElementChild);
     }
+}
+/*
+ * This performs the same as getElementsByTagName. 
+ * 
+ * If exclude is not undefined, elements that equal exclude or are children of it
+ * are removed from the elements array.
+ */
+function getElementsByTag(name, exclude) {
+    var elms = [...document.getElementsByTagName(name)];
+    
+    if (exclude !== undefined && exclude !== null) {
+        elms = elms.filter(function (elm) {
+            return !(exclude === elm || exclude.contains(elm));
+        });
+    }
+    return elms;
 }
 function getParameter(value, defaultValue) {
     return value === undefined? defaultValue : value;
@@ -575,13 +610,6 @@ function triggerClick(element) {
         bubbles:    true});
     }
     getElement(element).dispatchEvent(event);
-}
-function addIEFixClass(elements) {
-    if (platform.name !== 'IE') return;
-    
-    elements.forEach(function(element) {
-        getElement(element).classList.add("iefix");
-    });
 }
 function setAttribute(element, id, value) {
     var name = id;
@@ -1140,7 +1168,7 @@ function popUp() {
         this.containerId = containerId;
         this.popUpId     = containerId;
         this.appId       = appId === undefined ? 'appframe' : appId;
-
+        
         if (home.tagName === 'IFRAME') {             
             this.popUpDoc    = document.getElementById(containerId).contentWindow.document;
             body             = this.popUpDoc.body;
@@ -1225,125 +1253,6 @@ function popUp() {
         document.onclick = action;
         
         if (this.frameId !== '') this.popUpDoc.onclick = action;
-    }
-}
-function popUpOld() {
-    var popUpDoc;
-    var popUpTopId;
-    var popUpId;
-    var appId;
-    var frameId;
-
-    this.initialise         = initialise;
-    this.reset              = reset;
-    this.display            = display;
-    this.getElementById     = getElementById;
-    this.getValueById       = getValueById;
-    this.setValueById       = setValueById;
-    this.getAppId           = getAppId;
-    this.getContainerId     = getContainerId;
-    this.getFrameId         = getFrameId;
-    this.inDisplay          = inDisplay;
-    this.setDocumentOnClick = setDocumentOnClick;
-    
-    function setSize(element, width, height, border) {
-        var style = element.style;
-        
-        style.width       = width  + 'px';
-        style.height      = height + 'px';
-        style.borderWidth = border;
-    }
-    function initialise(popUpTopId, appId) {
-        var home = document.getElementById(popUpTopId);
-        var body;
-        
-        this.popUpTopId = popUpTopId;
-        this.appId      = appId === undefined ? 'appframe' : appId;
-
-        if (home.tagName === 'IFRAME') {             
-            popUpDoc        = document.getElementById(popUpTopId).contentWindow.document;
-            body            = popUpDoc.body;
-            popUpId         = body.id !== ''? body.id : body.firstElementChild.id;
-            frameId         = popUpTopId;
-            this.popUpTopId = home.parentElement.id;
-        } else {
-            popUpId  = this.popUpTopId;
-            popUpDoc = document;
-            frameId  = '';
-        }
-        document.getElementById(this.popUpTopId).style.display = 'none';
-    }
-    function getContainerId() {
-        return this.popUpTopId;
-    }
-    /*
-     * Set to initial state for a new alert. The only action required is to clear
-     * the width and height for the popUpId element.
-     */
-    function reset() {
-        getElement(this.getContainerId()).style.offsetLeft = "";
-        getElement(this.getContainerId()).style.offsetTop  = "";
-        
-        if (getFrameId() === '') {
-            getElementById(popUpId).style.width  = "";
-            getElementById(popUpId).style.height = "";
-        }
-    }
-    function getAppId() {
-        return this.appId;
-    }
-    function display(yes, switchApp, minWidth, minHeight) {
-        setHidden(this.popUpTopId, !yes);
-
-        if (switchApp)
-            setHidden(this.appId, yes);
-        
-        if (yes) {
-            var pu = getElementById(popUpId);
-            var wd = pu.offsetWidth;
-            var ht = pu.offsetHeight;
-            
-            if (minWidth  !== null && wd < minWidth)  wd = minWidth;
-            if (minHeight !== null && ht < minHeight) ht = minHeight;
-            
-             if (frameId !== '')
-                 setSize(document.getElementById(frameId),         wd, ht, "0px 0px 0px 0px");
-             else
-                 setSize(document.getElementById(this.popUpTopId), wd, ht, "0px 0px 0px 0px");
-        }
-    }
-    function getElementById(id) {
-        return popUpDoc.getElementById(id);
-    }
-    function getValueById(id) {
-        return trim(getElementById(id).value);
-    }
-    function setValueById(id, value, ignoreIfNotFound) {
-        var el =getElementById(id);
-        
-        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound) return;
-        
-        el.value = value;
-    }
-    function getFrameId() {
-        return frameId;
-    }
-    function inDisplay(event) {
-        var target    = event;
-        var container = document.getElementById(this.popUpTopId);
-        var frame     = frameId !== ''? getElementById(popUpId) : undefined;
-        
-        while (target.parentNode) {
-            if (target === container || frame !== undefined && target === frame) return true;
-            
-            target = target.parentNode;
-        }
-        return false;
-    }
-    function setDocumentOnClick(action) {
-        document.onclick = action;
-        
-        if (frameId !== '') popUpDoc.onclick = action;
     }
 }
 function deleteRows(object) {
@@ -1454,25 +1363,6 @@ function isVisible(element) {
     element = getElement(element);
 
     return !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
-}
-function assignNameValue(frame, value) {
-    var fields = value.split("=", 2);
-    var id = fields[0];
-    var fields = fields[1].split(",", 2);
-
-    if (fields[0] === "checkbox")
-        window.parent.frames[frame].document.getElementById(id).checked = (fields[1] === "true") ? -1 : 0;
-    else
-        window.parent.frames[frame].document.getElementById(id).value = fields[1];
-}
-function updateField(frame, id, value) {
-    window.parent.frames[frame].document.getElementById(id).value = value;
-}
-function copyInput(frame, id) {
-    if (document.getElementById(id).type === "checkbox")
-        window.parent.frames[frame].document.getElementById(id).checked = document.getElementById(id).checked;
-    else
-        window.parent.frames[frame].document.getElementById(id).value = document.getElementById(id).value;
 }
 function setCookie(name, value, expiredays) {
     var exdate = new Date();

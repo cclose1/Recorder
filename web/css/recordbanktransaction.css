@@ -11,13 +11,6 @@ body.iefix {
     margin: auto;
     width: 1000px;
 }
-#innerfields {
-    margin: auto;
-    width: auto;
-} 
-#appframe {
-    display : inline-block;
-}
 #accounts > tbody {
     height: 280px;
 }

@@ -942,9 +942,8 @@ function unitsChange() {
     }
     savedUnit = event.target.value;
 }
-function initialize() {
-    var wl = window.location;
-    var bURI = getFileRoot();
+function initialize(loggedIn) {
+    if (!loggedIn) return;
     
     hstFilter = getFilter('filter1', document.getElementById('eventfilter'), requestEventHistory, {
         allowAutoSelect: true, 

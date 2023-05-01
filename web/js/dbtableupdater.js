@@ -592,7 +592,7 @@ class DatabaseTable {
                     autoDismiss:   false, 
                     minWidth:      500,
                     minHeight:     500,
-                    blockElements: [this.formId, 'detailfields'], 
+                    blockElements: getElementsByTag('fieldset', getElement('updatetable')), 
                     alertData:     {usage: usage}});
         else
             this._displayForm(usage);               

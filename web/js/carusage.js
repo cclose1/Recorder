@@ -430,6 +430,8 @@ function send(action) {
     return true;
 }
 function btChargeSessionsRowClick(row) {
+    if (isDisabled(row)) return;
+    
     var rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
@@ -485,6 +487,8 @@ function btChargeSessionsRowClick(row) {
     setSave('Update');
 }
 function btChargersRowClick(row) {
+    if (isDisabled(row)) return;
+    
     var rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
@@ -500,7 +504,9 @@ function btChargersRowClick(row) {
         }
     }
 }
-function initialize() {
+function initialize(loggedIn) {
+    if (!loggedIn) return;
+    
     reporter.setFatalAction('throw'); 
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
@@ -546,6 +552,3 @@ function initialize() {
     setHidden('updatetable', true);
     reset();
 }
-
-
-

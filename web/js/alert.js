@@ -2,24 +2,15 @@
 
 'use strict';
 
-/*
- * blockByContent is an option to use contenteditable rather than disable, to block updates to elements. However,
- * it is useless for this purpose. Content is defined as the text between the element start and end tag, i.e.
- * for <tag>xxx</tag> xxx is the content. Some elements e.g. <input> cannot have an end tag. So for 
- * <label contenteditable="true">Description</label>, the user would be able to change description. 
- * 
- * The default setting for this attribute is false. 
- */
 var alertTime;
 var useBrowserAlert = true;
 var alertOptions    = new AlertOptions();
 var alertOnDisplay  = false;
-var blockByContent  = false;
 var alertMover      = new elementMover();
 var al;
 
 /*
- * Defines the options for AlertDisply.
+ * Defines the options for AlertDisplay.
  */
 
 function AlertOptions() {   
@@ -142,7 +133,7 @@ function getBlockList(list, errorNotBlockable) {
         
         if (elm === null) reporter.fatalError(list[i] + ' is not a valid element');
         
-        if (elm.disabled === undefined && !blockByContent) {
+        if (elm.disabled === undefined) {
             /*
              * hasAttribute returns true if the element has the disabled attribute, i.e. if elm.disabled
              * returns true. It seems the elm.disabled returns undefined if the element does not implement
@@ -168,10 +159,7 @@ function setBlock(on) {
     if (blkElms.length === 0 && alertOptions.blockApp) blkElms = getBlockList(al.getAppId());
     
     for (var i = 0; i < blkElms.length; i++) {
-        if (blockByContent)
-            blkElms[i].setAttribute('contenteditable', false);
-        else
-            blkElms[i].disabled = on;
+        blkElms[i].disabled = on;
     }
 }
 /*

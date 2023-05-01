@@ -1,3 +1,5 @@
+/* global reporter */
+
 'use strict';
 
 var hstFilter;
@@ -174,10 +176,10 @@ function loadOption(options, type, defaultValue) {
     
     return response;
 }
-function initialize() {
+function initialize(loggedIn) {
     var response;
     
-    addIEFixClass([document.getElementsByTagName('body')[0]]);
+    if (!loggedIn) return;
     
     reporter.setFatalAction('console');
     

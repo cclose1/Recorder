@@ -28,14 +28,14 @@ textarea {
     .floatleft{
         float: left;
     }
-}   
-#innerfields {
-    margin: auto;
-    width: max-content
 } 
 #appframe {
     display : inline-grid;
 }
+.innerfields{
+    margin: auto;
+    width: max-content
+} 
 .filter {
     width: max-content;
 }
@@ -78,6 +78,9 @@ textarea {
     border: 1px solid;
     padding-top: 10px;
     padding-bottom: 10px
+}
+.noborder {
+    border: none;
 }
 .centre {
     margin: auto;

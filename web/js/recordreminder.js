@@ -1,3 +1,5 @@
+/* global reporter */
+
 'use strict';
 
 var hstFilter;
@@ -149,8 +151,8 @@ function rowClick(row) {
     setHidden("clone",  false);
     setHidden("remove", false);
 }
-function initialize() {
-    addIEFixClass([document.getElementsByTagName('body')[0]]);
+function initialize(loggedIn) {
+    if (!loggedIn) return;
     
     var types = 
             'Anniversary,' +
@@ -180,10 +182,7 @@ function initialize() {
     hstFilter.addFilter('Types',       'Type',     types);
     hstFilter.addFilter('Frequency',   'Frequency', 'Y,M', true);
     hstFilter.addFilter('Description', 'Description');
-    /*
-     * The remaining calls can execute asynchronously.
-     */
-    connectToServer('Reminder', 'loginframe', requestReminders);
+    requestReminders();
 }
 
 
