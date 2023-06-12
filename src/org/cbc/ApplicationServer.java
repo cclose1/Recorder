@@ -289,12 +289,43 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public java.sql.Timestamp getSQLTimestamp(Date date) {
             return date == null? null : new java.sql.Timestamp(date.getTime());
-        }        
-        public void close() {
-            if (appDb != null) appDb.close();
-            if (secDb != null) secDb.close();
-            if (remDb != null) remDb.close();
+        }   
+        /*
+         * The sqlOnly was introduced to allow the connection to be closed only if the 
+         * db protocol is sqlserver.
+         */      
+        private void close(DatabaseSession db, boolean sqlOnly) throws SQLException {
+            if (db != null && db.isOpen()) {
+                if (db.getProtocol().equals("sqlserver") || !sqlOnly) db.close();
+            }
         }
+        /*
+         * If sqlOnly the database is closed only if it is sqlserver.
+         *
+         * This was introduced to overcome a problem if the sql server is connected
+         * as a DAC (Dedicated Admin Connection). This occured as a result of incorrectly
+         * setting up the sql server database.
+         *
+         * In the code all calls ctx.close(true) are only required if sql server has been
+         * incorrectly configured.
+         */
+        public void close(boolean sqlOnly) throws SQLException {
+            close(appDb, sqlOnly);
+            close(secDb, sqlOnly);
+            close(remDb, sqlOnly);
+        }
+        public void close() throws SQLException {
+            close(false);
+        }
+        /*
+         * This is part of a work around for a problem with sql server, where connections are being
+         * created as DAC (Dedicated Admin Connection) of which there can only be one.
+         *
+         * This is called at significant points to ensure all connections are closed. DatabaseSession automatically
+         * opens the connection when a method is used that requires a connection.
+         *
+         * Would be better to find out why sql Server connections are created like this, but have failed so far.
+         */
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
             Trace           t       = new Trace("openDatabase");
             DatabaseSession session = new DatabaseSession(useMySql? "mysql" : "sqlserver", config.getDbServer(), login.name);
@@ -310,6 +341,8 @@ public abstract class ApplicationServer extends HttpServlet {
                 t.report('C', "Connection string " + session.getConnectionString());
             }   
             session.SetLongStatementTime(config.getLongStatementTime());
+            
+            if (!useMySql) session.close();
             
             t.exit();
             
@@ -893,6 +926,7 @@ public abstract class ApplicationServer extends HttpServlet {
          */
         ctx.setStatus(404);
         t.report('C', action);
+        ctx.close(true);
         
         try {           
             if (action.equals("login")) {
@@ -935,6 +969,7 @@ public abstract class ApplicationServer extends HttpServlet {
                         ctx.getReplyBuffer().append(';');                        
                     }
                 }
+                ctx.close(true);
                 processAction(ctx, action);
             }
         } catch (NoSuchAlgorithmException ex) {
@@ -1026,6 +1061,7 @@ public abstract class ApplicationServer extends HttpServlet {
             while (repeat <= maxRepeats) {
                 try {
                     security.checkSession(repeat);
+
                     processAction(ctx, security);
                     break;
                 } catch (SQLException ex) {
@@ -1037,7 +1073,8 @@ public abstract class ApplicationServer extends HttpServlet {
                     ctx.getReplyBuffer().setLength(0);
                     repeat++;
                 }
-            }            
+            }
+            ctx.close();
         } catch (SQLException ex) {
             Report.error(null, "SQL error " + ex.getErrorCode() + " state " + ex.getSQLState(), ex);
             ctx.getReplyBuffer().append(ex.getMessage());
@@ -1061,7 +1098,6 @@ public abstract class ApplicationServer extends HttpServlet {
         
         if (config.getLogReply()) Report.comment(null, ctx.getReplyBuffer().toString());
         
-        ctx.close();
         t.exit();
         m.report(true, "Action " + action);
         Thread.detach();

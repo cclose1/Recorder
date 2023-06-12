@@ -402,6 +402,7 @@ function initialize(loggedIn) {
         true);
     txnFilter.addFilter('Accounts', 'Account', response);
     response = getList('BankTransaction', {
+        name:         "pcurrency",
         table:        "Currency",
         field:        "Designation",
         keepValue:    true,

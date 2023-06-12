@@ -12,7 +12,38 @@
  * object for the form accessed.
  */
 var tableForms = {};
-
+/*
+ * 
+ */
+var listeners  = new Map();
+/*
+ * 
+ * @param String  key       uniquely identifies the listener.
+ * @param Object  listener  the object must implement the function tableChange.
+ * @param boolean overWrite if true or undefined, the existing listener for key is replaced.
+ *                          If false and a listener for key exists a fatal error is reported.
+ * @returns {undefined}
+ */
+function addTableListener(key, listener, overwrite) {    
+    if (!isNull(overwrite) && !overwrite && listeners.has(key)) fatalError('Table listener for key ' + key + ' alreadyexists');
+    
+    listeners.set(key, listener);
+}
+/*
+ * 
+ * @param String tableName Table name subject to the action.
+ * @param String action    The action performed on the table row, which can be Create, Update or Delete.
+ * 
+ * @returns {undefined}
+ * 
+ * For each listener in listeners, 
+ * its tableChange function is called with the parameters, tableName, action and the listener key.
+ */
+function invokeTableListeners(tableName, action) {
+    listeners.forEach(function (listener, key) {
+        listener.tableChange(tableName, action, key);
+    });
+}
 function tableFormChange(key) {
     var table = tableForms[key];
     
@@ -352,14 +383,15 @@ class DatabaseTable {
         return this._changesNotSaved;
     }
     _executeCommand() {
-        var btn    = event.target;
-        var action = btn.value;
-        var cols   = this._columns;
+        var btn       = event.target;
+        var action    = btn.value;
+        var tableName = this.name;
+        var cols      = this._columns;
         var check;
         var add;
         var parameters = createParameters('updatetable');
         
-        parameters = addParameter(parameters, 'table', this.name + ',' + action);
+        parameters = addParameter(parameters, 'table', tableName + ',' + action);
         
         for (const col of this.getColumns()){
             switch (action) {
@@ -415,6 +447,7 @@ class DatabaseTable {
                     displayAlert(action + ' Failure', response);
                     return false;
                 }
+                invokeTableListeners(tableName, action);
             }
         }
         ajaxLoggedInCall(this.server, processResponse, parameters);

@@ -18,12 +18,13 @@
     </head>
     <body onload="configureAlert(); connectToServer('CarUsage', 'loginframe', initialize)" >
         <div id="loginfields" hidden >
-            <iframe id="loginframe" src="Login.html" scrolling="no">
+            <iframe id="loginframe" src="Login.html">
             </iframe>
         </div>  
         <!-- 
         The following fieldset is added to allow all fields to be disabled by a blocking alert. The alert call
         filters out those that are not required to be locked.
+        
         -->
         <fieldset class='noborder'>
         <form class="frame" id="appframe" autocomplete="off">

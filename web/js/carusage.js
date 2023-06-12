@@ -7,6 +7,20 @@ var prcur  = null;
 var prlast = null;
 var prgap  = 5;
 
+class TableChangeAlerter {
+    tableChange(table, action, listenerKey) {
+        switch (table.toLowerCase()) {
+            case 'chargernetwork':
+            case 'chargerlocation':
+            case 'chargerunit':
+                requestChargers();
+                break;
+        }
+        console.log('Action ' + action + 'for Table ' + table + ' key ' + listenerKey);
+    };
+};
+var ts = new TableChangeAlerter();
+
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
     
@@ -551,4 +565,8 @@ function initialize(loggedIn) {
         true);
     setHidden('updatetable', true);
     reset();
+    addTableListener('Test1', ts);
+    addTableListener('Test2', ts);
+    invokeTableListeners('Test1', 'Update');
+    invokeTableListeners('Test2', 'Create');
 }
