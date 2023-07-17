@@ -24,10 +24,12 @@ var ts = new TableChangeAlerter();
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
     
-    document.getElementById("carreg").disable   = yes;
-    document.getElementById("sdate").readOnly   = yes;
-    document.getElementById("stime").readOnly   = yes;
-    document.getElementById("mileage").readOnly = yes;
+    document.getElementById("carreg").disable     = yes;
+    document.getElementById("sdate").readOnly     = yes;
+    document.getElementById("stime").readOnly     = yes;
+    document.getElementById("mileage").readOnly   = yes;
+    document.getElementById("schargepc").readOnly = yes;
+    document.getElementById("smiles").readOnly    = yes;
 }
 /* 
  * To change this license header, choose License Headers in Project Properties.
@@ -227,9 +229,11 @@ function setNew(copy) {
         /*
          * Save comment and restore after clearData.
          */
-        var comment = document.getElementById('sessioncomment').value;
+        var comment = getElement('sessioncomment').value;
+        
         clearData();
-        document.getElementById('sessioncomment').value = comment;
+        getElement('sessioncomment').value = comment;
+        getElement("currenttime").checked  = true;
     } else {
         var sessions = document.getElementById('chargesessionstable');
 
@@ -256,7 +260,6 @@ function setNew(copy) {
         }
     }
     setDateTime('sdate', 'stime');
-    document.getElementById('stime').value = document.getElementById('stime').value.substring(0, 5);
     setSave('Create');
 }
 function getDateTime(prefix) {
@@ -361,6 +364,21 @@ function tableSelected() {
         setHidden('selecttable', true);
     }
 }
+function setCurrentTime(action) {
+    var did = action === 'Create' ? 'sdate' : 'edate';
+    var tid = action === 'Create' ? 'stime' : 'etime';
+    
+    if (!getElement('currenttime').checked) return;
+    
+    /*
+     * setDateTime only sets the time if the fields are empty. 
+     * 
+     * Probably should change this to conditionally overwrite, but need to assess current usage.
+     */
+    clearElement(did);
+    clearElement(tid);
+    setDateTime(did, tid);
+}
 function send(action) {
     if (action === undefined) action = event.target.value;
     
@@ -376,26 +394,19 @@ function send(action) {
         setNew(true);
         return;
     }
+    setCurrentTime(action);
+    
     var dt = validateDateTime("sdate", "stime", {required: true});
     
     if (!dt.valid) return;
-    
-    if (action === 'Update' && getElement('currenttime').checked) {
-        /*
-         * setDateTime only sets the time if the fields are empty. 
-         * 
-         * Probably should change this to conditionally overwrite, but need to assess current usage.
-         */
-        clearElement("edate");
-        clearElement("etime");
-        setDateTime('edate', 'etime');
-    }
-    
+        
     if (action !== 'Delete') {        
         var tm = validateDateTime("edate", "etime");
         if (!tm.valid) return;
 
         if (!fieldHasValue("mileage"))     return;
+        if (!fieldHasValue("schargepc"))   return;
+        if (!fieldHasValue("smiles"))      return;
         if (!checkDuration("estduration")) return;
 
         if (!checkGreaterOrEqual("smiles", "emiles"))       return;

@@ -92,6 +92,11 @@ function requestHistory(filter) {
     ajaxLoggedInCall('Spend', processResponse, parameters);
 }
 function requestSummary() {
+    if (getMYSQL()) {
+        setHidden('summaryfields', true);
+        return;
+    }
+    
     var parameters = createParameters('summaryfields');
 
     function processResponse(response) {

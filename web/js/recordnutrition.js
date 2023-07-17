@@ -24,7 +24,10 @@ function ValidateItem() {
     this.actionCancel = function() {
     };
     this.actionClick = function(obj) {
-        if (obj === undefined) obj = this;
+        /*
+         * Probably just use this as I don't think appdata, the obj parameter, is ever used by nutrition.
+         */
+        if (!hasValue(obj)) obj = this;
         
         applyItemUpdate(obj.oldTime);
         obj.oldTime = null;

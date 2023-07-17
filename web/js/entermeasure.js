@@ -23,7 +23,7 @@ function setTime() {
     if (trim(document.getElementById("time").value) === "") {
         var date       = new Date();
         var session    = null;
-        var maxsession = getElement('maxsession').value === '' ? 15 : getElement('maxsession').value;
+        var maxsession = getElement('maxsession').value === '' ? 25 : getElement('maxsession').value;
         
         if (document.getElementById("session").value !== "") session = toDate(document.getElementById("session").value);
         
@@ -185,6 +185,6 @@ function initialize(loggedIn) {
     getList('Record', {name: "commentList", table: 'Measure', field: 'Comment', firstValue: ' ', async:false, allowBlank: true});
     requestHistory();
     showUpdate(false);
-    getElement('maxsession').value = 15;
+    getElement('maxsession').value = 25;
 }
 

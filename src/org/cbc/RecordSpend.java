@@ -189,152 +189,101 @@ public class RecordSpend extends ApplicationServer {
     public void processAction(
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
-        boolean mySql  = ctx.getAppDb().getProtocol().equals("mysql");
+        boolean          mySql     = ctx.getAppDb().getProtocol().equals("mysql");
+        String           seqNo     = ctx.getParameter("seqno");
+        Date             timestamp = ctx.getTimestamp("date", "time");
+        SQLSelectBuilder sel;
+        JSONObject       data      = new JSONObject();
+        ResultSet        rs;
         
-        if (action.equals("deletespend")) {
-            SQLDeleteBuilder sql = ctx.getDeleteBuilder(config.getUpdateTable());
-            
-            sql.addAnd("SeqNo", "=", ctx.getParameter("seqno"), false);
-            executeUpdate(ctx, sql.build());
-            ctx.setStatus(200);
-        } else if (action.equals("savespend")) {
-            String    seqNo = ctx.getParameter("seqno");            
-            Date      date  = ctx.getTimestamp("date", "time");
-            ResultSet rs;
-               
-            if (seqNo.length() == 0) {
-                rs = ctx.getAppDb().insertTable(config.getUpdateTable());
-                rs.moveToInsertRow();
-                setDataFields(ctx, rs, date);
-                rs.insertRow();
+        switch (action) {
+            case "deletespend":
+                SQLDeleteBuilder sqld = ctx.getDeleteBuilder(config.getUpdateTable());
+                sqld.addAnd("SeqNo", "=", ctx.getParameter("seqno"), false);
+                executeUpdate(ctx, sqld.build());
                 ctx.setStatus(200);
-            } else {
-                SQLSelectBuilder sql = ctx.getSelectBuilder(config.getUpdateTable());
-                /*
-                Does not look as if following are necessary. Leave for a while and then delete.
-                
-                sql.addField("SeqNo");
-                sql.addField("Timestamp");
-                sql.addField("Category");
-                sql.addField("Type");
-                sql.addField("Description");
-                sql.addField("Location");
-                sql.addField("Amount");
-                sql.addField("Payment");
-                sql.addField("Period");
-                sql.addField("BankCorrection");
-*/
-                sql.addAnd("SeqNo", "=", seqNo, false);
-                rs = ctx.getAppDb().updateQuery(sql.build());
-                    
-                if (!rs.next())
-                    ctx.getReplyBuffer().append("No record for SeqNo " + seqNo);
-                else {
-                    rs.moveToCurrentRow();
-                    setDataFields(ctx, rs, date);
-                    rs.updateRow();
+                break;
+            case "savespend":                
+                if (seqNo.length() == 0) {
+                    rs = ctx.getAppDb().insertTable(config.getUpdateTable());
+                    rs.moveToInsertRow();
+                    setDataFields(ctx, rs, timestamp);
+                    rs.insertRow();
                     ctx.setStatus(200);
-                }
-            }
-            ctx.getAppDb().commit();
-        } else if (action.equals("spendhistory")) { 
-            JSONObject      data = new JSONObject();
-            SQLSelectBuilder sql = ctx.getSelectBuilder(config.getReadTable());
-                
-            copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "M");
-            copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "Y");
-            sql.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
-            sql.addField("SeqNo");
-            sql.addField("Timestamp");
-            sql.addField("Weekday");
-            sql.addField("Category",    sql.setCast("VARCHAR", 13));
-            sql.addField("Type",        sql.setCast("VARCHAR", 13));
-            sql.addField("Description", sql.setValue(""));
-            sql.addField("Location",    sql.setValue(""));
-            sql.addField("Period");
-            sql.addField("Payment");
-            sql.addField("Amount",      sql.setCast("DECIMAL", 10, 2));
-            sql.addField("Correction",  sql.setExpressionSource("BankCorrection"),  sql.setCast("DECIMAL", 10, 2));
-            sql.addAnd(ctx.getParameter("filter"));
-            sql.setOrderBy("Timestamp DESC");
-            ResultSet rs = executeQuery(ctx, sql);
-            data.add("SpendData", rs, config.getOptionalColumns());
-            data.append(ctx.getReplyBuffer());
-            ctx.setStatus(200);
-        } else if (action.equals("getList")) {
-            getList(ctx);
-        } else if (action.equals("getListo")) {
-            JSONObject       data     = new JSONObject();
-            String           field    = ctx.getParameter("field");
-            String           category = ctx.getParameter("category");
-            String           type     = ctx.getParameter("type");
-            SQLSelectBuilder sql;
-            
-            if (category != null && category.length() == 0) {
-                category = null;
-            }
-            if (type != null && type.length() == 0) {
-                type = null;
-            }
-            if (category == null && type == null) {
-                sql =  ctx.getSelectBuilder("ListValues");
-                sql.addField("Value");
-                sql.addAnd("Type", "=", field);
-                sql.setOrderBy("Value");
-            } else {
-                sql = ctx.getSelectBuilder("SpendData");
-                sql.setOptions("DISTINCT");
-                sql.addField(field);
-                sql.setWhere(field + " IS NOT NULL");
-
-                if (category != null) {
-                    sql.addAnd("Category", "=", category);
-                }
-                if (type != null) {
-                    sql.addAnd("Type", "=", type);
-                }
-                sql.setOrderBy(field);
-            }
-            ResultSet rs = executeQuery(ctx, sql.build());
-
-            data.add(field, rs);
-            data.append(ctx.getReplyBuffer());
-
-            ctx.setStatus(200);
-        } else if (action.equals("summaryfields")) {
-            String     sql    = mySql? "CALL Summary(NULL, NULL, 'Y')" : "EXEC Summary NULL, NULL";
-            JSONArray  fields = new JSONArray();
-            String     named  = ctx.getParameter("name");
-            ResultSet  rs     = executeQuery(ctx, sql);
-
-            fields.addFields(rs);
-
-            if (named == null || named.length() == 0) {
-                fields.append(ctx.getReplyBuffer());
-            } else {
-                JSONObject data = new JSONObject();
-
-                data.add(named, fields);
+                } else {
+                    SQLSelectBuilder sql = ctx.getSelectBuilder(config.getUpdateTable());
+                    sql.addAnd("SeqNo", "=", seqNo, false);
+                    rs = ctx.getAppDb().updateQuery(sql.build());
+                        
+                    if (!rs.next())
+                        ctx.getReplyBuffer().append("No record for SeqNo " + seqNo);
+                    else {
+                        rs.moveToCurrentRow();
+                        setDataFields(ctx, rs, timestamp);
+                        rs.updateRow();
+                        ctx.setStatus(200);
+                    }
+                }       
+                ctx.getAppDb().commit();
+                break;
+            case "spendhistory":                 
+                sel = ctx.getSelectBuilder(config.getReadTable());
+                copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "M");
+                copyFixed(ctx, config.getReadTable(), config.getUpdateTable(), null, "Y");
+                sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
+                sel.addField("SeqNo");
+                sel.addField("Timestamp");
+                sel.addField("Weekday");
+                sel.addField("Category",    sel.setCast("VARCHAR", 13));
+                sel.addField("Type",        sel.setCast("VARCHAR", 13));
+                sel.addField("Description", sel.setValue(""));
+                sel.addField("Location",    sel.setValue(""));
+                sel.addField("Period");
+                sel.addField("Payment");
+                sel.addField("Amount",      sel.setCast("DECIMAL", 10, 2));
+                sel.addField("Correction",  sel.setExpressionSource("BankCorrection"),  sel.setCast("DECIMAL", 10, 2));
+                sel.addAnd(ctx.getParameter("filter"));
+                sel.setOrderBy("Timestamp DESC");
+                rs = executeQuery(ctx, sel);
+                data.add("SpendData", rs, config.getOptionalColumns());
                 data.append(ctx.getReplyBuffer());
-            }
-            ctx.setStatus(200);
-        } else if (action.equals("checktimestamp")) {
-            String           seqNo     = ctx.getParameter("seqno");
-            Date             timestamp = ctx.getTimestamp("date", "time");
-            SQLSelectBuilder sql       = ctx.getSelectBuilder(config.getUpdateTable());
-            
-            sql.addField("SeqNo");
-            sql.addAnd("Timestamp", "=", timestamp);
-            
-            ResultSet rs = executeQuery(ctx, sql.build());
-
-            if (rs.next() && !seqNo.equals(rs.getString("SeqNo"))) {
-                ctx.getReplyBuffer().append("Change time as details already recorded for " + timestamp);
-            }
-            ctx.setStatus(200);
-        } else {
-            ctx.dumpRequest("Action " + action + " is invalid");
-            ctx.getReplyBuffer().append("Action " + action + " is invalid");
+                ctx.setStatus(200);
+                break;
+            case "getList":
+                getList(ctx);
+                break;
+            case "summaryfields":
+                String     sql    = mySql? "CALL Summary(NULL, NULL, 'Y')" : "EXEC Summary NULL, NULL";
+                JSONArray  fields = new JSONArray();
+                String     named  = ctx.getParameter("name");
+                    
+                rs = executeQuery(ctx, sql);
+                fields.addFields(rs);
+                
+                if (named == null || named.length() == 0) {
+                    fields.append(ctx.getReplyBuffer());
+                } else {                        
+                    data.add(named, fields);
+                    data.append(ctx.getReplyBuffer());
+                }       
+                ctx.setStatus(200);
+                break;
+            case "checktimestamp":
+                sel = ctx.getSelectBuilder(config.getUpdateTable());
+                
+                sel.addField("SeqNo");
+                sel.addAnd("Timestamp", "=", timestamp);
+                rs = executeQuery(ctx, sel.build());
+                
+                if (rs.next() && !seqNo.equals(rs.getString("SeqNo"))) {
+                    ctx.getReplyBuffer().append("Change time as details already recorded for " + timestamp);
+                }
+                ctx.setStatus(200);
+                break;
+            default:
+                ctx.dumpRequest("Action " + action + " is invalid");
+                ctx.getReplyBuffer().append("Action " + action + " is invalid");
+                break;
         }
     }
 }

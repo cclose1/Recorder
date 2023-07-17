@@ -13,33 +13,6 @@ function getMYSQL() {
 function setUsingMYSQL(element) {
     setHidden(getElement(element), !getMYSQL());
 }
-/*
- * 
- * No longer used
-function checkMySQL(updater, initializer) {
-    this.isMySQL     = getMYSQL();
-    this.updater     = updater;
-    this.initializer = initializer;
-    
-    function setLabel(obj) {
-        if (obj.updater !== undefined) setHidden(obj.updater, !getMYSQL());
-    }
-    this.check = function() {
-        var changed = this.isMySQL !== getMYSQL();
-        
-        if (changed) {
-            setLabel(this);
-            
-            if (this.initializer !== undefined) this.initializer();
-        }
-        this.isMySQL = getMYSQL();
-        return;
-    };
-    if (getLocalStorage('multipleDBs')) setInterval(() => {this.check();}, 5000);
-    
-    setLabel(this);
-}
-*/
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
