@@ -107,6 +107,20 @@ function getElement(object, withValue) {
     };
 }
 /*
+ * Copies the value element source to element target. If target element value is that
+ * returned by the checked attribute. It is assumed, but not checked, that the source and targat have
+ * compatible types, e.g. if target is a checkbox, then so must source be.
+ */
+function copyElement(source, target) {
+    target = getElement(target);
+    source = getElement(source);
+    
+    if (target.type === 'checkbox')
+        target.checked = source.checked;
+    else
+        target.value = source.value;
+}
+/*
  * Return true element or any of its parents is disabled.
  */
 function isDisabled(element) {

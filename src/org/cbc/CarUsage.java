@@ -111,7 +111,7 @@ public class CarUsage extends ApplicationServer {
          */
         switch (action) {
             case "deletesession":
-                checkExit(ctx, next.start != null, "Can only delete the most recent session");                
+                checkExit(next.start != null, "Can only delete the most recent session");                
                 session.deleteRow();  
                 break;                         
             case "createsession":
@@ -124,20 +124,18 @@ public class CarUsage extends ApplicationServer {
                 SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("carreg"), start, compare);
                 
                 if (prev.start != null) {
-                    checkExit(ctx, mileage < prev.mileage, "Mileage must be greater or equal to previous");
+                    checkExit(mileage < prev.mileage, "Mileage must be greater or equal to previous");
                 }
                 
                 if (next.start != null && next.start.compareTo(keyTime) != 0) {
-                    checkExit(ctx, end.after(next.start),  "End time is after the start of the next session");
-                    checkExit(ctx, mileage > next.mileage, "Mileage is greater than next session");
+                    checkExit(end.after(next.start),  "End time is after the start of the next session");
+                    checkExit(mileage > next.mileage, "Mileage is greater than next session");
                 }
                 if (action.equals("createsession")) {
-                    checkExit(
-                            ctx, 
+                    checkExit( 
                             next.start != null, 
                             "New session must be the latest");
-                    checkExit(
-                            ctx, 
+                    checkExit( 
                             prev.start != null && prev.start.compareTo(start) == 0, 
                             "New session must be after the latest");
                     session.createRow();

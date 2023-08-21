@@ -7,6 +7,10 @@
     <servlet>
         <servlet-name>Spend</servlet-name>
         <servlet-class>org.cbc.RecordSpend</servlet-class>
+    </servlet>  
+    <servlet>
+        <servlet-name>Energy</servlet-name>
+        <servlet-class>org.cbc.RecordEnergy</servlet-class>
     </servlet> 
     <servlet>
         <servlet-name>Nutrition</servlet-name>
@@ -31,6 +35,10 @@
     <servlet-mapping>
         <servlet-name>Spend</servlet-name>
         <url-pattern>/Spend</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>Energy</servlet-name>
+        <url-pattern>/Energy</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
         <servlet-name>Nutrition</servlet-name>

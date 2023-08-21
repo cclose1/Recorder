@@ -49,14 +49,17 @@ import org.cbc.utils.system.SecurityConfiguration;
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
     public class ErrorExit extends RuntimeException {
+        boolean returnMessage = false;
         
-    }
-    public void checkExit(Context ctx, boolean test, String message) throws ErrorExit {
-        if (test) {
-            ctx.getReplyBuffer().append(message);
-            ctx.setStatus(200);
-            throw new ErrorExit();
+        public ErrorExit(String message) {
+            super(message);
+            this.returnMessage = true;
         }
+        public ErrorExit() {            
+        }
+    }
+    public void checkExit(boolean test, String message) throws ErrorExit {
+        if (test) throw new ErrorExit(message);
     }
     protected Reminder reminder = null;
     /*
@@ -386,7 +389,7 @@ public abstract class ApplicationServer extends HttpServlet {
         public double getDouble(String name, int nullDefault) {
             String value = handler.getParameter(name);
             
-            if (value == null) return nullDefault;
+            if (value.length() == 0) return nullDefault;
             
             return Double.parseDouble(value);
         }        
@@ -1086,7 +1089,12 @@ public abstract class ApplicationServer extends HttpServlet {
         } catch (ParseException ex) {
             Report.error(null, ex);
         } catch (ErrorExit ex) {
-            t.report('C', "ErrorExit");            
+            t.report('C', "ErrorExit"); 
+            
+            if (ex.returnMessage) {
+                ctx.getReplyBuffer().append(ex.getMessage());
+                ctx.setStatus(200);
+            }
         }
         if (repeat != 0) t.report('C', "Deadlock count " + repeat);
         

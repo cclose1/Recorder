@@ -9,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.HashMap;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -18,7 +18,7 @@ import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.json.JSONReader;
 import org.cbc.json.JSONValue;
-import org.cbc.sql.SQLDeleteBuilder;
+import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
@@ -46,11 +46,11 @@ public class HeartMonitor extends ApplicationServer {
         
         return rs.next()? rs.getString("Id") : null;
     }    
-    private String getMemberValue(JSONArray row,  Hashtable<String, Integer> index, String id) throws JSONException {
-        return row.get(index.get(id).intValue()).getString();
+    private String getMemberValue(JSONArray row,  HashMap<String, Integer> index, String id) throws JSONException {
+        return row.get(index.get(id)).getString();
     }
-    private void applyJSONUpdate(Context ctx, String table, String user, Hashtable<String, Integer> index, JSONArray row) throws JSONException, ParseException, SQLException {
-        ResultSet      rs   = null;
+    private void applyJSONUpdate(Context ctx, String table, String user, HashMap<String, Integer> index, JSONArray row) throws JSONException, ParseException, SQLException {
+        ResultSet      rs;
         SQLNamedValues nv      = new SQLNamedValues();
         Date           time    = DateFormatter.parseDate(getMemberValue(row, index, "Time"));
         Date           session = DateFormatter.parseDate(getMemberValue(row, index, "Session"));
@@ -92,132 +92,133 @@ public class HeartMonitor extends ApplicationServer {
             rs.close();
         }
     }
+    @Override
     public void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException {       
         databases.setApplication(
                 super.config.getProperty("bpdatabase"),
                 super.config.getProperty("bpuser"),
                 super.config.getProperty("bppassword"));
     }    
+    @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
-        String table = "Measure";
+        String     table = "Measure";
+        JSONObject data  = new JSONObject();
+        ResultSet  rs;
+        SQLBuilder sqlb;
         
-        if (action.equals("save")) {
-            ResultSet rs = ctx.getAppDb().insertTable(table);
-            rs.moveToInsertRow();
-            
-            rs.updateString("Individual",   ctx.getParameter("identifier"));
-            rs.updateTimestamp("Session",   ctx.getSQLTimestamp(ctx.getTimestamp("session")));
-            rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(ctx.getTimestamp("timestamp")));
-            rs.updateString("Side",         ctx.getParameter("side"));
-            rs.updateString("Systolic",     ctx.getParameter("systolic"));
-            rs.updateString("Diastolic",    ctx.getParameter("diastolic"));
-            rs.updateString("Pulse",        ctx.getParameter("pulse"));
-            rs.updateString("Orientation",  getOrientation(ctx, ctx.getParameter("orientation")));
-            rs.updateString("Comment",      ctx.getParameter("comment"));
-            rs.insertRow();
-            rs.close();
-            ctx.setStatus(200);
-        } else if (action.equals("delete")) { 
-            SQLDeleteBuilder sql = ctx.getDeleteBuilder(table);
-            
-            sql.addAnd("Individual", "=", ctx.getParameter("ukindividual"));
-            sql.addAnd("Timestamp",  "=", ctx.getSQLTimestamp("uktimestamp"));
-            sql.addAnd("Side",       "=", ctx.getParameter("ukside"));
-            executeUpdate(ctx, sql.build());
-            ctx.setStatus(200);
-        } else if (action.equals("modify")) {     
-            SQLUpdateBuilder sql = ctx.getUpdateBuilder(table);
-            
-            String kIndividual = ctx.getParameter("ukindividual");
-            Date   kTimestamp  = ctx.getTimestamp("uktimestamp");
-            String kSide       = ctx.getParameter("ukside");
-            
-            sql.addAnd("Individual", "=", kIndividual);
-            sql.addAnd("Timestamp",  "=", kTimestamp);
-            sql.addAnd("Side",       "=", kSide);
-            
-            sql.addField("Individual",  ctx.getParameter("uindividual"));
-            sql.addField("Timestamp",   ctx.getParameter("utimestamp"));
-            sql.addField("Side",        ctx.getParameter("uside"));
-            sql.addField("Session",     ctx.getParameter("usession"));
-            sql.addField("Systolic",    ctx.getParameter("usystolic"));
-            sql.addField("Diastolic",   ctx.getParameter("udiastolic"));
-            sql.addField("Pulse",       ctx.getParameter("upulse"));
-            sql.addField("Orientation", getOrientation(ctx, ctx.getParameter("uorientation")));
-            sql.addField("Comment",     ctx.getParameter("ucomment"));
-            
-            try {
-                executeUpdate(ctx, sql);   
-                ctx.setStatus(200);             
-            } catch (SQLException e) {
-                if (ctx.getAppDb().getStandardError(e) == DatabaseSession.Error.Duplicate) {
-                    ctx.getReplyBuffer().append("Change duplicates primary key");
-                    ctx.setStatus(200);            
-                } else
-                    throw e;
+        switch (action) {
+            case "save": {
+                rs = ctx.getAppDb().insertTable(table);
+                rs.moveToInsertRow();
+                rs.updateString("Individual",    ctx.getParameter("identifier"));
+                rs.updateTimestamp("Session",   ctx.getSQLTimestamp(ctx.getTimestamp("session")));
+                rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(ctx.getTimestamp("timestamp")));
+                rs.updateString("Side",         ctx.getParameter("side"));
+                rs.updateString("Systolic",     ctx.getParameter("systolic"));
+                rs.updateString("Diastolic",    ctx.getParameter("diastolic"));
+                rs.updateString("Pulse",        ctx.getParameter("pulse"));
+                rs.updateString("Orientation",  getOrientation(ctx, ctx.getParameter("orientation")));
+                rs.updateString("Comment",      ctx.getParameter("comment"));
+                rs.insertRow();
+                rs.close();
+                ctx.setStatus(200);
+                break;
             }
-        } else if (action.equals("getList")) {
-            getList(ctx);
-        } else if (action.equals("history")) {
-            JSONObject       data = new JSONObject();            
-            SQLSelectBuilder  sql = ctx.getSelectBuilder(null);
-
-            sql.setProtocol(ctx.getAppDb().getProtocol());
-            sql.setMaxRows(config.getIntProperty("topmeasures", 100));
-
-            sql.addField("Individual");
-            
-            if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
+            case "delete": {
+                sqlb = ctx.getDeleteBuilder(table);
+                sqlb.addAnd("Individual", "=", ctx.getParameter("ukindividual"));
+                sqlb.addAnd("Timestamp",  "=", ctx.getSQLTimestamp("uktimestamp"));
+                sqlb.addAnd("Side",       "=", ctx.getParameter("ukside"));
+                executeUpdate(ctx, sqlb.build());
+                ctx.setStatus(200);
+                break;
+            }
+            case "modify": {
+                String kIndividual = ctx.getParameter("ukindividual");
+                Date   kTimestamp  = ctx.getTimestamp("uktimestamp");
+                String kSide       = ctx.getParameter("ukside");
+                
+                sqlb = ctx.getUpdateBuilder(table);
+                sqlb.addAnd("Individual", "=", kIndividual);
+                sqlb.addAnd("Timestamp",  "=", kTimestamp);
+                sqlb.addAnd("Side",       "=", kSide);
+                
+                sqlb.addField("Individual",  ctx.getParameter("uindividual"));
+                sqlb.addField("Timestamp",   ctx.getParameter("utimestamp"));
+                sqlb.addField("Side",        ctx.getParameter("uside"));
+                sqlb.addField("Session",     ctx.getParameter("usession"));
+                sqlb.addField("Systolic",    ctx.getParameter("usystolic"));
+                sqlb.addField("Diastolic",   ctx.getParameter("udiastolic"));
+                sqlb.addField("Pulse",       ctx.getParameter("upulse"));
+                sqlb.addField("Orientation", getOrientation(ctx, ctx.getParameter("uorientation")));
+                sqlb.addField("Comment",     ctx.getParameter("ucomment"));
+                
+                try {
+                    executeUpdate(ctx, sqlb);
+                    ctx.setStatus(200);
+                } catch (SQLException e) {
+                    if (ctx.getAppDb().getStandardError(e) == DatabaseSession.Error.Duplicate) {
+                        ctx.getReplyBuffer().append("Change duplicates primary key");
+                        ctx.setStatus(200);
+                    } else {
+                        throw e;
+                    }
+                }
+                break;
+            }
+            case "getList":
+                getList(ctx);
+                break;
+            case "history": {
+                SQLSelectBuilder sql  = ctx.getSelectBuilder(null);
+                
+                sql.setProtocol(ctx.getAppDb().getProtocol());
+                sql.setMaxRows(config.getIntProperty("topmeasures", 100));
+                sql.addField("Individual");
                 sql.addField("Date");
                 sql.addField("Week", sql.setCast("DECIMAL", 2));
                 sql.addField("Weekday");
-            } else {
-                sql.addField("Date",    sql.setFieldSource("Timestamp"), sql.setCast("Date"));
-                sql.addField("Week",    sql.setExpressionSource("Week(Timestamp) + 1"), sql.setCast("DECIMAL", 2));
-                sql.addField("Weekday", sql.setExpressionSource("SubStr(DayName(Timestamp), 1, 3)"));
+                sql.addField("Session");
+                sql.addField("Timestamp", sql.setCast("Datetime"));
+                sql.addField("Side");
+                sql.addField("Systolic");
+                sql.addField("Diastolic");
+                sql.addField("Pulse");
+                sql.addField("Orientation", sql.setFieldSource("O.Orientation"), sql.setValue(""));
+                sql.addField("Comment");
+                sql.setOrderBy("Timestamp DESC");
+                sql.setFrom("Measure AS M LEFT JOIN MeasureOrientation AS O ON M.Orientation = O.Id");
+                sql.addAnd("Individual", "=", ctx.getParameter("identifier"));
+                rs = executeQuery(ctx, sql);
+                data.add("PressureHistory", rs, super.config.getProperty("bpoptionalcolumns"), false);
+                data.append(ctx.getReplyBuffer());
+                ctx.setStatus(200);
+                break;
             }
-            sql.addField("Session");
-            sql.addField("Timestamp", sql.setCast("Datetime"));             
-            sql.addField("Side");
-            sql.addField("Systolic");
-            sql.addField("Diastolic");
-            sql.addField("Pulse");
-            sql.addField("Orientation", sql.setFieldSource("O.Orientation"), sql.setValue(""));
-            sql.addField("Comment");
-            sql.setOrderBy("Timestamp DESC");
-            
-            sql.setFrom("Measure AS M LEFT JOIN MeasureOrientation AS O ON M.Orientation = O.Id");
+            case "updates": {
+                HashMap<String, Integer> index   = new HashMap<>(0);
+                String                   user    = ctx.getParameter("user");
+                JSONValue                value   = JSONValue.load(new JSONReader(ctx.getParameter("updates")));
+                JSONArray                columns = value.getObject().get("Header").getArray();
+                JSONArray                rows    = value.getObject().get("Data").getArray();
+                /*
+                 * Build an index to link the column header names to the corresponding row column.
+                 */
+                for (int i = 0; i < columns.size(); i++) {
+                    index.put(columns.get(i).getObject().get("Name").getString(), i);
+                }
+                for (int i = 0; i < rows.size(); i++) {
+                    JSONArray row = rows.get(i).getArray();
 
-            sql.addAnd("Individual", "=", ctx.getParameter("identifier"));
-
-            ResultSet rs = executeQuery(ctx, sql);
-            
-            data.add("PressureHistory", rs, super.config.getProperty("bpoptionalcolumns"), false);
-            data.append(ctx.getReplyBuffer());
-
-            ctx.setStatus(200);
-        } else if (action.equals("updates")) {
-            Hashtable<String, Integer> index   = new Hashtable<>(0);        
-            String                     user    = ctx.getParameter("user");
-            JSONValue                  data    = JSONValue.load(new JSONReader(ctx.getParameter("updates")));
-            JSONArray                  columns = data.getObject().get("Header").getArray();            
-            JSONArray                  rows    = data.getObject().get("Data").getArray();
-            /*
-             * Build an index to link the column header names to the corresponding row column.
-             */
-            for (int i = 0; i < columns.size(); i++) {
-                index.put(columns.get(i).getObject().get("Name").getString(), i);
+                    applyJSONUpdate(ctx, table, user, index, row);
+                }
+                ctx.setStatus(200);
+                break;
             }
-            
-            for (int i = 0; i < rows.size(); i++) {
-                JSONArray row = rows.get(i).getArray();
-                
-                applyJSONUpdate(ctx, table, user, index, row);
-            }
-            ctx.setStatus(200);
-        } else {
-            ctx.dumpRequest("Action " + action + " is invalid");
-            ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid"); 
+            default:
+                ctx.dumpRequest("Action " + action + " is invalid");
+                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
+                break; 
         }
     }
 }

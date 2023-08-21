@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <link href="css/recordspend.css" rel="stylesheet" type="text/css">
+        <script src="js/platform.js"></script>
+        <script src="js/json.js"></script>
+        <script src="js/formutils.js"></script>
+        <script src="js/csseditor.js"></script>
+        <script src="js/filter.js"></script>
+        <script src="js/alert.js"></script>
+        <script src="js/login.js"></script>
+        <script src="js/recordenergy.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Record Energy</title>
+    </head>
+    <body onload="configureAlert(); connectToServer('Energy', 'loginframe', initialize)"> 
+        <div id="loginfields" hidden >
+            <iframe id="loginframe" src="Login.html">
+            </iframe>
+        </div>        
+        <form class="frame" id="appframe" autocomplete="off">
+            <h1>Record Energy Usage</h1>
+            <div class="innerfields">
+                <div class='floatleft'>
+                    <fieldset id="detailfields" class='form'>
+                        <legend>Meter Readings</legend>
+                        <div>
+                            <div>
+                                <label for="date">Date</label>
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
+                                <label for="time" class="nogap">Time</label>
+                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                            </div>
+                            <div>
+                                <label for="gas">Gas</label>
+                                <input type= "text" name="Gas" id="gas" size="8" oninput="setDateTime();">
+                                <label class="nogap">Ft3</label>
+                            </div>
+                            <div>
+                                <label for="electric">Electric</label>
+                                <input type= "text" name="Electric" id="electric" size="8" oninput="setDateTime();">
+                                <label class="nogap">Kwh</label>
+                            </div>
+                            <div>
+                                <label for="solar">Solar</label>
+                                <input type= "text" name="Solar" id="solar" size="8" oninput="setDateTime();">
+                                <label class="nogap">Kwh</label>
+                            </div>
+                            <div>
+                                <label for="estimated">Estimated</label>
+                                <input id="estimated" type="checkbox">
+                            </div>
+                            <div>
+                                <label for="comment">Comment</label>
+                                <textarea id='comment' rows='2'></textarea>
+                            </div>
+                            <div>
+                                <label for="readings">Readings</label>
+                                <select id="readings" class='optlist' onchange="requestReadings()">
+                                    <option>Meter</option>
+                                    <option>Bounded</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="save"></label>
+                                <input id="save"   name="save"   type="button" value="Create" onclick="send();">
+                                <input id="cancel" name="cancel" type="button" value="Cancel" onclick="send('CancelCreate');">
+                            </div>
+                            <div id="logoff" hidden>
+                                <label for="logoffbtn"></label>
+                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
+                            </div>
+                            <div id="mysqldiv" hidden>
+                                <label class="nogap"></label>
+                                <input readonly size="20" tabindex="-1" value="Using MySQL">
+                            </div>
+                            <div>
+                                <label for="showfilter">Show Filter</label>
+                                <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
+                            </div>
+                        </div>
+                    </fieldset>
+                    <fieldset id="deletefields" class='form'>                        
+                        <legend>Delete Reading</legend>
+                        <div>
+                            <div>
+                                <label for="ddate">Date</label>
+                                <input readonly type="text" name="Date" id="ddate" class='date' maxlength="11" tabindex="-1">
+                                <label for="dtime" class="nogap">Time</label>
+                                <input readonly type="text" name="time" size="8" id="dtime" class='time' maxlength="8" tabindex="-1">
+                            </div>
+                            <div>
+                                <label for="dtype">Type</label>
+                                <input readonly type= "text" name="Type" id="dtype" size="8">
+                            </div>
+                            <div>
+                                <label for="reading">Reading</label>
+                                <input readonly type= "text" name="Reading" id="reading" size="6">
+                                <label id="labunits" class="nogap">Kwh</label>
+                            </div>
+                            <div>
+                                <label for="destimated">Estimated</label>
+                                <input id="destimated" type="checkbox">
+                            </div>
+                            <div>
+                                <label for="copy">Copy</label>
+                                <input id="copy" type="checkbox">
+                            </div>
+                            <div>
+                                <label for="dcomment">Comment</label>
+                                <textarea readonly id='dcomment' rows='2'></textarea>
+                            </div>
+                            <div>
+                                <label for="delete"></label>
+                                <input id="delete"  name="delete"  type="button" value="Delete" onclick="send();">
+                                <input id="dcancel" name="dcancel" type="button" value="Cancel" onclick="send();">
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div id="filter">
+                    <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
+                    </iframe>
+                </div>
+            </div> 
+
+            <table id="history">
+                <caption>Recent Readings</caption>
+                <thead>
+                    <tr><th></th></tr>
+                </thead>
+                <tr><th></th></tr>
+            </table>
+        </form>
+    </body>
+</html>
