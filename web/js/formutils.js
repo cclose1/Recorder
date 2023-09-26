@@ -1,7 +1,5 @@
 'use strict';
 class elementMover {
-    _tag;
-    _isDown;
     _stScrX;
     _stScrY;
     _crScrX;
@@ -250,7 +248,101 @@ function randomString(len) {
     while (s.length < len)  s += randomchar();
     return s;
 }
+/*
+ * Returns the computed style property for element. If property is not given all properties are returned.
+ */
+function readComputedStyle(element, property) {
+    const cs    = window.getComputedStyle(element, null);
+    var   style = '';
+    /*
+     * According to Mozilla, getPropertyValue only works reliably with long hand property names such as font-style.
+     * 
+     * Short hand property names, such as font, depend on the browser. For chrome, font returns a string
+     * containing all the long hand property names that don't have the default value.
+     * 
+     * This implementation expands font to explicitly expand all font related short hand property names
+     * and should work for all browsers.
+     * 
+     * This is only ever called with font and would have to be modified to support other short hand
+     * property names.
+     */
+    if (isNull(property) || property === '')
+        return cs;
+    else {
+        var props = [property];
+        
+        if (property === 'font') {
+            props[0] = 'font-style';
+            props[1] = 'font-variant';
+            props[2] = 'font-weight';
+            props[3] = 'font-size';
+            props[4] = 'font-family';            
+        }
+        for (var i = 0; i < props.length; i++) {
+            var prop = cs.getPropertyValue(props[i]);
+            
+            if (prop === 'normal') continue;
+            
+            if (style.length !== 0) style += ' ';   
+            
+            style += cs.getPropertyValue(props[i]);
+        }
+    }
+    return style;
+}
+/*
+ * Returns the px size required to display text using font. If font is not passed, the default font is used.
+ * 
+ * adjustText can be set to true to try to overcome some inaccuracies in the canvas.measureText value returned.
+ * 
+ * The chrome implementation does not seem to handle some characters correctly and returns a measure that
+ * is too small. This has been noticed for the chacters . and -, there are likely to be others too. Setting
+ * adjustText substitutes these characters with w. This is likely to be larger than needed, but should ensure
+ * header aligns with table body column.
+ */
+function displayTextWidth(text, font, adjustText) {
+    /*
+     * Not entirely sure what following does, but I think it prevents a canvas element being
+     * created each time the function is called.
+     */
+    const canvas  = displayTextWidth.canvas || (displayTextWidth.canvas = document.createElement("canvas"));
+    const context = canvas.getContext("2d");
+
+    if (!isNull(font))context.font = font;    
+    /*
+     * The following is a workaround. Numbers containing a decimal point seem to return a measure that is too
+     * small. So replace the . with 0.
+     */    
+    if (!isNull(adjustText) && adjustText) text = text.replace(/\.|\-/g, 'w');
+        
+    const metrics = context.measureText(text);
+    /*
+     * https://developer.mozilla.org/en-US/docs/Web/API/TextMetrics suggest that using the following may
+     * give a more accurate value than metrics.width.
+     * 
+     * Have found that rounding up, gives a larger value, and reduces the occassions where table rows and header
+     * don't align precisely. Seem to have more of an alignment problem with narrow columns.
+     * 
+     * Need to investigate this further.
+     */
+    return Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight);
+}
+function camelToWords(text) {
+    var words = '';
+    var ch;
+    
+    for (let i = 0; i < text.length; i++) {
+        ch = text.charAt(i);
+        
+        if (i > 0 && ch === ch.toUpperCase()) words += ' ';
+        
+        words += ch;
+    }
+    return words;
+}
 function lpad(text, length, pad) {
+    if (isNull(text)) text = '';
+    
     text = text.toString();
     
     while (text.length < length)
@@ -259,6 +351,8 @@ function lpad(text, length, pad) {
     return text;
 }
 function rpad(text, length, pad) {
+    if (isNull(text)) text = '';
+    
     text = text.toString();
     
     while (text.length < length)
@@ -803,10 +897,12 @@ function BaseOptions(pAccessByGet) {
     function error(options, message) {
         reporter.fatalError(getObjectName(options) + ' ' + message);
     }
-    function getSpec(options, name) {
+    function getSpec(options, name, mustExist) {        
         for (var i = 0; i < options.optSpecs.length; i++) {
             if (options.optSpecs[i].name === name) return options.optSpecs[i];
         }
+        if (!isNull(mustExist) && mustExist) error(options, 'Option "' + name + '" is not defined');
+        
         return null;
     }
     /*
@@ -817,22 +913,17 @@ function BaseOptions(pAccessByGet) {
      * @param name    The option name
      * @param read    True if the value is to be read, otherwise, the option value is replaced with value.
      * @param value   The value to be assigned. If read is true, a fatal error is reported and value is not undefined.
+     * @param loaded  If true, indicates the value is from load, i.e. not from applying the default. 
+     *                If present and true, spec.loaded is set to true.
      * 
      * @returns The current value of the option.
      */
-    function accessValue(options, name, read, value) {
-        var spec = null;
+    function accessValue(options, name, read, value, loaded) {
+        var spec = getSpec(options, name, true);
         
-        for (var i = 0; i < options.optSpecs.length; i++) {
-            if (options.optSpecs[i].name === name) {
-                spec = options.optSpecs[i];
-                break;
-            }
-        }
-        if (spec === null) {
-            error(options, 'Option "' + name + '" is not defined');
-            return;
-        }
+        if (spec === null) return;
+        
+        if (!isNull(loaded) && loaded) spec.loaded = true;
         
         if (read) {
             value = options.accessByGet? spec.value : options[name];
@@ -854,13 +945,8 @@ function BaseOptions(pAccessByGet) {
         }
         return value;
     }   
-    function loadOption(options, name, value) {     
-        /*
-         * Strictly value should not be null or undefined. While transition to using options, apply default.
-         */
-        if (value === null || value === undefined) return;
-        
-        accessValue(options, name, false, value);    
+    function loadOption(options, name, value) {  
+        accessValue(options, name, false, value, true);    
     }     
     this.setValue = function(name, value) {
         accessValue(this, name, false, value);
@@ -868,11 +954,15 @@ function BaseOptions(pAccessByGet) {
     this.getValue = function(name) {
         return accessValue(this, name, true);
     };
+    this.isLoaded = function(name) {
+        return getSpec(this, name, true).loaded;
+    };
     this.clear = function() {
         for (var i = 0; i < this.optSpecs.length; i++) {
             var spec = this.optSpecs[i];
             
             accessValue(this, spec.name, false, spec.default);
+            spec.loaded = false;
         }
     };
     this.load = function(values, ignoreUndefined) {
@@ -909,7 +999,7 @@ function BaseOptions(pAccessByGet) {
         return test === undefined;
     };
     this.addSpec = function(option) {
-        var spec = {};
+        var spec = {loaded: false};
         
         spec.name = option.name;
         
@@ -1078,32 +1168,90 @@ function reportReminder(options) {
         }
     }    
 }
+/*
+ * This describes a columns for columns option of JSONArrayOptions. The options are:
+ * 
+ * - name      The column name.
+ * - minSize   The column minSize and if present overrides the minField value defined by JSONArrayOptions.
+ * - maxSize   The column maxSize and if present overrides the maxField value defined by JSONArrayOptions.
+ * - optional  The column is optional, which means in can be set to not display when the screen size
+ *             is reduced. It still remains in the HTML table, but is not displayed.
+ * - forceWrap If true the field value is wrapped, even if it does not have a space, if it overflows
+ *             the allowed size for the column.
+ */
 function JSONArrayColumnOptions(pOptions) {  
-    BaseOptions.call(this, false);
+    /*
+     * Set to retrieve by getValue.
+     * 
+     * The default is to retrieve by direct access to the options object, e.g. to access option name get
+     * the option value using options.name. However, setting the second parameter to true, the option
+     * value can be read using options.getValue('name'). Unfortunately, enabling getValue does not cause direct
+     * access to raise an error, but it will return undefined for all options even valid ones.
+     * 
+     * This requires more verbose code to get option values, but will generate an error report if an
+     * invalid option name is given. The default case just returns an undefined value.
+     * 
+     * For all other Options the default is used, to simplify the code. The option is used here as
+     * a test that getValue works.
+     */
+    BaseOptions.call(this, true);
     
     setObjectName(this, 'JSONArrayColumnOptions');
     this.addSpec({name: 'name',      type: 'string',  mandatory: true});
-    this.addSpec({name: 'minWidth',  type: 'number',  mandatory: false});
-    this.addSpec({name: 'maxWidth',  type: 'number',  mandatory: false});    
-    this.addSpec({name: 'forceWrap', type: 'boolean', default: false, mandatory: false});
-
+    this.addSpec({name: 'minSize',   type: 'number',  default: null, mandatory: false});
+    this.addSpec({name: 'maxSize',   type: 'number',  default: null, mandatory: false});        
+    this.addSpec({name: 'optional',  type: 'boolean', default: false,     mandatory: false});
+    this.addSpec({name: 'forceWrap', type: 'boolean', default: false,     mandatory: false});
         
     this.clear();
     this.load(pOptions);    
 }
+/*
+ * Defines the options parameter for loadJSONArray, which is used to create and populate HTML table with none
+ * scrolling header.
+ * 
+ * The properties are:
+ * - minField      The minimum number of characters in a column field. This can be overriden by column options.
+ * - maxField      The maximum number of characters in a column field. This can be overriden by column options.
+ * - onClick       The onClick event handler for table rows.
+ * - nullToEmpty   If true, fields with null values will be displayed as space.
+ * - useInnerCell  Determines how the table header th cells are created. If true, a th cell is created and appended
+ *                 to the header row. If false, <th>ColName</th> is appended to the header row innerHTML.                
+ *                 Not sure if both are equivalent and if either is preferable.               
+ * - addColNoClass If true, a class is added to the th and tr elements of the form tbcoln where n is the table
+ *                 column number.
+ * - addName       If true, name attribute of the th and td elements is set to database field name.
+ * - splitname     If true, the column title is set to camel case database fields converted to words,
+ *                 e.g. MilesAdded becomes Miles Added.
+ * - usePrecision  If true, column size is set to the database precision, rather than size of the maximum sized
+ *                 field. The min and max field limits are still applied to the size.
+ * - columns       Column specific options described in JSONArrayColumnOptions comment.
+ * - widthAllRows  If true, the width style is applied to all table rows, rather than just the header
+ *                 row and first data row.
+ * - useTextWidth  If true, the maximum display width for the column is used to derived to the style width,
+ *                 otherwise, the maximum column field size is used. Using the field size has the problem
+ *                 that the display width for a character varies, e.g. W requires more space than i.
+ * - adjustText    If true, the text value is adjusted before callin context.measureText. This interface does
+ *                 not, at least on Chrome, does not appear to be totally accurate. See the comment preceding
+ *                 the function displayTextWidth, for further details.
+ */
 function JSONArrayOptions(pOptions) {    
     BaseOptions.call(this, false);
     
     setObjectName(this, 'JSONArrayOptions');
+    this.addSpec({name: 'minField',      type: 'number',  default: null,  mandatory: false});
     this.addSpec({name: 'maxField',      type: 'number',  default: null,  mandatory: false});
     this.addSpec({name: 'onClick',       type: 'string',  default: null,  mandatory: false});
     this.addSpec({name: 'nullToEmpty',   type: 'boolean', default: true,  mandatory: false});
     this.addSpec({name: 'useInnerCell',  type: 'boolean', default: false, mandatory: false});
     this.addSpec({name: 'addColNoClass', type: 'boolean', default: false, mandatory: false});
     this.addSpec({name: 'addName',       type: 'boolean', default: true,  mandatory: false});
-    this.addSpec({name: 'usePrecision',  type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'splitName',     type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'usePrecision',  type: 'boolean', default: false, mandatory: false});
     this.addSpec({name: 'columns',       type: 'object',  default: null,  mandatory: false});
     this.addSpec({name: 'widthAllRows',  type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'useTextWidth',  type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'adjustText',    type: 'boolean', default: true,  mandatory: false});
         
     this.clear();
     this.load(pOptions);
@@ -1121,7 +1269,13 @@ function JSONArrayOptions(pOptions) {
         this.columns = cols;
     }
 }
-function loadOptionsJSONOptions(pOptions){    
+function loadOptionsJSONOptions(pOptions){
+    /*
+     * Force access by getValue. 
+     * 
+     * Doing this makes the code more verbose as rather than opt.name to get option have to use opt.getValue('name').
+     * However, it will cause an exception on an attempt to access to an undefined option.
+     */
     BaseOptions.call(this, true);
     
     setObjectName(this, 'loadOptionsJSONOptions');
@@ -1134,7 +1288,12 @@ function loadOptionsJSONOptions(pOptions){
     this.clear();
     this.load(pOptions, true);
 }
-loadOptionsJSONOptions.prototype = {    
+loadOptionsJSONOptions.prototype = {
+    /*
+     * In retrospect adding the getters is not particularly useful in trying to error access to invalid options.
+     * options.property will return undefined if not property not valid. Without getters the only way to get
+     * property values is via getValue.
+     */
     get name()         {return this.getValue('name');},
     get element()      {return this.getValue('element');},
     get keepValue()    {return this.getValue('keepValue');},
@@ -1415,88 +1574,316 @@ function addParameterById(parameters, name, alias) {
 
     return addParameter(parameters, alias, getValue(name));
 }
-function Column(name, no, type, precision, scale, optional) {
-    this.name      = name;
-    this.no        = no;
-    this.type      = type;    
-    this.precision = precision;
-    this.scale     = scale;
-    this.optional  = optional || false;
-    this.class     = '';
-    this.size      = name.length;
-    this.minWidth  = null;
-    this.maxWidth  = null;
-    this.forceWrap = false;
-    
-    if (this.no       !== undefined && this.no > 0) this.addClass('tbcol' + no);
-    if (this.optional !== undefined && this.optional) this.addClass('optional');
-    if (this.type     !== undefined && (this.type === "int" || this.type === "decimal")) this.addClass('number');
-}
-Column.prototype.addClass = function (tag) {
-    if (this.class !== '')
-        this.class += ' ';
-
-    this.class += tag;
-};
-Column.prototype.setSize = function (psize) {
-    if (this.size === null || this.size < psize)
-        this.size = psize;
-};
-Column.prototype.getClass = function () {
-    return this.class;
-};
-Column.prototype.getDisplayValue = function (value, nullToSpace) {
+function normaliseValue(value, type, scale, nullToSpace) {
     if (value === null || value === 'null') {
         if (nullToSpace !== 'undefined' && nullToSpace) value = '';
         
         return value;
     } 
-    if (this.type === 'decimal' && this.scale !== 0 && value !== '') {
+    if (type === 'decimal' && scale !== 0 && value !== '') {
         try {
-            value = value.toFixed(this.scale);
+            value = value.toFixed(scale);
         } catch (e) {
             reporter.logThrow(e, true);
         }
     }
-    this.setSize(value.length);
-    
     return value;
-};
+}
+class ClassProperties {
+    _properties = new WeakMap();
+    _className;
+    
+    constructor() {
+    }
+    addKey(key, className) {
+        this._className = isNull(className)? key.constructor.name : className;
+        this._properties.set(key, {});
+    }
+    hasProperty(key, name) {
+        return (name in this._properties.get(key));
+    };
+    setProperty(key, name, value, create) {
+        if ((isNull(create) || !create) && !this.hasProperty(key, name))
+            reporter.fatalError('Property ' + name + ' not in ' + this._className + ' and creation not allowed');
+        this._properties.get(key)[name] = value;
+    };
+    getProperty(key, name) {
+        if (!this.hasProperty(key, name))
+            reporter.fatalError('Property ' + name + ' not in ' + this._className );
+
+        return this._properties.get(key)[name];
+    };
+}
 /*
- * IE11 does not support classes.
- class RowReader {
- co1nstructor(row, throwError) {
- this.row        = row;
- this.index      = -1;
- this.throwError = throwError === undefined? false : throwError;
- this.header     = document.getElementById(this.row.parentNode.parentNode.id).rows[0];
- };
- static check(reader) {        
- if (reader.index >= reader.header.cells.length) {
- if (reader.throwError)
- throw Error("Attempt to read beyond last column. There are " + reader.header.cells.length + " columns");
- else
- alert("Attempt to read beyond last column. There are " + reader.header.cells.length + " columns");
- }
- }
- reset() {
- this.index = -1;
- }
- nextColumn() {
- RowReader.check(this);
- this.index += 1;
- 
- return this.index < this.header.cells.length;
- }
- columnName() {
- return this.header.cells[this.index].innerHTML;
- 
- }
- columnValue() {
- return trim(this.row.cells[this.index].innerHTML);
- }
- }
+ * This implements the Column class in a way that prevents direct access to the properties. Also user, due to the
+ * instance and class having Object.seal applied, the user is unable add or delete existing methods. The user
+ * can still reference an invalid property by instance.name. No error is forced, the value is returned as
+ * undefined
+ * 
+ * I don't fully understand how this works, but it uses an annonymous function in a way thet prevents direct
+ * access to the class properties defined using ClassProperties. The _props are defined in a function and are
+ * only accessible to the definition of the class Column defined within the function.
+ * 
+ * Don't know why new on Column works. It looks as if new finds the first class within the function. In fact 
+ * changing the Class name makes no difference.
+ * 
+ * Don't know why the final () is necessary, but without it, it does not work. The () causes the function to execute
+ * at the point it is declared, but why this is necessary I don't know. Without it, called methods fail with method
+ * not defined, although the debugger shows the method to be present in the instance prototype.
  */
+const Column = function () {;
+    const _props = new ClassProperties();
+   
+    class Column {        
+        constructor(name, cell, no, type, precision, scale, optional, adjustText) {
+            let key = this;  //For setProp. Function this is not the same as class this.
+            
+            _props.addKey(key);
+            
+            const setProp = function(name, value) {
+                _props.setProperty(key, name, value, true);
+            };
+            setProp('name',       name);
+            setProp('no',         no);
+            setProp('type',       type);
+            setProp('precision',  precision);
+            setProp('scale',      scale);
+            setProp('optional',   optional);
+            setProp('class',      '');
+            setProp('size',       null);
+            setProp('minSize',    undefined);
+            setProp('maxSize',    undefined);
+            setProp('textWidth',  null);
+            setProp('forceWrap',  false);
+            setProp('adjustText', adjustText);
+            this.setSize(cell);
+            Object.seal(this);
+            
+            if (!isNull(no) && no > 0)                                   this.addClass('tbcol' + no);
+            if (!isNull(optional) && optional)                           this.addClass('optional');
+            if (!isNull(type) && (type === "int" || type === "decimal")) this.addClass('number');
+        }
+        /*
+         * In general it is probably better to not allow direct access to properties as specific property
+         * change property methods may apply additional checks.
+         * 
+         * The same could also apply to getProperty.
+         * 
+         * In general classes based on the approach used for Column, should not make hasProperty, setProperty
+         * and getProperty available to users of the class. The implementation of Column does not make use
+         * of these methods.
+         */
+        hasProperty(name) {
+            return _props.hasProperty(this, name);
+        };
+        setProperty(name, value, create) {
+            _props.setProperty(this, name, value, create);
+        };
+        getProperty(name) {
+            return _props.getProperty(this, name);
+        };
+        addClass(tag) {
+            let cls = _props.getProperty(this, 'class');
+            
+            if (cls !== '') cls += ' ';
+            
+            _props.setProperty(this, 'class', cls + tag);
+        };
+        setSize(element) {
+            var value = element.innerHTML;
+            var font  = readComputedStyle(element, 'font');
+            let key   = this;
+            
+            const setMax = function(property, length) {                
+                let current = _props.getProperty(key, property);
+                
+                if (current === null || current < length) _props.setProperty(key, property, length);                
+            };
+            if (typeof value === 'number') value = value.toString();
+            
+            setMax('size', value.length);
+    
+            if (!isNull(font)) {                
+                let length1 = displayTextWidth(value, font, _props.getProperty(this, 'adjustText'));
+                setMax('textWidth', length1);
+            }
+        };   
+        getClass() {
+            return _props.getProperty(this, 'class');
+        };
+        loadColumnValue(cell, value, nullToSpace) {
+            value = normaliseValue(value, _props.getProperty(this, 'type'), _props.getProperty(this, 'scale'), nullToSpace);
+            
+            if (typeof value === 'number') value = value.toString();
+            
+            cell.innerHTML = value;
+            this.setSize(cell);
+        };
+        name() {
+            return _props.getProperty(this, 'name');
+        };
+        size() {
+            return _props.getProperty(this, 'size');
+        };
+        precision() {
+            return _props.getProperty(this, 'precision');
+        };
+        minSize() {
+            return _props.getProperty(this, 'minSize');
+        };
+        maxSize() {
+            return _props.getProperty(this, 'maxSize');
+        };
+        forceWrap() {
+            return _props.getProperty(this, 'forceWrap');
+        };
+        textWidth() {
+            return _props.getProperty(this, 'textWidth');
+        };
+        optional() {
+            return _props.getProperty(this, 'optional');
+        };
+    }
+    Object.seal(Column);
+    
+    return Column;
+}();
+
+const TableSizer = function () {
+    const _props = new ClassProperties();
+    
+    class TableSizer {
+        constructor(table, options) {
+            let key = this;  //For setProp. Function this is not the same as class this.
+            
+            _props.addKey(key);
+            
+            const setProp = function(name, value) {
+                _props.setProperty(key, name, value, true);
+            };
+            setProp('table',   getElement(table));
+            setProp('font',    readComputedStyle(table, 'font'));
+            setProp('options', options);
+            setProp('columns', []);
+            Object.seal(this);
+        };
+        table() {
+            return _props.getProperty(this, 'table');
+        };
+        addColumn(name, cell, no, type, precision, scale, optional, adjustText) { 
+            this.columns().push(new Column(name, cell, no, type, precision, scale, optional, adjustText));
+        };
+        columns() {
+            return  _props.getProperty(this, 'columns');
+        }
+        options() {
+            return  _props.getProperty(this, 'options');
+        }
+        column(index) {
+            return this.columns()[index];
+        }
+        minSize(index) {
+            var col     = this.column(index);
+            var minSize = col.minSize();
+            
+            if (minSize === undefined) return _props.getProperty(this, 'options').minField;
+             
+            return minSize;
+        }
+        maxSize(index) {
+            var col     = this.column(index);
+            var maxSize = col.maxSize();
+            
+            if (maxSize === undefined) return _props.getProperty(this, 'options').maxField;
+             
+            return maxSize;
+        }
+        /*
+         * Returns the display column size for column at index. This will be the column size limited if necessary
+         * to conform to columns min max size if specified, or if not, the table min and max field sizes.
+         */
+        constrainedSize(index) {
+            var col   = this.column(index);
+            var size  = this.minSize(index);
+            var cSize = col.size();
+            var opts  = _props.getProperty(this, 'options');
+            
+            if (opts.usePrecision && col.precision() > cSize) cSize = col.precision();
+            
+            if (!isNull(size) && cSize < size) return size;
+            
+            size = this.maxSize(index);
+            
+            if (!isNull(size) && cSize > size) return size;
+            
+            return cSize;
+        }
+        constrainedTextWidth(index) {
+            var col  = this.column(index);
+            var size = this.constrainedSize(index);
+             
+            return Math.ceil(col.textWidth() * size / col.size());
+        }
+        applyColumnOptions(options) {
+            if (isNull(options)) return;
+        
+            for (var i = 0; i < options.length; i++) {
+                var ocol  = options[i];
+                var found = false;
+                 
+                for (var j = 0; j < this.columns().length; j++) {
+                    var col   = this.column(j);
+                    var oName = ocol.getValue('name');
+                    /*
+                     * Copies the property from column options to the column depending on loadRequired. If
+                     * loadRequired is true, the copy will only take place if the property value was
+                     * explicitly set rather than being initialised to the default value.
+                     * 
+                     * Note: The options will have a value for each property. Explicitly setting a property to its
+                     *       default value, will result in isLoaded returning true.
+                     */
+                    function copy(property, loadedRequired) {                        
+                        if (!loadedRequired || ocol.isLoaded(property)) col.setProperty(property, ocol.getValue(property));
+                    }
+                    if (col.name() === oName || oName === '*') {
+                        copy('minSize',   true);
+                        copy('maxSize',   true);
+                        copy('forceWrap', false);
+                        
+                        if (col.optional() !== null) copy('optional', false); // Override the server value if client value set.
+
+                        found = true;
+                    }
+                }
+                if (!found) reporter.fatalError('There is no column "' + oName + '" in table ' + this.table().id);
+            }
+        }
+        log() {
+            var opts = _props.getProperty(this, 'options');
+            
+            reporter.log(
+                "Sizer details for table " + getCaption(this.table().id) + 
+                    ' Min '                + lpad(opts.minField, 4)      + 
+                    ' Max '                + lpad(opts.maxField, 4)      + 
+                    ' Use TextWidth '      + opts.useTextWidth           + 
+                    ' Adjust Text '        + opts.adjustText);
+            for (var j = 0; j < this.columns().length; j++) {
+                var col = this.column(j);
+                
+                reporter.log(
+                    rpad(col.name(), 15) + 
+                    ' size '                   + lpad(col.size(), 3)              +
+                    ' min '                    + lpad(this.minSize(j), 3)         + 
+                    ' max '                    + lpad(this.maxSize(j), 3)         +
+                    ' constrained '            + lpad(this.constrainedSize(j), 3) + 
+                    ' text width '             + lpad(col.textWidth(), 4)         + 
+                    ' constrained text width ' + lpad(this.constrainedTextWidth(j), 4));
+        }
+    };
+}
+Object.seal(TableSizer);
+return TableSizer;
+}();
 /*
  * Returns the caption for element. If this is null it establishes a value in the following order:
  *  - If the parent is fieldset and it has caption its value is returned.
@@ -1504,13 +1891,14 @@ Column.prototype.getDisplayValue = function (value, nullToSpace) {
  *  - The elements id is returned.
  */
 function getCaption(element) {
-    var parent = element.parentNode;
+    element = getElement(element);
+    
     var children;
     
-    if (element.caption !== null) return element.innerHTML;
+    if (!isNull(element.caption)) return element.caption.textContent;
     
-    if (parent.tagName === 'FIELDSET') {
-        children = getChildren(parent, 'LEGEND');
+    if (element.tagName === 'FIELDSET') {
+        children = getChildren(element, 'LEGEND');
         
         if (children.length > 0) return children[0].innerHTML;
     }
@@ -1597,7 +1985,7 @@ function getWidth(noOfChars, unit) {
             break;
         case "em":
             noOfChars += 1;
-            multiplier = 0.5;
+            multiplier = 0.55;
             break;
         case "mm":
             multiplier = 2.4;
@@ -1609,7 +1997,7 @@ function getWidth(noOfChars, unit) {
     return (multiplier * noOfChars) + unit;
 }
 function setElementValue(field, value, type, scale) {
-    value = (new Column(field.id, -1, value, type, scale)).getDisplayValue(value, true);
+    value = normaliseValue(value, type, scale, true);
     
     if (type === 'varchar' || type === 'char') {
         if (field.type === "checkbox")
@@ -1741,70 +2129,55 @@ function loadJSONFields(jsonData, exact) {
  * The json object must be set to the JSON array of column header objects.
  */
 function jsonAddHeader(json, table, options) {
+    var tableSizer = new TableSizer(table, options);
     var name;
+    var cName;
     var header = table.createTHead();
     var row    = header.insertRow(0);
-    var col;
+    var colNo  = 0;
     var jcol;
-    var columns = [];
-    var colNo   = 0;
+    var cell;
     /*
      * Iterate the array of column specifier objects.
      */
     json.setFirst();
     
     while (json.isNext()) {
-        jcol = json.next().value;
-        name = jcol.getMember('Name', true).value;
-        col  = new Column(
-                name,
-                options.addColNoClass? colNo + 1 : -1,
-                jcol.getMember('Type').value,
-                jcol.getMember('Precision', false).value,
-                jcol.getMember('Scale',     false).value,
-                jcol.getMember('Optional',  false).value);
-        columns.push(col);
+        jcol  = json.next().value;
+        name  = jcol.getMember('Name', true).value;
+        cName = options.splitName? camelToWords(name) : name;
         
         if (options.useInnerCell) {
-            var cell = document.createElement('th');
-            
-            cell.innerHTML = name;
+            cell = document.createElement('th');
+            cell.innerHTML = cName;
             row.appendChild(cell);
         } else {
-            row.innerHTML += "<th>" + name + "</th>";
+            row.innerHTML += "<th>" + cName + "</th>";
+            cell = row.cells[colNo];
         }
+        tableSizer.addColumn (
+                name,
+                cell,
+                options.addColNoClass? colNo + 1 : -1,
+                jcol.getMember('Type').value,
+                jcol.getMember('Precision',  false).value,
+                jcol.getMember('Scale',      false).value,
+                jcol.getMember('Optional',   false).value,
+                tableSizer.options().adjustText);
         colNo++;
     }
     /*
      * Set any column override options.
      */
-    if (options.columns !== null) {        
-        for (var i = 0; i < options.columns.length; i++) {
-            var ocol = options.columns[i];
-            
-            for (var j = 0; j < columns.length; j++) {
-                col = columns[j];
-                
-                if (col.name === ocol.name) break;
-                
-                col = null;
-            }
-            if (col === null)
-                reporter.fatalError('There is no column "' + ocol.name + '" in table ' + table.id);
-            else {
-                col.minWidth  = ocol.minWidth;
-                col.maxWidth  = ocol.maxWidth;
-                col.forceWrap = ocol.forceWrap;
-            }
-        }
-    }
-    return columns;
+    tableSizer.applyColumnOptions(options.columns);
+    
+    return tableSizer;
 }
 /*
  * The json object must be set to the JSON array of rows the column values array.
  */
-function jsonAddData(json, columns, table, options) {
-    var body = table.tBodies[0];
+function jsonAddData(json, tableSizer, options) {
+    var body = tableSizer.table().tBodies[0];
     var rowNo = 0;
     var dcol;
     var row;
@@ -1814,9 +2187,8 @@ function jsonAddData(json, columns, table, options) {
      * Iterate the data rows.
      */
     while (json.isNext()) {
-        var cols = 0;
-        var drow = json.next().value;
-        var value;
+        var colNo = 0;
+        var drow  = json.next().value;
         var cell;
         
         row = body.insertRow(rowNo++);
@@ -1828,31 +2200,28 @@ function jsonAddData(json, columns, table, options) {
         drow.setFirst();
         
         while (drow.isNext()) {
-            dcol  = drow.next();
-            value = columns[cols].getDisplayValue(dcol.value, options.nullToEmpty);
-            cell  = row.insertCell(cols++);            
-            cell.innerHTML = value;
+            dcol = drow.next();
+            cell = row.insertCell();            
+            tableSizer.column(colNo).loadColumnValue(cell, dcol.value, options.nullToEmpty);
+            colNo++;
         }
     }
 }
+function cellReplace(cell, from, to) {
+    cell.innerHTML = cell.innerHTML.split(from).join(to);
+}
+function stringToJSON(jsonData) {
+    if (typeof jsonData === 'string') jsonData = (new JSONReader(jsonData)).getJSON();
+    
+    return jsonData;
+}
 /*
- * @param {type} jsonArray Contains a JSON the table data. If this is an object it is assumed to be a json object as created by json.js.
- *               If it is a string, it is expected to be a JSON string and it is converted to a json object using JSONReader.
- *               
- *               See below for the json object table definition.
- *               
- * @param {type} id The html element id of the table where the data will be stored.
- * @param {type} maxField The max column field size. If the data field exceeds this size, it will be wrapped to fit within, i.e. requiring
- *                        multiple lines.
- * @param {type} onClickFunction The action that will be invoked if the table line is clicked. Set to undefined, if there is no action required.
- * @param {type} useInnerHTML Determines how the table header th cells are created. If true, a th cell is created and appended to the header
- *                            row. If false, <th>ColName</th> is appended to the header row innerHTML. If null, default is applied, which
- *                            is the false option. Not sure if both are equivalent and if either is preferable.
- * @param {type} includeColNoClass If true, a class is added constructed from "tbcol" + colNo. The column numbers start at 1.
- * @param {type} addName If true, the column heading is added as the name attribute.
- * @returns An array of the column specifications to be used to define the data cell formats and attributes, see Column definition.
+ * The id parameter is the element id of the table to be loaded.
  * 
- * The JSON table string format is
+ * The options parameter determines how the HTML table is built and the options are described in the
+ * comments preceding JSONArrayOptions and JSONArrayColumnOptions.
+ * 
+ * The JSON table string format, the jsonArray parameter, is
  * 
    {"Table"  : "Name",
     "Header" : [{column object},.....]
@@ -1880,93 +2249,15 @@ function jsonAddData(json, columns, table, options) {
         "Data"   : [["Spanner",null,12.1],["Hammer",true,20],["Wrench",false,25.39]]}
   
  */
-function loadJSONArrayOld(jsonArray, id, options) {
-    
-    if (getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
-    
-    try {
-        var maxRowSize = 0;
-        var table      = document.getElementById(id);
-        var json       = jsonArray;
-        var jval;
-        var cols;
-        var row;
-
-        clearTable(table);
-        
-        if (typeof json === 'string') json = (new JSONReader(jsonArray)).getJSON();
-        
-        st.log("Loading table " + id);
-        st.setStart();
-        
-        jval = json.getMember('Header', true);
-        cols = jsonAddHeader(jval.value, table, options);
-        jval = json.getMember('Data', true);
-        jsonAddData(jval.value, cols, table, options);
-
-        st.logElapsed("Loading rows");
-        st.setStart();
-        /*
-         * Set cell widths and class and name if required. 
-         */
-        for (var j = 0; j < table.rows.length; j++) {
-            var rowSize = 0;
-            
-            row = table.rows[j];
-
-            for (var i = 0; i < row.cells.length; i++) {
-                var col      = cols[i];
-                var cell     = row.cells[i];
-                var minWidth = null;
-                var maxWidth = options.maxField;
-                
-                if (options.usePrecision)  minWidth = col.precision;
-                if (col.minWidth !== null) minWidth = col.minWidth;
-                if (col.maxWidth !== null) maxWidth = col.maxWidth;
-                
-                if (minWidth !== null && maxWidth !== null && minWidth > maxWidth) minWidth = maxWidth;
-                
-                if (col.size <= minWidth && minWidth !== null) {
-                    rowSize += minWidth;
-                    cell.setAttribute("style", 'width:' + getWidth(minWidth, 'em'));
-                } else if (col.size < maxWidth) {
-                    rowSize += col.size;
-                    cell.setAttribute("style", 'width:' + getWidth(col.size, 'em'));
-                } else {
-                    rowSize += maxWidth;
-                    cell.setAttribute("style", 'width:' + getWidth(maxWidth, 'em') + ';overflow: hidden');
-                }
-                if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
-                if (options.addName)       cell.setAttribute('name',  col.name);
-                /*
-                 * Calculate total width. Only accessed in debugging.
-                 */
-                if (rowSize > maxRowSize) maxRowSize = rowSize;
-            }
-        }
-        st.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
-        st.logElapsed("Set table sizes");
-    } catch (e) {
-        reporter.logThrow(e, true);;
-    }
-}
-function cellReplace(cell, from, to) {
-    cell.innerHTML = cell.innerHTML.split(from).join(to);
-}
-function stringToJSON(jsonData) {
-    if (typeof jsonData === 'string') jsonData = (new JSONReader(jsonData)).getJSON();
-    
-    return jsonData;
-}
 function loadJSONArray(jsonArray, id, options) {    
     if (options === undefined || getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
     
     try {
-        var maxRowSize = 0;
         var table      = document.getElementById(id);
+        var maxRowSize = 0;
         var json       = stringToJSON(jsonArray);
+        var tableSizer;
         var jval;
-        var cols;
         var row;
 
         clearTable(table);
@@ -1974,10 +2265,10 @@ function loadJSONArray(jsonArray, id, options) {
         st.log("Loading table " + id);
         st.setStart();
         
-        jval = json.getMember('Header', true);
-        cols = jsonAddHeader(jval.value, table, options);
-        jval = json.getMember('Data', true);
-        jsonAddData(jval.value, cols, table, options);
+        jval       = json.getMember('Header', true);
+        tableSizer = jsonAddHeader(jval.value, table, options);
+        jval       = json.getMember('Data', true);
+        jsonAddData(jval.value, tableSizer, options);
 
         st.logElapsed("Loading rows");
         st.setStart();
@@ -1990,46 +2281,36 @@ function loadJSONArray(jsonArray, id, options) {
             row = table.rows[j];
 
             for (var i = 0; i < row.cells.length; i++) {
-                var col        = cols[i];
+                var col        = tableSizer.column(i);
                 var cell       = row.cells[i];
-                var width      = null;
-                var minWidth   = null;
-                var maxWidth   = options.maxField;
+                var size       = tableSizer.constrainedSize(i);
                 var forceWidth = false;
                 var value      = cell.innerHTML;
                 var style      = null;
-                    
-                if (options.usePrecision)  minWidth = col.precision;
-                if (col.minWidth !== null) minWidth = col.minWidth;
-                if (col.maxWidth !== null) maxWidth = col.maxWidth;
-
-                if (minWidth !== null && maxWidth !== null && minWidth > maxWidth) minWidth = maxWidth;
-
-                if (col.size <= minWidth && minWidth !== null) {
-                    width    = minWidth;
-                } else if (col.size < maxWidth || maxWidth === null) {
-                    width    = col.size;
-                } else {
-                    width    = maxWidth;
-                }
-                rowSize += width;
-                style    = 'width:' + getWidth(width, 'em');
                 
-                if (value.length > width) {
+                rowSize += size;
+                
+                if (options.useTextWidth) {                    
+                    style = 'width:' + tableSizer.constrainedTextWidth(i) + 'px';
+                } else
+                    style = 'width:' + getWidth(size, 'px');
+                
+                if (value.length > size) {
                     forceWidth = true;
                     
-                    if (col.forceWrap || value.indexOf(' ') === -1) style += ';word-break: break-all';
+                    if (col.forceWrap() || value.indexOf(' ') === -1) style += ';word-break: break-all';
                 }
                 if (j <= 1 || options.widthAllRows || forceWidth) cell.setAttribute("style", style);
                 
                 if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
-                if (options.addName)       cell.setAttribute('name',  col.name);
+                if (options.addName)       cell.setAttribute('name',  col.name());
                 /*
                  * Calculate total width. Only accessed in debugging.
                  */
                 if (rowSize > maxRowSize) maxRowSize = rowSize;
             }
         }
+        tableSizer.log();
         st.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
         st.logElapsed("Set table sizes");
     } catch (e) {

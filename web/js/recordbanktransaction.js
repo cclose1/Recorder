@@ -349,9 +349,9 @@ function requestTransactions(filter) {
     function processResponse(response) {
         loadJSONArray(response, "transactions", 
             {maxField: 19, onClick: "btTransactionsRowClick(this)", columns: 
-             [{name: 'TXN Id', minWidth: 8, maxWidth: 8},
-              {name: 'Fee',    maxWidth: 4},
-              {name: 'Type',   maxWidth:10}]});
+             [{name: 'TXN Id', minSize: 8, maxSize: 8},
+              {name: 'Fee',    maxSize: 4},
+              {name: 'Type',   maxSize:10}]});
     }
     if (filter === undefined) filter = txnFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);

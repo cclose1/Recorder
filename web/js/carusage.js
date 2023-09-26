@@ -1,8 +1,9 @@
-/* global reporter, getElement */
+/* global reporter, getElement, getElementById, Column */
 
 'use strict';
 
 var sessionFilter;
+var logFilter;
 var prcur  = null;
 var prlast = null;
 var prgap  = 5;
@@ -173,7 +174,8 @@ function requestChargeSessions(filter) {
     var parameters = createParameters('chargesessions');
 
     function processResponse(response) {
-        loadJSONArray(response, 'chargesessionstable', {maxField: 19, onClick: 'btChargeSessionsRowClick(this)'});
+        loadJSONArray(response, 'chargesessionstable', 
+            {maxField: 19, adjustText: true, onClick: 'btChargeSessionsRowClick(this)'});
         document.getElementById('chargesessionstable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = sessionFilter.getWhere();
@@ -185,9 +187,35 @@ function requestChargers() {
     var parameters = createParameters('chargers');
 
     function processResponse(response) {
-        loadJSONArray(response, 'chargerstable', {maxField: 19, onClick: 'btChargersRowClick(this)'});
+        /*
+         * The columns is there for test purposes and the values specified should not change the
+         * displayed table layout, i.e. columns can be removed.
+         */
+        loadJSONArray(response, 'chargerstable', {maxField: 19, onClick: 'btChargersRowClick(this)',
+             columns: [
+                 {name: 'Location', minSize: 3, maxSize: null},
+                 {name: 'Tariff',   minSize: 3},
+                 {name: 'Network',  maxSize: 15}]});
         document.getElementById('chargerstable').removeAttribute('hidden');
     }
+    ajaxLoggedInCall('CarUsage', processResponse, parameters);
+}
+function requestSessionLog(filter) {
+    var parameters = createParameters('sessionlog');
+
+    function processResponse(response) {
+        loadJSONArray(response, 'sessionlogtable', 
+            {maxField:   19, 
+             splitName:  true,
+             adjustText: true,
+             columns: [{name: 'Device', minSize: 3, maxSize: 17}]});
+        document.getElementById('sessionlogtable').removeAttribute('hidden');
+    }
+    if (!getElement('logupdates').checked) return;
+    
+    if (filter === undefined) filter = logFilter.getWhere();
+    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
+    
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function clearElement(id) {
@@ -211,6 +239,7 @@ function reset() {
     updateProgress(true);
     requestChargeSessions();
     requestChargers();
+    requestSessionLog();
     setSave('New');
 }
 /*
@@ -224,6 +253,15 @@ function clearData() {
 function resetSessions() {
     reset();
 }
+function setSessionLog(on) {
+    if (on === undefined)
+        on = getElement('logupdates').checked;
+    else
+        getElement('logupdates').checked = on;
+    
+    setHidden('sessionlog', !on);    
+    requestSessionLog();
+}
 function setNew(copy) {
     if (copy) {
         /*
@@ -232,6 +270,7 @@ function setNew(copy) {
         var comment = getElement('sessioncomment').value;
         
         clearData();
+        setSessionLog(true);
         getElement('sessioncomment').value = comment;
         getElement("currenttime").checked  = true;
     } else {
@@ -419,6 +458,7 @@ function send(action) {
     }
     parameters = addParameter(parameters, 'sdatetime', getDateTime('s'));
     parameters = addParameter(parameters, 'edatetime', getDateTime('e'));
+    parameters = addParameterById(parameters, 'logupdates');
     parameters = addParameterById(parameters, 'keytimestamp');
     parameters = addParameterById(parameters, 'carreg');
     parameters = addParameterById(parameters, 'chargesource'); 
@@ -443,8 +483,13 @@ function send(action) {
             return;
         }
         requestChargeSessions();
+        requestSessionLog();
         
-        if (action === 'Update') updateProgress();
+        if (action === 'Update') {            
+            updateProgress();
+            
+            if (getElement('echargepc').value >= 99) getElement('emiles').value = parseInt(getElement('emiles').value) + 1;
+        }
         
         if (action === 'Delete')
             clearData();
@@ -507,8 +552,10 @@ function btChargeSessionsRowClick(row) {
                 break;
         }
     }
-    document.getElementById("setstartchange").checked = false;
-    document.getElementById("currenttime").checked    = false;
+    setSessionLog(false);
+    getElement("setstartchange").checked = false;
+    getElement("currenttime").checked    = false;    
+
     setSave('Update');
 }
 function btChargersRowClick(row) {
@@ -529,9 +576,114 @@ function btChargersRowClick(row) {
         }
     }
 }
+function test(tableid, value, adjustText, first) {
+    var table     = getElement(tableid);
+    var body      = table.tBodies[0];
+    var type      = 'number';
+    var precision = 20;
+    var scale     = 2;
+    var rowNo     = 0;
+    var cell;
+    var col;
+    var row;
+    var style;
+    var test = {a: 1, b:2};
+    
+    function testCall(command) {
+        try {
+            eval(command);
+        } catch(err) {
+            console.log(command + ' failed with ' + err.message);
+        }
+    }
+    style = ('a' in test);
+    style = ('x' in test);
+    
+    test.a = undefined;
+    
+    style = ('a' in test);
+    row  = body.insertRow(rowNo++);        
+    cell = document.createElement('tr');
+    cell.innerHTML = value;
+    row.appendChild(cell);
+    col  = new Column(
+            value,
+            cell,
+            -1,
+            type,
+            precision,
+            scale,
+            false,
+            adjustText);
+    style = col.textWidth;
+    
+    if (!isNull(first) && first) {
+        col.setProperty('xxx', 'Crap', true);
+        testCall("col.setProperty('zzz', 'Crap', false)");
+        testCall("col.setProperty('zzz', 'Crap')");
+        testCall("col.getProperty('abc')");
+        testCall("Column.abc = 'Test'");
+        style = col.getProperty('name');
+        style = col.getProperty('minSize');
+        style = col.hasProperty('abc');
+        style = col.hasProperty('maxSize');
+        
+        style = col.xxx;
+        style = 'width:' + col.textWidth() + 'px';
+        testCall("col.yyy = 'MoreCrap'");
+        testCall("col.size = 'Crap'");
+        style = col.yyy;
+    }
+    cell.setAttribute("style", style);
+    style = readComputedStyle(cell, 'width');
+    
+    var wd = parseFloat(style.substring(0, style.length - 2)).toFixed(2);
+    reporter.log(
+            "Value "       + rpad(value, 15) + 
+            ' size '       + rpad(col.size(), 4) +
+            ' min '        + rpad(col.minSize(), 4) +
+            ' max '        + rpad(col.maxSize(), 4) +
+            ' size '       + rpad(col.size(), 4) +
+            ' textWidth '  + rpad(col.textWidth(), 4) + 
+            ' styleWidth ' + rpad(wd, 4) +
+            ' per char '   + rpad((col.textWidth() / col.size()).toFixed(2), 4) +
+            ' adjusted '   + (!isNull(adjustText) && adjustText));
+    return col;
+}
 function initialize(loggedIn) {
     if (!loggedIn) return;
     
+    var props = readComputedStyle(getElement('sessionlogtable'));
+    var font;
+    var testval;
+
+    testval = test('chargesessionstable', 'Josh-Alex B', false, true);
+    testval = test('chargesessionstable', 'Josh-Alex B', true);
+    testval = test('chargesessionstable', 'Josh-Alex Bt');    
+    testval = test('chargesessionstable', 'Josh-AlexaBt');   
+    testval = test('chargesessionstable', 'Josh-AlexABt');
+    testval = test('chargesessionstable', 'JoshaAlexaBt');
+    testval = test('chargesessionstable', '1114-01');
+    testval = test('chargesessionstable', '1114-01', true);
+    testval = test('chargesessionstable', 'HomePodPoint');
+    testval = test('chargesessionstable', 'HomePodPoint', true);
+
+    testval = test('chargesessionstable', 'HomePodPoint');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-style');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-variant');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-weight');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-size');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-family');    
+    font = readComputedStyle(getElement('sessionlogtable'), 'font');
+
+    
+    testval = displayTextWidth("A");
+    testval = displayTextWidth("a");
+    
+    testval = displayTextWidth("18446744073709552000");
+    testval = displayTextWidth("MilesAdded", font);
+    testval = displayTextWidth("Miles Added", font);
+    testval = displayTextWidth("eo70 ecc");
     reporter.setFatalAction('throw'); 
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
@@ -544,7 +696,6 @@ function initialize(loggedIn) {
     sessionFilter.addFilter('Charger',  'Charger,,fchargesource', '', true);
     sessionFilter.addFilter('Unit',     'Unit,,fchargeunit',      '', true);
     sessionFilter.addFilter('Weekdays', 'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
-     
     var response = getList('CarUsage', {
         table:        'Car',
         name:         'carreg',
@@ -574,7 +725,26 @@ function initialize(loggedIn) {
         async:        false,
         allowBlank:   true},
         true);
+     
+    logFilter = getFilter('filterLogKey', document.getElementById('logfilter'), requestSessionLog, {
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           'Filter',
+        forceGap:        '4px',
+        initialDisplay:  true});
+    logFilter.addFilter('Device',   'Device,,logdevice', '', true);
+    logFilter.addFilter('Percent',  'Percent,,logpercent');
+    
+    getList('CarUsage', {
+        table:        'SessionLog',
+        name:         'logdevice',
+        field:        'Device',
+        keepValue:    false,
+        async:        false,
+        allowBlank:   true},
+        true);
     setHidden('updatetable', true);
+    setSessionLog(false);
     reset();
     addTableListener('Test1', ts);
     addTableListener('Test2', ts);

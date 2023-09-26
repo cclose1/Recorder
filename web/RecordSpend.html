@@ -34,25 +34,25 @@
                             </div>
                             <div>
                                 <label for="date">Date</label>
-                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="0">
                                 <label for="time" class="nogap">Time</label>
-                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="0">
                             </div>
                             <div>
                                 <label for="category">Category</label>
-                                <select id="category" tabindex="-1" onchange="setDateTime(); updateFilteredLists();">
+                                <select id="category" tabindex="0" onchange="setDateTime(); updateFilteredLists();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="type">Type</label>
-                                <select id="type" tabindex="-1" onchange="setDateTime(); updateFilteredLists();">
+                                <select id="type" tabindex="0" onchange="setDateTime(); updateFilteredLists();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="location">Location</label>
-                                <input type="text" name="location" list="locationList" id="location" oninput="setDateTime();" tabindex="-1">
+                                <input type="text" name="location" list="locationList" id="location" oninput="setDateTime();" tabindex="0">
                                 <datalist id="locationList">
                                     <option></option>
                                 </datalist>
@@ -66,19 +66,19 @@
                             </div>
                             <div>
                                 <label for="amount">Amount</label>
-                                <input type="text" name="Amount" size ="3" id="amount" tabindex="-1" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                                <input type="text" name="Amount" size ="3" id="amount" tabindex="0" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                                 <label for="correction" class="nogap">Correction</label>
-                                <input title = "Value to add to amount to get bank debit" type="text" name="correction" size="3" id="correction" maxlength="8" tabindex="-1" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                                <input title = "Value to add to amount to get bank debit" type="text" name="correction" size="3" id="correction" maxlength="8" tabindex="0" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                             </div>
                             <div>
                                 <label for="payment">Payment</label>
-                                <select id="payment" tabindex="-1" onchange="setDateTime();">
+                                <select id="payment" tabindex="0" onchange="setDateTime();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="period">Frequency</label>
-                                <select id="period" tabindex="-1" onchange="setDateTime();">
+                                <select id="period" tabindex="0" onchange="setDateTime();">
                                     <option></option>
                                     <option>M</option>
                                     <option>Y</option>
@@ -96,7 +96,7 @@
                             </div>
                             <div id="mysqldiv" hidden>
                                 <label class="nogap"></label>
-                                <input readonly size="20" tabindex="-1" value="Using MySQL">
+                                <input readonly size="20" tabindex="0" value="Using MySQL">
                             </div>
                             <div>
                                 <label for="showfilter">Show Filter</label>

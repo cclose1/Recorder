@@ -460,7 +460,9 @@ function loadActiveEvent() {
     parameters = addParameterById(parameters, 'time');
     
     function processResponse(response) {
-        var options = new JSONArrayOptions({maxField: 13, onClick: 'detailsRowClick(this, "update")'});
+        var options = new JSONArrayOptions({maxField: 13, onClick: 'detailsRowClick(this, "update")', columns: 
+             [{name: 'ABV',  minSize: 6},
+              {name: 'Salt', minSize: 6}]});
         
         loadJSONArray(response, 'activeeventtable', options);
         setHidden('activeeventtable', false);
@@ -489,7 +491,7 @@ function getItemList() {
     function processResponse(response) {
         var options = new JSONArrayOptions(
                 {maxField: 19, onClick: 'detailsRowClick(this, "add")', useInnerCell: false, 
-                 columns: [{name: 'Source', maxWidth: 10},{name: 'Type', maxWidth: 10}]});
+                 columns: [{name: 'Source', maxSize: 10},{name: 'Type', maxSize: 10}]});
         
         valItem.loadMaxSizes(response);
         loadJSONArray(response, 'itemdetailstable', options);
@@ -501,7 +503,9 @@ function requestEventHistory(filter) {
     var parameters = createParameters('eventhistory');
 
     function processResponse(response) {
-        loadJSONArray(response, 'eventhistorytable', {maxField: 19, onClick: 'rowEventHistoryClick(this)'});
+        loadJSONArray(response, 'eventhistorytable', 
+            {maxField: 19, onClick: 'rowEventHistoryClick(this)',
+             columns: [{name: '*', minSize: 6}]});
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = hstFilter.getWhere();

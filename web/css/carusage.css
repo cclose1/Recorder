@@ -13,10 +13,9 @@ and open the template in the editor.
 .inputwidth {
     width: 100px;
 }
-.left {
-    margin: auto;
-    text-align: left;
-}
 .largelab {
     width: 128px;
+}
+#sessionlogtable {
+    border-spacing: 3px;
 }

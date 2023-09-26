@@ -15,6 +15,7 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
+import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.utils.data.DatabaseSession;
 /**
@@ -78,6 +79,32 @@ public class CarUsage extends ApplicationServer {
             mileage    = rs.getInt("Mileage");
         }
     }
+    private void log(Context ctx, String action) throws SQLException, ParseException {
+        SQLInsertBuilder sql = ctx.getInsertBuilder("ChargeSessionLog");
+
+        if (!ctx.getParameter("logupdates").equalsIgnoreCase("true")) return;
+            
+        sql.addField("CarReg", ctx.getParameter("carreg"));
+        sql.addField("Session",  ctx.getTimestamp("sdatetime"));
+        
+        switch (action) {
+            case "deletesession":
+                return;
+            case "createsession":
+                sql.addField("Timestamp", ctx.getTimestamp("sdatetime"));
+                sql.addField("Miles",     ctx.getParameter("smiles"));
+                sql.addField("PerCent",   ctx.getParameter("schargepc"));
+                break;
+            case "updatesession":
+                sql.addField("Timestamp", ctx.getTimestamp("edatetime"));
+                sql.addField("Miles",     ctx.getParameter("emiles"));
+                sql.addField("PerCent",   ctx.getParameter("echargepc"));
+                break;
+            default:
+                return;
+        }
+        executeUpdate(ctx, sql);
+}
     private void test(Context ctx) throws SQLException, JSONException {
         DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition("Car");
         DatabaseSession.Column          col;
@@ -186,6 +213,9 @@ public class CarUsage extends ApplicationServer {
     }
     @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
+        String schema  = ctx.getAppDb().getProtocol().equals("sqlserver")? "dbo" : "BloodPressure";
+        String endName = ctx.getAppDb().delimitName("End");
+        
         session.setContext(ctx);
         
         switch (action) {
@@ -193,37 +223,27 @@ public class CarUsage extends ApplicationServer {
             case "updatesession":               
             case "deletesession":
                 changeSession(ctx, action);
+                log(ctx, action);
                 break;
             case "chargesessions":
                 {
                     JSONObject       data     = new JSONObject();
                     ResultSet        rs;
-                    SQLSelectBuilder sql      = ctx.getSelectBuilder("ChargeSession");
+                    SQLSelectBuilder sql      = ctx.getSelectBuilder("ChargeSession");                   
                     Object           rateCast = sql.setCast("DECIMAL", 8, 2);
                     
                     sql.setProtocol(ctx.getAppDb().getProtocol());
                     sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
                     sql.addField("CarReg");
                     sql.addField("Start");
-                    sql.addField("End");          
-                    
-                    if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
-                        sql.addField("Weekday",   sql.setExpressionSource("SUBSTRING(DATENAME(WEEKDAY, Start), 1, 3)"));
-                    } else {
-                        sql.addField("Weekday",   sql.setExpressionSource("SubStr(DayName(Start), 1, 3)"));
-                    } 
+                    sql.addField("End");  
+                    sql.addField("Weekday", sql.setExpressionSource(schema + ".WeekDayName(Start)"));
                     sql.addField("Start Duration", "EstDuration");
                     sql.addField("Charger");
                     sql.addField("Unit");
                     sql.addField("Mileage");
-                    
-                    if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
-                        sql.addField("Rate",     sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent)"), rateCast);
-                        sql.addField("Duration", sql.setExpressionSource("DATEDIFF(mi, Start, [End]) / (EndPerCent - StartPerCent) * (100 - EndPercent)"), rateCast);
-                    } else {
-                        sql.addField("Rate",     sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent)"), rateCast);
-                        sql.addField("Duration", sql.setExpressionSource("TIMESTAMPDIFF(MINUTE, Start, End) / (EndPerCent - StartPerCent) * (100 - EndPercent)"), rateCast);
-                    }       
+                    sql.addField("Rate",     sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 "), rateCast);
+                    sql.addField("Duration", sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 * (100 - EndPercent)"), rateCast);       
                     sql.addField("Start Miles", "StartMiles");
                     sql.addField("Start %",     "StartPerCent");
                     sql.addField("End Miles",   "EndMiles");
@@ -256,6 +276,22 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Comment");
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
+                    data.append(ctx.getReplyBuffer(), "");
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "sessionlog":
+                {             
+                    JSONObject       data   = new JSONObject();
+                    ResultSet        rs;
+                    SQLSelectBuilder sql    =  ctx.getSelectBuilder("SessionLog");
+                    sql.setProtocol(ctx.getAppDb().getProtocol());
+                    sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
+                    sql.addField("*");
+                    sql.addAnd(ctx.getParameter("filter"));
+                    sql.addOrderByField("Timestamp", true);
+                    rs = executeQuery(ctx, sql);
+                    data.add("SessionLog", rs);
                     data.append(ctx.getReplyBuffer(), "");
                     ctx.setStatus(200);
                     break;

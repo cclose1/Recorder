@@ -124,6 +124,10 @@
                                 <input id="setstartchange" type="checkbox" onclick="lockKey();">
                             </div>   
                             <div>
+                                <label for="logupdates" class="largelab">Log Updates</label>
+                                <input id="logupdates" type="checkbox" onclick="setSessionLog()">
+                            </div>   
+                            <div>
                                 <label for="showfilter" class="largelab">Show Filter</label>
                                 <input id="showfilter" type="checkbox" onclick="setFilterVisibility('filterKey');">
                             </div>
@@ -172,6 +176,19 @@
                                 <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
                                 <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
                             </div>
+                        </fieldset>
+                        <fieldset id="sessionlog" class='form centreminwidth'>
+                            <legend>Session Log</legend>
+                            <table id="sessionlogtable">
+                                <thead>
+                                    <tr><th></th></tr>
+                                </thead>
+                                <tr><td></td></tr>
+                            </table>
+                            <fieldset id="logfilter" class='centreminwidth left'>
+                                <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
+                                </iframe>
+                            </fieldset>
                         </fieldset>
                     </div>
                     <div class='centre'>

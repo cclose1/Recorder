@@ -86,6 +86,10 @@ textarea {
     margin: auto;
     text-align: center
 }
+.left {
+    margin: auto;
+    text-align: left
+}
 .colall {
     width: 100%;
 }

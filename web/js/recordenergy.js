@@ -154,6 +154,7 @@ function initialize(loggedIn) {
         forceGap:        '4px',
         trigger:         getElement('showfilter')});
     
-    hstFilter.addFilter('Types',       'Type',     'Gas, Electric, Solar');
+    hstFilter.addFilter('Types',     'Type',      'Gas, Electric, Solar');
+    hstFilter.addFilter('Estimated', 'Estimated', ', Y, N');
     requestReadings();
 }
