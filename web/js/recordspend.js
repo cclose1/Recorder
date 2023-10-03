@@ -84,7 +84,11 @@ function requestHistory(filter) {
     var parameters = createParameters('spendhistory');
 
     function processResponse(response) {
-        loadJSONArray(response, "history", {maxField: 19, onClick: "rowClick(this)", columns: [{name: 'Amount', minWidth: 6}]});
+        loadJSONArray(response, "history", {
+            onClick: "rowClick(this)", 
+            columns: [
+                {name: 'Amount', minWidth: 6}
+            ]});
     }
     if (filter === undefined) filter = hstFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);

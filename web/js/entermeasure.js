@@ -168,7 +168,7 @@ function requestHistory() {
     parameters = addParameterById(parameters, 'identifier');
     
     function processResponse(response) {
-        loadJSONArray(response, "history", {maxField: 19, usePrecision: true, onClick: "bpHistoryRowClick(this)"});
+        loadJSONArray(response, "history", {usePrecision: true, onClick: "bpHistoryRowClick(this)"});
     }
     ajaxLoggedInCall("Record", processResponse, parameters);
 }

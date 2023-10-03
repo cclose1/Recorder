@@ -348,10 +348,12 @@ function requestTransactions(filter) {
 
     function processResponse(response) {
         loadJSONArray(response, "transactions", 
-            {maxField: 19, onClick: "btTransactionsRowClick(this)", columns: 
-             [{name: 'TXN Id', minSize: 8, maxSize: 8},
-              {name: 'Fee',    maxSize: 4},
-              {name: 'Type',   maxSize:10}]});
+            {onClick: "btTransactionsRowClick(this)", 
+             columns: [
+                 {name: 'TXN Id', minSize: 8, maxSize: 8},
+                 {name: 'Fee',    maxSize: 4},
+                 {name: 'Type',   maxSize:10}
+             ]});
     }
     if (filter === undefined) filter = txnFilter.getWhere();
     if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
@@ -362,7 +364,7 @@ function requestAccounts() {
     var parameters = createParameters('accounts');
     
     function processResponse(response) {
-        loadJSONArray(response, "accounts",  {maxField: 20, onClick: "btAccountsRowClick(this)"});
+        loadJSONArray(response, "accounts",  {onClick: "btAccountsRowClick(this)"});
     }
     ajaxLoggedInCall("BankTransaction", processResponse, parameters);
 }

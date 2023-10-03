@@ -107,6 +107,20 @@ function Filter(key, element, requestor, options) {
         }
         return w;
     };
+    this.setValue = function (label, value) {
+        var fields = this.fields.children;
+        var i;
+
+        for (i = 0; i < fields.length; i++) {
+            var field = fields[i];
+            
+            if (field.childNodes[0].innerHTML === label) {
+                field.childNodes[1].value = value;
+                
+                return;
+            }
+        }
+    };
     this.callRequestor = function (force) {
         if (this.autoSelect || force === undefined || force) {
             this.requestor(this.getWhere());

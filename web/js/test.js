@@ -52,7 +52,7 @@ function setSheet(sheet) {
         jTable.addColumn('Media',    'media',    'varchar');
         jTable.addColumn('Selector', 'selector', 'varchar');
         jTable.addColumn('Rule',     'text',     'varchar');
-        loadJSONArray(jTable.getJSON(cssed.getFlattenedRules()), "rules", {maxField: 20, onClick: "ruleClick(this)"});
+        loadJSONArray(jTable.getJSON(cssed.getFlattenedRules()), "rules", {maxSize: 20, onClick: "ruleClick(this)"});
     } catch (err)
     {
         alert(err);
@@ -91,10 +91,10 @@ function testTable() {
                 '"Data"   : [["Spanner",null,12.1,"Short"],["Hammer",true,20,"Heavy"],["Wrench",false,25.39]]}';
         data = (new JSONReader(text)).getJSON();
     }
-    loadJSONArray(data, "rules", {maxField: 20, onClick: "ruleClick(this)", 
-        columns:[{name:'Item',    minWidth: 10}, 
-                 {name:'Price',   minWidth: 6},
-                 {name:'Comment', minWidth: 10, maxWidth: 15}]});
+    loadJSONArray(data, "rules", {maxSize: 20, onClick: "ruleClick(this)", 
+        columns:[{name:'Item',    minSize: 10}, 
+                 {name:'Price',   minSize: 6},
+                 {name:'Comment', minSize: 10, maxSize: 15}]});
 }
 
 function testCSSEdit() {
@@ -131,7 +131,7 @@ function testAction(action) {
     }
 };
 function testJSON() {
-    var opt1 = new TestOption1({Int1: 3,  Int2: 21,  Str1: "Test String", Columns: [{name: 'Col1', minWidth: 12},{name: 'Col2', minWidth: 30}]});
+    var opt1 = new TestOption1({Int1: 3,  Int2: 21,  Str1: "Test String", Columns: [{name: 'Col1', minSize: 12},{name: 'Col2', minSize: 30}]});
     var opt2 = new TestOption2({int1: 31, int2: 210, str1: "Test String again"});
     var int;
     var text1;
@@ -221,9 +221,9 @@ function requestDebug() {
     function processResponse(response) {
         if (response.indexOf('{') === 0) {
             if (document.getElementById('request').value === 'Show Env')
-                loadJSONArray(response, 'resultstable', {maxField: 30, columns: [{name: 'Variable', minWidth: 28},{name: 'Value', maxWidth: 120}]});
+                loadJSONArray(response, 'resultstable', {maxSize: 30, columns: [{name: 'Variable', minSize: 28},{name: 'Value', maxSize: 120}]});
             else
-                loadJSONArray(response, 'resultstable', {columns: [{name: 'Stream', minWidth: 15}]});
+                loadJSONArray(response, 'resultstable', {columns: [{name: 'Stream', minSize: 15}]});
             
             document.getElementById('resultstable').removeAttribute('hidden');
         } else

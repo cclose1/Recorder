@@ -48,6 +48,9 @@ textarea {
     width: max-content;
     height: max-content;
 }
+.centredtext {
+    text-align: center;
+}
 .centered-rel-xy {
     position: relative;
     left: 50%;
@@ -160,6 +163,7 @@ div.scrollWrapper{
 table {
     table-layout: fixed;
     margin: auto;
+    border-spacing: 4px;
     background-color: lightpink;
 }
 iframe {
@@ -168,11 +172,22 @@ iframe {
 thead {
     display: block;
 }
-tbody {
+tbody.scroll {
     display: block;
     border: solid;
     height: 300px;
     overflow-y: scroll;
+}
+table.scroll {
+    display: block;
+    border: solid;
+    height: 300px;
+    overflow-y: scroll;
+}
+table.scroll > thead {
+    background-color: lightpink;
+    position:  sticky;
+    top: 0;
 }
 input {
     color:#08233e;

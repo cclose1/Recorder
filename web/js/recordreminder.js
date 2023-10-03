@@ -100,7 +100,7 @@ function requestReminders(filter) {
     var parameters = createParameters('getreminders');
 
     function processResponse(response) {
-        loadJSONArray(response, "reminders", {maxField: 19, onClick: "rowClick(this)"});
+        loadJSONArray(response, "reminders", {onClick: "rowClick(this)"});
     }
     parameters = addParameterById(parameters, 'showall');
     

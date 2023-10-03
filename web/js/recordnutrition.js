@@ -460,9 +460,13 @@ function loadActiveEvent() {
     parameters = addParameterById(parameters, 'time');
     
     function processResponse(response) {
-        var options = new JSONArrayOptions({maxField: 13, onClick: 'detailsRowClick(this, "update")', columns: 
-             [{name: 'ABV',  minSize: 6},
-              {name: 'Salt', minSize: 6}]});
+        var options = new JSONArrayOptions({
+            onClick: 'detailsRowClick(this, "update")', 
+            columns: [
+                {name: 'Item', maxSize: 25},
+                {name: 'ABV',  minSize: 6},
+                {name: 'Salt', minSize: 6}
+            ]});
         
         loadJSONArray(response, 'activeeventtable', options);
         setHidden('activeeventtable', false);
@@ -489,9 +493,12 @@ function getItemList() {
     parameters = addParameter(parameters, 'item',   item);
     
     function processResponse(response) {
-        var options = new JSONArrayOptions(
-                {maxField: 19, onClick: 'detailsRowClick(this, "add")', useInnerCell: false, 
-                 columns: [{name: 'Source', maxSize: 10},{name: 'Type', maxSize: 10}]});
+        var options = new JSONArrayOptions({            
+            onClick:      'detailsRowClick(this, "add")', 
+            useInnerCell: false, 
+            columns: [
+                {name: 'Source', maxSize: 10},{name: 'Type', maxSize: 10}
+            ]});
         
         valItem.loadMaxSizes(response);
         loadJSONArray(response, 'itemdetailstable', options);
@@ -503,9 +510,11 @@ function requestEventHistory(filter) {
     var parameters = createParameters('eventhistory');
 
     function processResponse(response) {
-        loadJSONArray(response, 'eventhistorytable', 
-            {maxField: 19, onClick: 'rowEventHistoryClick(this)',
-             columns: [{name: '*', minSize: 6}]});
+        loadJSONArray(response, 'eventhistorytable', {
+            onClick: 'rowEventHistoryClick(this)',
+            columns: [
+                {name: '*', minSize: 6}
+            ]});
         document.getElementById('eventhistorytable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = hstFilter.getWhere();
@@ -955,7 +964,6 @@ function initialize(loggedIn) {
     hstFilter = getFilter('filter1', document.getElementById('eventfilter'), requestEventHistory, {
         allowAutoSelect: true, 
         autoSelect:      true,
-        title:           null,
         forceGap:        '4px',
         initialDisplay:  true});
     hstFilter.addFilter('Day',         'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat', true);
@@ -963,7 +971,6 @@ function initialize(loggedIn) {
     evnFilter = getFilter('filter2', document.getElementById('itemfilter'), getItemList, {
         allowAutoSelect: true, 
         autoSelect:      true,
-        title:           null,
         forceGap:        '4px',
         initialDisplay:  true});
     evnFilter.addFilter('Source', 'Source,,fsource', '', true);

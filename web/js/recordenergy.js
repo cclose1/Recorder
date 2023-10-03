@@ -98,7 +98,7 @@ function requestReadings(filter) {
     var parameters = createParameters('readingshistory');
 
     function processResponse(response) {
-        loadJSONArray(response, "history", {maxField: 19, onClick: "rowClick(this)"});
+        loadJSONArray(response, "history", {maxSize: 19, onClick: "rowClick(this)"});
     }
     parameters = addParameter(parameters, 'readings', readings);
     

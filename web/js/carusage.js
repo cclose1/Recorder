@@ -175,7 +175,11 @@ function requestChargeSessions(filter) {
 
     function processResponse(response) {
         loadJSONArray(response, 'chargesessionstable', 
-            {maxField: 19, adjustText: true, onClick: 'btChargeSessionsRowClick(this)'});
+            {scroll:  'table',
+             onClick: 'btChargeSessionsRowClick(this)',
+             columns: [{name: 'Start Miles',    wrapHeader: true},
+                       {name: 'End Miles',      wrapHeader: true},
+                       {name: 'Start Duration', wrapHeader: true}]});
         document.getElementById('chargesessionstable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = sessionFilter.getWhere();
@@ -191,7 +195,8 @@ function requestChargers() {
          * The columns is there for test purposes and the values specified should not change the
          * displayed table layout, i.e. columns can be removed.
          */
-        loadJSONArray(response, 'chargerstable', {maxField: 19, onClick: 'btChargersRowClick(this)',
+        loadJSONArray(response, 'chargerstable', 
+            {onClick: 'btChargersRowClick(this)',
              columns: [
                  {name: 'Location', minSize: 3, maxSize: null},
                  {name: 'Tariff',   minSize: 3},
@@ -205,10 +210,8 @@ function requestSessionLog(filter) {
 
     function processResponse(response) {
         loadJSONArray(response, 'sessionlogtable', 
-            {maxField:   19, 
-             splitName:  true,
-             adjustText: true,
-             columns: [{name: 'Device', minSize: 3, maxSize: 17}]});
+            {splitName: true,
+             columns:   [{name: 'Device', minSize: 3, maxSize: 17}]});
         document.getElementById('sessionlogtable').removeAttribute('hidden');
     }
     if (!getElement('logupdates').checked) return;
@@ -553,6 +556,7 @@ function btChargeSessionsRowClick(row) {
         }
     }
     setSessionLog(false);
+    setLogFilter();
     getElement("setstartchange").checked = false;
     getElement("currenttime").checked    = false;    
 
@@ -576,6 +580,18 @@ function btChargersRowClick(row) {
         }
     }
 }
+/*
+ * Set the log filter for the device on display.
+ */
+function setLogFilter() {
+    var device = getElement('chargeunit').value;
+    
+    if (device === '') device = getElement('chargesource').value;
+    
+    logFilter.setValue('CarReg',  getElement('carreg').value);
+    logFilter.setValue('Device',  device);
+    logFilter.setValue('Percent', '');
+}
 function test(tableid, value, adjustText, first) {
     var table     = getElement(tableid);
     var body      = table.tBodies[0];
@@ -596,6 +612,16 @@ function test(tableid, value, adjustText, first) {
             console.log(command + ' failed with ' + err.message);
         }
     }
+    var options = new JSONArrayOptions(
+            {columns: [
+                 {name: 'Location', minSize: 3, maxSize: null},
+                 {name: 'Tariff',   minSize: 3}]});
+    style = options.getUsed();
+    options.setUsed(true);
+    style = options.getUsed();
+    style = options.getUsed('minSize');
+    options.setUsed('minSize', true);
+    style = options.getUsed('minSize');
     style = ('a' in test);
     style = ('x' in test);
     
@@ -614,9 +640,11 @@ function test(tableid, value, adjustText, first) {
             precision,
             scale,
             false,
-            adjustText);
+            options);
     style = col.textWidth;
-    
+    style = col.pub;
+    testCall("col.#priv");
+    style = col.getPriv();
     if (!isNull(first) && first) {
         col.setProperty('xxx', 'Crap', true);
         testCall("col.setProperty('zzz', 'Crap', false)");
@@ -657,18 +685,18 @@ function initialize(loggedIn) {
     var font;
     var testval;
 
-    testval = test('chargesessionstable', 'Josh-Alex B', false, true);
-    testval = test('chargesessionstable', 'Josh-Alex B', true);
-    testval = test('chargesessionstable', 'Josh-Alex Bt');    
-    testval = test('chargesessionstable', 'Josh-AlexaBt');   
-    testval = test('chargesessionstable', 'Josh-AlexABt');
-    testval = test('chargesessionstable', 'JoshaAlexaBt');
-    testval = test('chargesessionstable', '1114-01');
-    testval = test('chargesessionstable', '1114-01', true);
-    testval = test('chargesessionstable', 'HomePodPoint');
-    testval = test('chargesessionstable', 'HomePodPoint', true);
+    testval = test('chargerstable', 'Josh-Alex B', false, true);
+    testval = test('chargerstable', 'Josh-Alex B', true);
+    testval = test('chargerstable', 'Josh-Alex Bt');    
+    testval = test('chargerstable', 'Josh-AlexaBt');   
+    testval = test('chargerstable', 'Josh-AlexABt');
+    testval = test('chargerstable', 'JoshaAlexaBt');
+    testval = test('chargerstable', '1114-01');
+    testval = test('chargerstable', '1114-01', true);
+    testval = test('chargerstable', 'HomePodPoint');
+    testval = test('chargerstable', 'HomePodPoint', true);
 
-    testval = test('chargesessionstable', 'HomePodPoint');
+    testval = test('chargerstable', 'HomePodPoint');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-style');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-variant');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-weight');
@@ -732,8 +760,15 @@ function initialize(loggedIn) {
         title:           'Filter',
         forceGap:        '4px',
         initialDisplay:  true});
+    logFilter.addFilter('CarReg',   'CarReg,,logcarreg', '', true);
     logFilter.addFilter('Device',   'Device,,logdevice', '', true);
     logFilter.addFilter('Percent',  'Percent,,logpercent');
+    
+    loadListResponse(response, {
+        name:         "logcarreg",
+        keepValue:    true,
+        async:        false,
+        allowBlank:   true});
     
     getList('CarUsage', {
         table:        'SessionLog',
@@ -745,6 +780,7 @@ function initialize(loggedIn) {
         true);
     setHidden('updatetable', true);
     setSessionLog(false);
+    sessionFilter.setValue('CarReg', 'EO70 ECC');
     reset();
     addTableListener('Test1', ts);
     addTableListener('Test2', ts);
