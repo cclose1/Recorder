@@ -394,7 +394,7 @@ function initialize(loggedIn) {
         autoSelect:      true,
         title:           'Filter Transactions',
         forceGap:        '4px',
-        trigger:         document.getElementById('showfilter')});
+        popup:           true});
     response = getList('BankTransaction', {
         table:        "Account",
         field:        "Code",
@@ -402,7 +402,7 @@ function initialize(loggedIn) {
         async:        false,
         allowBlank:   true},
         true);
-    txnFilter.addFilter('Accounts', 'Account', response);
+    txnFilter.addFilter('Accounts', {name: 'Account', values: response});
     response = getList('BankTransaction', {
         name:         "pcurrency",
         table:        "Currency",
@@ -411,7 +411,7 @@ function initialize(loggedIn) {
         defaultValue: "GBP",
         async:        false},
         true);
-    txnFilter.addFilter('Currencies', 'Currency', response);
+    txnFilter.addFilter('Currencies', {name: 'Currency', values: response});
     loadListResponse(response, {
         name:         "scurrency",
         keepValue:    true,
@@ -425,7 +425,7 @@ function initialize(loggedIn) {
         async:        false,
         allowBlank:   true},
         true);
-    txnFilter.addFilter('Types', 'Type', response);
+    txnFilter.addFilter('Types', {name: 'Type', values: response});
     response = getList('BankTransaction', {
         name:         "txnusage",
         table:        "AccountUsage",
@@ -434,8 +434,8 @@ function initialize(loggedIn) {
         async:        false,
         allowBlank:   true},
         true);
-    txnFilter.addFilter('Usages',      'Usage', response);
-    txnFilter.addFilter('Description', 'Description');
+    txnFilter.addFilter('Usages',      {name: 'Usage', values: response});
+    txnFilter.addFilter('Description', {name: 'Description'});
     requestAccounts();
     resetTxn();
 }

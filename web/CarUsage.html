@@ -54,7 +54,7 @@
                             <div>
                                 <label for="estduration" class = 'largelab'>Est Full Charge</label>
                                 <input type="text" name="Est Full Charge" size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
-                                <label class="nogap">Hours</label>                        
+                                <p class="nogap">Hours</p>                        
                             </div>
                             <div>
                                 <label for="sessioncomment" class = 'largelab'>Comment</label>
@@ -78,7 +78,7 @@
                                 </div>
                                 <div>
                                     <label for="smiles">Miles</label>
-                                    <input type="text" name="Start Miles x" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="Start Miles" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                             </fieldset>
                             <fieldset id="endfields" class = 'form'>
@@ -95,7 +95,7 @@
                                 </div>
                                 <div>
                                     <label for="emiles">Miles</label>
-                                    <input type="text" name="End Miles x" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <input type="text" name="End Miles" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
                                     <label for="charge">Charge</label>
@@ -129,12 +129,9 @@
                             </div>   
                             <div>
                                 <label for="showfilter" class="largelab">Show Filter</label>
-                                <input id="showfilter" type="checkbox" onclick="setFilterVisibility('filterKey');">
+                                <input id="showfilter" type="checkbox" onclick="setFilterVisible('filterKey');">
                             </div>
-                            <div id="mysqldiv" hidden>
-                                <label class="nogap"></label>
-                                <input readonly size="20" tabindex="-1" value="Using MySQL">
-                            </div>
+                            <div id="mysqldiv" class='label largelab' hidden>Using MySQL</div>
                         </div>
                     </fieldset>
                     <fieldset id='filter' class='form'>

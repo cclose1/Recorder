@@ -616,6 +616,7 @@ function test(tableid, value, adjustText, first) {
             {columns: [
                  {name: 'Location', minSize: 3, maxSize: null},
                  {name: 'Tariff',   minSize: 3}]});
+         
     style = options.getUsed();
     options.setUsed(true);
     style = options.getUsed();
@@ -646,6 +647,21 @@ function test(tableid, value, adjustText, first) {
     testCall("col.#priv");
     style = col.getPriv();
     if (!isNull(first) && first) {
+        var testFilter = getFilter('testKey', document.getElementById('filter'), requestChargeSessions, {
+            allowAutoSelect: true,
+            autoSelect: true,
+            title: 'Test Filter',
+            forceGap: '4px',
+            initialDisplay: false});
+        testFilter.addFilter('CarReg', {name: 'CarReg', values: ''});
+        testFilter.addFilter('ChargerLab', {name: 'Charger', values: 'a,b'});
+        testFilter.addFilter('Field1', {name: 'Field1'});
+        testFilter.addFilter('Field2Lab', {name: 'Field2'});
+        var filterField = getFilterField(testFilter, 'CarReg');
+        filterField = getFilterField(testFilter, 'Charger');
+        filterField = getFilterField(testFilter, 'Field1');
+        filterField = getFilterField(testFilter, 'Field2');
+        testCall("filterField = getFilterField(testFilter, 'Type1')");
         col.setProperty('xxx', 'Crap', true);
         testCall("col.setProperty('zzz', 'Crap', false)");
         testCall("col.setProperty('zzz', 'Crap')");
@@ -678,9 +694,7 @@ function test(tableid, value, adjustText, first) {
             ' adjusted '   + (!isNull(adjustText) && adjustText));
     return col;
 }
-function initialize(loggedIn) {
-    if (!loggedIn) return;
-    
+function test2() {    
     var props = readComputedStyle(getElement('sessionlogtable'));
     var font;
     var testval;
@@ -712,72 +726,36 @@ function initialize(loggedIn) {
     testval = displayTextWidth("MilesAdded", font);
     testval = displayTextWidth("Miles Added", font);
     testval = displayTextWidth("eo70 ecc");
+}
+function initialize(loggedIn) {
+    if (!loggedIn) return;
+    
     reporter.setFatalAction('throw'); 
+    test2();
     
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
+        server:          'CarUsage',
         allowAutoSelect: true, 
         autoSelect:      true,
         title:           'Sessions Filter',
         forceGap:        '4px',
         initialDisplay:  false});
-    sessionFilter.addFilter('CarReg',   'CarReg,,fcarreg',        '', true);
-    sessionFilter.addFilter('Charger',  'Charger,,fchargesource', '', true);
-    sessionFilter.addFilter('Unit',     'Unit,,fchargeunit',      '', true);
-    sessionFilter.addFilter('Weekdays', 'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
-    var response = getList('CarUsage', {
-        table:        'Car',
-        name:         'carreg',
-        field:        'Registration',
-        keepValue:    false,
-        defaultValue: 'EO70 ECC',
-        async:        false},
-        true);
-    loadListResponse(response, {
-        name:         "fcarreg",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
-    getList('CarUsage', {
-        table:        'ChargerLocation',
-        name:         'fchargesource',
-        field:        'Name',
-        keepValue:    false,
-        async:        false,
-        allowBlank:   true},
-        true);
-    getList('CarUsage', {
-        table:        'ChargerUnit',
-        name:         'fchargeunit',
-        field:        'Name',
-        keepValue:    false,
-        async:        false,
-        allowBlank:   true},
-        true);
+    sessionFilter.addFilter('CarReg',  {name: 'CarReg',  listTable: 'Car',             listColumn: 'Registration'});
+    sessionFilter.addFilter('Charger', {name: 'Charger', listTable: 'ChargerLocation', listColumn: 'Name'});
+    sessionFilter.addFilter('Unit',    {name: 'Unit',    listTable: 'ChargerUnit',     listColumn: 'Name'});
+    sessionFilter.addFilter('Weekdays',{name: 'Weekday', values: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'});
      
     logFilter = getFilter('filterLogKey', document.getElementById('logfilter'), requestSessionLog, {
+        server:          'CarUsage',
         allowAutoSelect: true, 
         autoSelect:      true,
         title:           'Filter',
         forceGap:        '4px',
         initialDisplay:  true});
-    logFilter.addFilter('CarReg',   'CarReg,,logcarreg', '', true);
-    logFilter.addFilter('Device',   'Device,,logdevice', '', true);
-    logFilter.addFilter('Percent',  'Percent,,logpercent');
+    logFilter.addFilter('CarReg',  {name: 'CarReg',  listTable: 'Car', listColumn: 'Registration'});
+    logFilter.addFilter('Device',  {name: 'Device',  listTable: 'SessionLog'});
+    logFilter.addFilter('Percent', {name: 'Percent'});
     
-    loadListResponse(response, {
-        name:         "logcarreg",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
-    
-    getList('CarUsage', {
-        table:        'SessionLog',
-        name:         'logdevice',
-        field:        'Device',
-        keepValue:    false,
-        async:        false,
-        allowBlank:   true},
-        true);
     setHidden('updatetable', true);
     setSessionLog(false);
     sessionFilter.setValue('CarReg', 'EO70 ECC');
@@ -786,4 +764,5 @@ function initialize(loggedIn) {
     addTableListener('Test2', ts);
     invokeTableListeners('Test1', 'Update');
     invokeTableListeners('Test2', 'Create');
+    logFilter.loadSelectLists();
 }

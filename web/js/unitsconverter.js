@@ -68,7 +68,7 @@ function ConvertUnits(createDefaults) {
                 return new UnitConvert(
                     {source:      source, 
                      target:      target, 
-                     isVolume:    conversion.isVolume, 
+                     //isVolume:    conversion.isVolume, 
                      multiplier:  1 / conversion.multiplier,
                      description: src.description + ' to ' + trg.description});
         }

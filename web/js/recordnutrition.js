@@ -722,7 +722,7 @@ function deleteEvent() {
  * @param dbFilter Database filter field column
  * @returns {undefined}
  */
-function updateFilteredList(name, dbField, filter, dbFilter) {    
+function updateFilteredList(name, dbField, filter, dbFilter) { 
     getList('Nutrition', 
             {name:       name, 
              field:      dbField, 
@@ -950,7 +950,7 @@ function unitsChange() {
     
     if (event.type === 'change') {
         try {
-            sizeElm.value = cnvUnits.convert(savedUnit, toUnits, getFloatValue(sizeElm));
+            sizeElm.value = cnvUnits.convert(savedUnit, toUnits, getFloatValue(sizeElm, 0));
         } catch (e) {
             event.target.value = savedUnit;
             displayAlert(e.name, e.message, {focus: event.target});
@@ -966,15 +966,16 @@ function initialize(loggedIn) {
         autoSelect:      true,
         forceGap:        '4px',
         initialDisplay:  true});
-    hstFilter.addFilter('Day',         'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat', true);
-    hstFilter.addFilter('Description', 'Description');
+    hstFilter.addFilter('Day',        {name: 'Weekday', values: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'});
+    hstFilter.addFilter('Description',{name: 'Description'});
+    
     evnFilter = getFilter('filter2', document.getElementById('itemfilter'), getItemList, {
         allowAutoSelect: true, 
         autoSelect:      true,
         forceGap:        '4px',
         initialDisplay:  true});
-    evnFilter.addFilter('Source', 'Source,,fsource', '', true);
-    evnFilter.addFilter('Type',   'Type,,ftype',     '', true);
-    evnFilter.addFilter('Item',   'Item,,fitem');
+    evnFilter.addFilter('Source', {name: 'Source', id: 'fsource', values: ''});
+    evnFilter.addFilter('Type',   {name: 'Type',   id: 'ftype',   values: ''});
+    evnFilter.addFilter('Item',   {name: 'Item',   id: 'fitem'});
     reload();
 }

@@ -14,7 +14,6 @@ class elementMover {
     }    
     mouseStart(event) {
         this._isDown  = true;
-        this._stScrX  = event.screenX;
         this._stScrY  = event.screenY;
         this._crScrX  = event.screenX;
         this._crScrY  = event.screenY;
@@ -2567,7 +2566,7 @@ function getElementLabel(elm) {
 function getFloatValue(elm, defaultValue) {  
     var value = parseFloat(getElement(elm).value);
     
-    return isNaN(value) && defaultValue !== undefined && defaultValue !== null? defaultValue : value;
+    return isNaN(value) && !isNull(defaultValue)? defaultValue : value;
 }
 /*
  * Returns the value of the elm, unless required is true or undefined and the value is empty, 

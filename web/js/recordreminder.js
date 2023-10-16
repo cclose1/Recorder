@@ -177,11 +177,11 @@ function initialize(loggedIn) {
         autoSelect:      true,
         title:           'Filter Reminders',
         forceGap:        '4px',
-        trigger:         document.getElementById('showfilter')});
+        popup:           true});
     
-    hstFilter.addFilter('Types',       'Type',     types);
-    hstFilter.addFilter('Frequency',   'Frequency', 'Y,M', true);
-    hstFilter.addFilter('Description', 'Description');
+    hstFilter.addFilter('Types',       {name: 'Type',      values: types});
+    hstFilter.addFilter('Frequency',   {name: 'Frequency', values: 'Y,M'});
+    hstFilter.addFilter('Description', {name: 'Description'});
     requestReminders();
 }
 

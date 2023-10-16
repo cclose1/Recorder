@@ -14,6 +14,10 @@ body {
 textarea {
     vertical-align: top;
 }
+
+.test {
+    width: 4em;
+}
 @media screen and (max-width: 900px) {
     .optional {
         display: none;
@@ -96,9 +100,9 @@ textarea {
 .colall {
     width: 100%;
 }
-label {
+label, .label {
     display: inline-block;
-    width: 85px;
+    width: 95px;
     text-align: right;
 }
 .largelab {
@@ -218,6 +222,7 @@ input[type="button"]:hover {
 select.optlist {
     border: 1px solid #ccc;
 }
+
 .date {
     width: 6em;
 }

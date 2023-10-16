@@ -2,7 +2,9 @@
 
 'use strict';
 
-var hstFilter;
+var readingsFilter;
+var tariffsFilter;
+
 function reset() {
     getElement("date").value        = "";
     getElement("time").value        = "";
@@ -93,21 +95,7 @@ function send(action) {
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function requestReadings(filter) {
-    var readings   = getElement('readings').value;
-    var parameters = createParameters('readingshistory');
-
-    function processResponse(response) {
-        loadJSONArray(response, "history", {maxSize: 19, onClick: "rowClick(this)"});
-    }
-    parameters = addParameter(parameters, 'readings', readings);
-    
-    if (filter === undefined) filter = hstFilter.getWhere();
-    if (filter !== undefined && filter !== '') parameters = addParameter(parameters, 'filter', filter);
-    
-    ajaxLoggedInCall('Energy', processResponse, parameters);
-}
-function rowClick(row) {
+function readingsRowClick(row) {
     var rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
@@ -142,19 +130,65 @@ function rowClick(row) {
         getElement("copy").checked = false;
     }
 }
+function tariffsRowClick(row) {
+    
+}
+function requestReadings() {
+    var readings   = getElement('readings').value;
+    var parameters = createParameters('readingshistory');
+
+    function processResponse(response) {
+        loadJSONArray(response, "history", {maxSize: 19, onClick: "readingsRowClick(this)"});
+    }
+    parameters = addParameter(parameters, 'readings', readings);
+    
+    parameters = readingsFilter.addFilterParameter(parameters);
+    
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function requestTariffs() {
+    var parameters = createParameters('tariffs');
+
+    function processResponse(response) {
+        loadJSONArray(response, "tariffs", {maxSize: 19, onClick: "tariffsRowClick(this)"});
+    }
+    parameters = tariffsFilter.addFilterParameter(parameters);
+    
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
 function initialize(loggedIn) {    
     if (!loggedIn) return;
     
-    reporter.setFatalAction('console');
-    
-    hstFilter = getFilter('filter1', getElement('filterframe'), requestReadings, {
+    reporter.setFatalAction('error');
+    readingsFilter = getFilter('readingskey', getElement('readingsfilter'), requestReadings, {
         allowAutoSelect: true, 
         autoSelect:      true,
         title:           'Filter Readings',
         forceGap:        '4px',
-        trigger:         getElement('showfilter')});
+        initialDisplay:  false,
+        popup:           true});
     
-    hstFilter.addFilter('Types',     'Type',      'Gas, Electric, Solar');
-    hstFilter.addFilter('Estimated', 'Estimated', ', Y, N');
+    readingsFilter.addFilter(
+            'Types', {
+                name:   'Type',      
+                values: 'Gas,Electric,Solar'});
+    readingsFilter.addFilter(
+            'Estimated', {
+                name: 'Estimated',
+                values: ',Y,N'});
     requestReadings();
+    
+    tariffsFilter = getFilter('tariffkey', getElement('tariffsfilter'), requestTariffs,{
+        allowAutoSelect: true, 
+        autoSelect:      true,
+        title:           'Filter Tariff',
+        forceGap:        '4px',
+        initialDisplay:  true,
+        trigger:         getElement('tariffsfilter')});
+    tariffsFilter.addFilter(
+            'Types', {
+                name:   'Type',      
+                values: 'Gas,Electric'});
+    requestReadings();
+    requestTariffs();
 }

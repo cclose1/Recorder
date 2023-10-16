@@ -265,3 +265,114 @@ class TableSizerOld2 {
         }
     }
 }
+
+    function correctFieldOptions(qualifiedfield, values, single) {        
+        var fields  = qualifiedfield.split(',');
+        
+        var opts = {
+            name:   fields[0],
+            single: isNull(single)? false : single,
+            values: values};
+        
+        if (fields.length >= 2) opts.type = fields[1];
+        if (fields.length >= 3) opts.id   = fields[2];
+                
+        return opts;
+    }
+    /*
+     * This calls to be directed to addFilterNew.
+     * 
+     * If qualifiedfield is an object the caller is assumed to be passing parameters appropriate
+     * for addFilterNew, i.e. label, options. Otherwise the temporary function correctFieldOptions is
+     * called to convert the parameters to the equivalent options.
+     * 
+     * This will eventually be removed and addFilterNew will be renamed to addFilter.
+     */
+    this.addFilterOld = function (label, qualifiedfield, values, single) {        
+        if (typeof qualifiedfield === 'object')
+            this.addFilterNew(label, qualifiedfield);
+        else
+            this.addFilterNew(label, correctFieldOptions(qualifiedfield, values, single));
+    };   
+    
+    this.addFilterOld = function (label, qualifiedfield, values, single) {
+        var fields = this.fields;
+        var div    = this.document.createElement('div');
+        var field  = qualifiedfield.split(',');
+        var lstelm;
+        var inpelm;
+        var elm;
+        /*
+         * Fields added by code do not have a gap when display is inline-block, whereas those added in html do. Hence, the
+         * reason for adding margin-right.
+         */
+        elm = createElement(this.document, 'label', {append: div, forceGap: this.options.forceGap, text: label});
+        
+        if (values !== undefined && single !== undefined && single) {
+            /*
+             * There are values, but only single values are allowed. So create the input element as a selectable list.
+             */
+            inpelm = createElement(this.document, 'select', {
+                append:   div,
+                name:     field[0]});
+            lstelm = inpelm;            
+        } else
+            inpelm = createElement(this.document, 'input', {
+                append:   div,
+                name:     field[0],
+                type:     field.length > 1 && field[1].length !== 0? trim(field[1]) : 'text',
+                size:     '15',
+                tabindex: '0'});
+        
+        if (field.length > 2) setAttribute(inpelm, 'id', field[2]);
+        if (options.allowAutoSelect) this.setEventHandler(inpelm, 'onchange', 'changeFilterValue');
+        
+        if (values !== undefined && lstelm === undefined) {
+            /*
+             * This is the case where multiple values can be selected. So create a select values list
+             * and add an onchange event to append the value to the input field.
+             */
+            setAttribute(inpelm, 'style', 'margin-right: ' + this.options.forceGap);            
+            lstelm = createElement(this.document, 'select', {append: div});
+            this.setEventHandler(lstelm, 'onchange', 'addFilterField');
+        }
+        if (lstelm !== undefined)
+            loadListResponse(values, {
+                name:       lstelm,
+                keepValue:  true,
+                async:      false,
+                allowBlank: true});
+        fields.appendChild(div);
+    }; 
+    
+/*
+ * The is now deprecated and setFilterVisible should be used instead.
+ */
+function setFilter(filterId, key) {
+    var on     = event.srcElement.checked;
+    var filter = findFilter(key, false);
+    
+    setHidden(filterId, !on);
+    
+    if (on && key !== undefined && filter.isiFrame) {
+        resizeFrame(filter.element);
+    }
+}
+
+/*
+ * 
+ * @param key The Filter object key defining the filter.
+ * 
+ * Sets the visibility of the filter parameters from the source element checked of the triggering event.
+ * 
+ */
+function setFilterVisibilityNotUsed(key) {
+    var on     = event.srcElement.checked;
+    var filter = findFilter(key, false);
+    
+    if (filter !== undefined) {
+        setHidden(filter.element.id, !on);
+        
+        if (filter.isiFrame) resizeFrame(filter.element);
+    }
+}

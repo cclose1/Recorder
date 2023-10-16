@@ -87,7 +87,7 @@ function requestHistory(filter) {
         loadJSONArray(response, "history", {
             onClick: "rowClick(this)", 
             columns: [
-                {name: 'Amount', minWidth: 6}
+                {name: 'Amount', minSize: 6}
             ]});
     }
     if (filter === undefined) filter = hstFilter.getWhere();
@@ -185,28 +185,24 @@ function loadOption(options, type, defaultValue) {
     
     return response;
 }
-function initialize(loggedIn) {
-    var response;
-    
+function initialize(loggedIn) {    
     if (!loggedIn) return;
     
-    reporter.setFatalAction('console');
+    reporter.setFatalAction('error');
     
     hstFilter = getFilter('filter1', document.getElementById('filterframe'), requestHistory, {
         allowAutoSelect: true, 
         autoSelect:      true,
         title:           'Filter Spend',
         forceGap:        '4px',
-        trigger:         document.getElementById('showfilter')});
+        popup:           true});
     
-    response = loadOption('category', 'Category', 'Discretionary');
-    hstFilter.addFilter('Categories', 'Category', response);
-    response = loadOption('type', 'Type', 'Food');
-    hstFilter.addFilter('Types',       'Type',     response);
-    hstFilter.addFilter('Weekdays',    'Weekday', 'Sun,Mon,Tue,Wed,Thu,Fri,Sat');
-    hstFilter.addFilter('Description', 'Description');
-    hstFilter.addFilter('Location',    'Location,text');
-    hstFilter.addFilter('Amount',      'Amount,number');
+    hstFilter.addFilter('Categories',  {name: 'Category',  values: loadOption('category', 'Category', 'Discretionary')});
+    hstFilter.addFilter('Types',       {name: 'Type',      values: loadOption('type', 'Type', 'Food')});
+    hstFilter.addFilter('Weekdays',    {name: 'Weekday',   values: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'});
+    hstFilter.addFilter('Description', {name: 'Description'});
+    hstFilter.addFilter('Location',    {name: 'Location', type: 'text'});
+    hstFilter.addFilter('Amount',      {name: 'Amount',   type: 'number'});
     /*
      * The remaining calls can execute asynchronously.
      */

@@ -143,6 +143,21 @@ public class RecordEnergy extends ApplicationServer {
         
         return sel;
     }
+    private SQLSelectBuilder getTariffsSQL(Context ctx) throws SQLException {
+        SQLSelectBuilder sel = ctx.getSelectBuilder("Tariff");
+        
+        sel.addField("Start");
+        sel.addField("End");
+        sel.addField("Type");
+        sel.addField("UnitRate");
+        sel.addField("StandingCharge");
+        sel.addField("CalorificValue");
+        sel.setOrderBy("Start DESC, Type");
+        sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
+        sel.addAnd(ctx.getParameter("filter"));
+        
+        return sel;
+    }
     public String getVersion() {
         return "V2.2 Released 05-Dec-18";
     }
@@ -211,6 +226,13 @@ public class RecordEnergy extends ApplicationServer {
                 sel      = getReadingsSQL(ctx, readings);;
                 rs       = executeQuery(ctx, sel);
                 data.add("history", rs);
+                data.append(ctx.getReplyBuffer());
+                ctx.setStatus(200);
+                break;
+            case "tariffs":
+                sel = getTariffsSQL(ctx);
+                rs  = executeQuery(ctx, sel);
+                data.add("tariffs", rs);
                 data.append(ctx.getReplyBuffer());
                 ctx.setStatus(200);
                 break;

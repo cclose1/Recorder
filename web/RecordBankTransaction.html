@@ -176,12 +176,9 @@
                             </div>
                             <div>
                                 <label for="showfilter">Show Filter</label>
-                                <input id="showfilter" type="checkbox" onclick="setFilter('filter', 'filter1');">
+                                <input id="showfilter" type="checkbox" onclick="setFilterVisible('filter1');">
                             </div>
-                            <div id="mysqldiv" hidden>
-                                <label class="nogap"></label>
-                                <input readonly size="20" tabindex="-1" value="Using MySQL">
-                            </div>
+                            <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                         </div>
                     </fieldset>
                     <fieldset id='filter' class='form'> 
