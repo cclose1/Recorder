@@ -37,6 +37,7 @@ import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
+import org.cbc.sql.SQLValue;
 import org.cbc.utils.data.DatabaseSession;
 import org.cbc.utils.system.DateFormatter;
 import org.cbc.utils.system.Environment;
@@ -49,14 +50,13 @@ import org.cbc.utils.system.SecurityConfiguration;
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
     public class ErrorExit extends RuntimeException {
-        boolean returnMessage = false;
         
         public ErrorExit(String message) {
             super(message);
-            this.returnMessage = true;
         }
-        public ErrorExit() {            
-        }
+    }
+    public void errorExit(String message) {
+        throw new ErrorExit(message);
     }
     public void checkExit(boolean test, String message) throws ErrorExit {
         if (test) throw new ErrorExit(message);
@@ -112,6 +112,16 @@ public abstract class ApplicationServer extends HttpServlet {
         String field = ctx.getParameter("field");
 
         getList(ctx, table, field);
+    }
+    protected void deleteTableRow(Context ctx) throws SQLException, ParseException {
+        DatabaseSession.TableDefinition   table   = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
+        ArrayList<DatabaseSession.Column> columns = table.getKeyColumns();       
+        SQLDeleteBuilder                  sql     = ctx.getDeleteBuilder(table.getName());
+        
+        for (DatabaseSession.Column col : columns) {
+            sql.addAnd(col.getName(), "=", ctx.getParameter(col.getName()), col.getTypeName());
+        }
+        executeUpdate(ctx, sql.build());
     }
     protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
         /*
@@ -272,6 +282,7 @@ public abstract class ApplicationServer extends HttpServlet {
         private HTTPRequestHandler  handler;
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
+        private boolean             statusSet = false;
         
         public void addAnd(SQLBuilder sql, String field, String operator, String paramName) throws SQLException {
             String value = getParameter(paramName);
@@ -292,6 +303,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public java.sql.Timestamp getSQLTimestamp(Date date) {
             return date == null? null : new java.sql.Timestamp(date.getTime());
+        } 
+        public java.sql.Date getSQLDate(Date date) {
+            return date == null? null : new java.sql.Date(date.getTime());
         }   
         /*
          * The sqlOnly was introduced to allow the connection to be closed only if the 
@@ -360,7 +374,6 @@ public abstract class ApplicationServer extends HttpServlet {
         public DatabaseSession getRemDb() {
             return remDb;
         }
-
         private HTTPRequestHandler getHandler() {
             return handler;
         }
@@ -384,14 +397,22 @@ public abstract class ApplicationServer extends HttpServlet {
             
             if (value == null) return nullDefault;
             
-            return Integer.parseInt(value);
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to integer");
+            }
         }
         public double getDouble(String name, int nullDefault) {
             String value = handler.getParameter(name);
             
             if (value.length() == 0) return nullDefault;
-            
-            return Double.parseDouble(value);
+         
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException e) {
+                throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
+            }
         }        
         public boolean existsParameter(String name) {
             return handler.existsParameter(name);
@@ -416,6 +437,7 @@ public abstract class ApplicationServer extends HttpServlet {
             return getTimestamp(date);
         }
         public void setStatus(int status) {
+            statusSet = true;
             handler.getResponse().setStatus(status);
         }
         public void dumpRequest(String reason) throws ServletException, IOException {            
@@ -498,6 +520,121 @@ public abstract class ApplicationServer extends HttpServlet {
             return val;            
         }
     }
+    /*
+     * For a table enables the records surrounding the key of a new record.
+     */
+    protected class EnclosingRecords {
+        private final ArrayList<Field> fields = new ArrayList<>();
+        private final Context ctx;
+
+        private class Field {
+            String   name;
+            boolean  equals;
+            SQLValue value;
+
+            public Field(String name, SQLValue value, boolean equals) {
+                this.name   = name;
+                this.equals = equals;
+                this.value  = value;
+            }
+            public Field(String name, Date value, boolean equals) {
+                this(name, new SQLValue(value), equals);
+            }
+            public Field(String name, String value, boolean equals) {
+                this(name, new SQLValue(value), equals);
+            }
+            public Field(String name, int value, boolean equals) {
+                this(name, new SQLValue(value), equals);
+            }
+        }
+        private final String           table;
+        private final SQLSelectBuilder sel;
+
+        private ResultSet getBound(boolean before) throws SQLException {
+            String    operator;
+            boolean   desc;
+            ResultSet rs;
+
+            sel.clearWhere();
+            sel.clearOrderBy();
+
+            for (Field fld : fields) {
+                if (fld.equals) {
+                    operator = "=";
+                    desc     = false;
+                } else if (before) {
+                    operator = "<=";
+                    desc     = true;
+                } else {
+                    operator = ">";
+                    desc     = false;
+                }
+                sel.addAnd(fld.name, operator, fld.value);
+                sel.addOrderByField(fld.name, desc);
+            }
+            sel.setMaxRows(1);
+
+            rs = updateQuery(ctx, sel);
+            
+            return rs.next()? rs : null;
+        }
+        /*
+         * ctx   Application context.
+         * table Database table to be searched.
+         */
+        public EnclosingRecords(Context ctx, String table) {
+            this.ctx   = ctx;
+            this.table = table;
+            this.sel   = ctx.getSelectBuilder(this.table);
+            this.sel.addField("*");
+        }
+        /*
+         * name   Table column name.
+         * value  Value of the field the new record will have for the column.
+         * equals True if the field comparison is equal in the where clause,
+         *        otherwise it is used to determine the new records position
+         *        within the ordered records.
+         *
+         * Ideally all the key fields should be added with one of them having equals set to false.
+         *
+         * To explain the way it works. Assume a table has primary key Type, Start and the new record
+         * will have Type = 'Gas' and Start = '01-Jan-2024'. The following addFields are made.
+         *
+         *   addField('Type',  'Gas',          true);
+         *   addField('Start', '01-Jan-2024',  false);
+         */
+        public void addField(String name, String value, boolean equals) {
+            fields.add(new Field(name, value, equals));
+        }
+        public void addField(String name, Date value, boolean equals) {
+            fields.add(new Field(name, value, equals));
+        }
+        public void addField(String name, int value, boolean equals) {
+            fields.add(new Field(name, value, equals));
+        }
+        /*
+         * Returns the result set of the record the last record that is less than or equal the new record
+         * where the column fields have equals false. Using the above example. The resulting query is
+         *
+         *   SELECT * FROM Table
+         *   WHERE Type ='Gas' AND Start <= '2024-01-01'
+         *   ORDER BY Type, Start DESC LIMIT 1
+         */
+        public ResultSet getBefore() throws SQLException {
+            return getBound(true);
+        }
+        /*
+         * Returns the result set of the record the first record that is greater than the new record
+         * where the column fields have equals false. The resulting query is
+         *
+         *   SELECT * FROM Table
+         *   WHERE Type ='Gas' AND Start > '2024-01-01'
+         *   ORDER BY Type, Start LIMIT 1
+         */
+        public ResultSet getAfter() throws SQLException {
+            return getBound(false);
+        }
+    }
     protected class TableUpdater {
         private final String             name;
         private final ArrayList<DBField> fields = new ArrayList<>();
@@ -574,12 +711,10 @@ public abstract class ApplicationServer extends HttpServlet {
                         rs.moveToCurrentRow();
                         setFields(rs, ctx);
                         rs.updateRow();
-                        ctx.setStatus(200);
                         break;
                     case "delete":
                         rs.moveToCurrentRow();
                         rs.deleteRow();
-                        ctx.setStatus(200);
                         break;
                     default:
                         throw new IllegalArgumentException("Action: " + action + " for TableUpdater.update");
@@ -590,11 +725,10 @@ public abstract class ApplicationServer extends HttpServlet {
                         rs.moveToInsertRow();
                         setFields(rs, ctx);
                         rs.insertRow();
-                        ctx.setStatus(200);
                         break;
                     case "update":
                     case "delete":
-                        ctx.getReplyBuffer().append("No " + name + " row for " + keyString);
+                        ctx.getReplyBuffer().append("No ").append(name).append(" row for ").append(keyString);
                         break;
                     default:
                         throw new IllegalArgumentException("Action: " + action + " for TableUpdater.update");
@@ -707,6 +841,24 @@ public abstract class ApplicationServer extends HttpServlet {
         rs = ctx.getAppDb().executeQuery(sel.build());
         
         return rs.next();
+    }
+    private void rollback(Context ctx) {
+        try {
+            if (ctx.getAppDb() != null) {
+                ctx.getAppDb().rollback();
+            }
+        } catch (SQLException rb) {
+            Report.error(null, "Rollback", rb);
+        }        
+    }
+    private void rollback(Context ctx, int status) {
+        rollback(ctx);
+        ctx.setStatus(status);
+    }
+    private void reply(Context ctx, Exception ex, int status) {
+        Report.error("ErRep", ex);
+        ctx.getReplyBuffer().append(ex.getMessage());  
+        rollback(ctx, status);
     }
     public abstract String getVersion();
     public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
@@ -855,7 +1007,6 @@ public abstract class ApplicationServer extends HttpServlet {
             default:
                 Report.error("", "Action " + request.getAction() + " not valid");
         }
-        ctx.setStatus(200);
     }
     private void addRowColumn(JSONArray row, String colName) throws JSONException {
         JSONObject col = new JSONObject();
@@ -921,73 +1072,90 @@ public abstract class ApplicationServer extends HttpServlet {
         data.append(ctx.getReplyBuffer());
         ctx.setStatus(200);                       
     }
-    private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException {
+    private boolean remindersDue(Context ctx, boolean ignoreDelay) throws SQLException, ParseException {
+        Reminder.State state = reminder.alert(ignoreDelay);
+
+        if (state.alerts()) {
+            ctx.getReplyBuffer().append(state.getImmediate() != 0 ? "!ReminderImmediate" : "!ReminderAlert");
+            ctx.getReplyBuffer().append(',');
+            ctx.getReplyBuffer().append(state.getAlertFrequency());
+            ctx.getReplyBuffer().append(',');
+            ctx.getReplyBuffer().append(ctx.getTimestamp(state.getEarliest(), "yyyy-MM-dd HH:mm"));
+            ctx.getReplyBuffer().append(';');
+            Report.comment(null, "Reminder alerts due");
+            return true;
+        }
+        return false;
+    }
+    private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException, NoSuchAlgorithmException, ParseException, JSONException {
         Trace  t      = new Trace("ASProcessAction");
         String action = ctx.getParameter("action");
-        /*
-         * Assume failure, will be changed on a successful action.
-         */
-        ctx.setStatus(404);
+        
         t.report('C', action);
         ctx.close(true);
-        
-        try {           
-            if (action.equals("login")) {
-                security.login();
-                ctx.getReplyBuffer().append(security.getReply());
-                ctx.setStatus(200);
-            } else if (action.equals("logoff")) {
-                security.logOff();
-                ctx.setStatus(200);
-            } else if (action.equals("enablemysql")) {
-                /*
-                 * This action does not require the user to be logged in.
-                 */
-                ctx.getReplyBuffer().append(config.isSqlServerAvailable()? "yes" : "no");
-                ctx.setStatus(200);
-            } else if (security.isSecurityFailure()) {
-                ctx.getReplyBuffer().append(security.getReply());
-                ctx.setStatus(200);        
-            } else if (action.equals("loggedin")) {
-                ctx.getReplyBuffer().append(security.isLoggedIn()? "true" : "false");
-                ctx.setStatus(200);
-            } else if (action.equals("updatetable")) {
-                updateTable(ctx);        
-            } else if (action.equals("debug")) {
-                debugAction(ctx);
-            } else if (action.equals("getTableDefinition")) {
-                getTableDefinition(ctx);
-            } else if (action.equals("")) {
-                ctx.getHandler().dumpRequest("No action parameter"); 
-            } else {                
-                if (!config.getAppName().equals("Reminder")) {
-                    Reminder.State state = reminder.alert();
-                    
-                    if (state.alerts()) {
-                        ctx.getReplyBuffer().append(state.getImmediate() != 0? "!ReminderImmediate" : "!ReminderAlert");
-                        ctx.getReplyBuffer().append(',');
-                        ctx.getReplyBuffer().append(state.getAlertFrequency());
-                        ctx.getReplyBuffer().append(',');
-                        ctx.getReplyBuffer().append(ctx.getTimestamp(state.getEarliest(), "yyyy-MM-dd HH:mm"));
-                        ctx.getReplyBuffer().append(';');                        
-                    }
-                }
-                ctx.close(true);
-                processAction(ctx, action);
+        /*
+         * Start with the actions that don't require the user to be logged in.
+         */     
+        if (action.equals("login")) {
+            security.login();
+            
+            if (security.isLoggedIn()) reminder.setNoAlerts(false);
+            
+            ctx.getReplyBuffer().append(security.getReply());
+        } else if (action.equals("logoff")) {
+            security.logOff();
+        } else if (action.equals("enablemysql")) {
+            ctx.getReplyBuffer().append(config.isSqlServerAvailable() ? "yes" : "no");
+        } else if (security.isSecurityFailure()) {
+            /*
+             * Return if the user has incurred a security failure, most likely being not logged in. 
+             */
+            ctx.getReplyBuffer().append(security.getReply());
+        } else {
+            /*
+             * All the actions from here on require the user to be logged in.
+             */
+            switch (action) {
+                case "getList":
+                    getList(ctx);
+                    break;
+                case "deleteTableRow":
+                    deleteTableRow(ctx);
+                    break;
+                case "loggedin":
+                    ctx.getReplyBuffer().append(security.isLoggedIn() ? "true" : "false");
+                    break;
+                case "updatetable":
+                    updateTable(ctx);
+                    break;
+                case "debug":
+                    debugAction(ctx);
+                    break;
+                case "getTableDefinition":
+                    getTableDefinition(ctx);
+                    break;
+                case "checkRemindersDue":
+                    reminder.setNoAlerts(true);
+                    remindersDue(ctx, true);
+                    break;
+                case "":
+                    ctx.getHandler().dumpRequest("No action parameter");
+                    break;
+                default:
+                    if (!config.getAppName().equals("Reminder") && !reminder.getNoAlerts()) {
+                        /*
+                        * If reminders are due, places the reminder details at the start of the reply
+                        */
+                        remindersDue(ctx, false);
+                    }       
+                    ctx.close(true);
+                    processAction(ctx, action);
+                    break;
             }
-        } catch (NoSuchAlgorithmException ex) {
-            Report.error(null, ex);
-            ctx.getReplyBuffer().append(ex.getMessage());
-        } catch (JSONException ex) {
-            Report.error(null, ex);
-            ctx.getReplyBuffer().append(ex.getMessage());
-        } catch (ParseException ex) {
-            Report.error(null, ex);
-            ctx.getReplyBuffer().append(ex.getMessage());
-        } finally {
-            t.exit();
         }
+        if (!ctx.statusSet) ctx.setStatus(200);
     }    
+    @Override
     public void init(ServletConfig config) throws ServletException{ 
         super.init(config);
         String arRoot = System.getenv("AR_ROOT");
@@ -1032,10 +1200,6 @@ public abstract class ApplicationServer extends HttpServlet {
      
         ctx.handler     = new HTTPRequestHandler(request, response);
         ctx.replyBuffer = new StringBuilder();
-        /*
-         * Assume failure, will be changed on a successful action.
-         */
-        ctx.setStatus(404);
         
         String  action     = ctx.getParameter("action");
         boolean useMySql   = ctx.getParameter("mysql").equalsIgnoreCase("true");
@@ -1079,22 +1243,13 @@ public abstract class ApplicationServer extends HttpServlet {
             }
             ctx.close();
         } catch (SQLException ex) {
-            Report.error(null, "SQL error " + ex.getErrorCode() + " state " + ex.getSQLState(), ex);
-            ctx.getReplyBuffer().append(ex.getMessage());
-            try {
-                if (ctx.getAppDb() != null) ctx.getAppDb().rollback();
-            } catch (SQLException rb) {
-                Report.error(null, "Rollback", rb);                
-            }
-        } catch (ParseException ex) {
-            Report.error(null, ex);
+            reply(ctx, ex, 410);
         } catch (ErrorExit ex) {
-            t.report('C', "ErrorExit"); 
-            
-            if (ex.returnMessage) {
-                ctx.getReplyBuffer().append(ex.getMessage());
-                ctx.setStatus(200);
-            }
+            reply(ctx, ex, 400);
+        } catch (IOException | ServletException ex) {
+            reply(ctx, ex, 400);
+        } catch (ParseException | NoSuchAlgorithmException | JSONException ex) {
+            reply(ctx, ex, 400);
         }
         if (repeat != 0) t.report('C', "Deadlock count " + repeat);
         
@@ -1110,6 +1265,7 @@ public abstract class ApplicationServer extends HttpServlet {
         m.report(true, "Action " + action);
         Thread.detach();
     }
+    @Override
     public void destroy() {
         Thread.attach(config.getAppName());
         Report.comment(null, "Servlet stopped");

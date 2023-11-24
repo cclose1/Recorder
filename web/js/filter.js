@@ -137,15 +137,15 @@ function setTrigger(key, on) {
 }
 /*
  * 
- * -key           If it is a string filters is searched for a filter matching. 
- *                If it is an object it is returned, if its constructor name is Filter, otherwise
- *                a fatal error is reported.
+ * - key           If it is a string filters is searched for a filter matching. 
+ *                 If it is an object it is returned, if its constructor name is Filter, otherwise
+ *                 a fatal error is reported.
  *      
- *                The remaining parameter are only used if key is a string.
+ *                 The remaining parameter are only used if key is a string.
  *      
- * -allowNotFound If true and there is no filter for key, null is returned. If false and
- *                there is no filter for key, a fatal error is reported.
- * -index         If true the index of key in filters is returned, otherwise the filter is returned.
+ * - allowNotFound If true and there is no filter for key, null is returned. If false and
+ *                 there is no filter for key, a fatal error is reported.
+ * - index         If true the index of key in filters is returned, otherwise the filter is returned.
  */
 function findFilter(key, allowNotFound, index) {   
     if (typeof key === 'object') {
@@ -334,7 +334,8 @@ function Filter(key, element, requestor, options) {
              */
             inpelm = createElement(this.document, 'select', {
                 append:   div,
-                name:     fldopts.name});
+                name:     fldopts.name,
+                class:    'notparam'});
             lstelm = inpelm;            
         } else
             inpelm = createElement(this.document, 'input', {
@@ -342,6 +343,7 @@ function Filter(key, element, requestor, options) {
                 name:     fldopts.name,
                 type:     fldopts.type,
                 size:     fldopts.size,
+                class:    'notparam',
                 tabindex: '0'});
         
         if (id === null && this.options.forceIds) id = createId();
@@ -362,7 +364,7 @@ function Filter(key, element, requestor, options) {
              * and add an onchange event to append the value to the input field.
              */
             setAttribute(inpelm, 'style', 'margin-right: ' + this.options.forceGap);            
-            lstelm = createElement(this.document, 'select', {append: div});
+            lstelm = createElement(this.document, 'select', {append: div, class: notparam});
             this.setEventHandler(lstelm, 'onchange', 'addFilterField');
         }
         this.fields.appendChild(div);
@@ -384,8 +386,6 @@ function Filter(key, element, requestor, options) {
         
         lab.setAttribute('for', id);
         elm.setAttribute('id', id);
-        console.log('Element ' + elm.localName + ' previous ' + lab.localName + ' id ' + elm.getAttribute('id'));
-        
     }
     this.options = new FilterOptions(options);
     var caption  = this.options.title; // Set title from options.
@@ -420,19 +420,28 @@ function Filter(key, element, requestor, options) {
     if (options.allowAutoSelect) {
         elm = createElement(this.document, 'div', {append: btns});
         createElement(this.document, 'label', {append: elm, text: 'Auto Select', forceGap: this.options.forceGap});
-        elm             = createElement(this.document, 'input', {append: elm, type: 'checkbox', name: 'Auto Select'});
+        elm             = createElement(this.document, 'input', {
+                                            append: elm, 
+                                            type:   'checkbox', 
+                                            name:   'Auto Select', 
+                                            class:   'notparam'});
         elm.checked     = options.autoSelect;
         this.autoSelect = options.autoSelect;
         this.setEventHandler(elm, 'onclick', 'changeAutoSelect');
         addIdToLabelledElement(this, elm);
     }
     createElement(this.document, 'label', {append: btns, forceGap: this.options.forceGap});
-    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Apply', forceGap: this.options.forceGap});
+    elm = createElement(this.document, 'input', {
+                            append: btns, 
+                            type: 'button', 
+                            value: 'Apply', 
+                            forceGap: this.options.forceGap,
+                            class:    'notparam'});
     this.btnRequest = elm;
     setHidden(elm, options.autoSelect);
     this.setEventHandler(elm, 'onclick', 'addFilterField');
     addIdToLabelledElement(this, elm);
-    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear'});
+    elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear', class: 'notparam'});
     this.setEventHandler(elm, 'onclick', 'addFilterField');
 };
 /*

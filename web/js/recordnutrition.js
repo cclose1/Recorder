@@ -725,7 +725,8 @@ function deleteEvent() {
 function updateFilteredList(name, dbField, filter, dbFilter) { 
     getList('Nutrition', 
             {name:       name, 
-             field:      dbField, 
+             table:      (dbField === 'source')? 'NutritionSources' : 'NutritionTypes',
+             field:      'Name', 
              filter:     addDBFilterField('', document.getElementById(filter), dbFilter), 
              firstValue: ' ', 
              allowBlank: true, 
@@ -928,7 +929,8 @@ function confirmListCreate(field) {
         ajaxLoggedInCall("Nutrition", processResponse, parameters, false);
         getList('Nutrition',
                 {name:       'iSourceList',
-                 field:      'source',
+                 table:      'NutritionSources',
+                 field:      'Name',
                  keepValue:  true,
                  allowBlank: true,
                  async:      false}); 

@@ -4,6 +4,15 @@ var pu;
 var appMYSQLUpdater = undefined;
 var appReset        = undefined;
 
+function setPopup() {
+    if (pu === undefined)  
+        try {
+            pu = new popUp();
+        } catch (err) {
+            alert('login.js popUp undefined');
+            return;
+        }
+}
 function setMYSQL(flag) {
     setLocalStorage('usingMYSQL', flag);
 }
@@ -21,23 +30,28 @@ function setUsingMYSQL(element) {
 function addLoginParameter(parameters, id) {
     return addParameter(parameters, id, pu.getValueById(id));
 }
-function saveUser() {
-    if (pu.getElementById("saveuser").checked && pu.getElementById("user").value !== '')
-        setLocalStorage('recuser', pu.getElementById("user").value);
-    else
-        setLocalStorage('recuser', null);
-}
-function restoreUser() {
-    if (pu.getElementById("user").value !== '') return;
+/*
+ * Initialises the login screen using the local storage variables user and remInterval.
+ * 
+ * The hidden variable loginreset is set to true on login completion and set to false on completion
+ * of this function. This ensures that this function is only called once per display of the login screen.
+ * The onload trigger does not seem to be fired on load of the login screen, maybe because it's in a frame. Initially
+ * this call was the target of the onmouseover of the login screen, which lead to numerous calls to this, hence,
+ * the use of the loginreset hidden variable. Now it is called from the element user onfocus event and loginrest
+ * is arguably unnecessary.
+ */
+function initLogin() {
+    setPopup();
     
-    var user = getLocalStorage('recuser');
+    if (!pu.getElementById('loginreset').checked) return;
     
-    if (user === null || user === '') 
-        pu.getElementById("saveuser").checked = false;
-    else {
-        pu.getElementById("saveuser").checked = true;
-        pu.getElementById("user").value = user;
-    }
+    var user = defaultNull(getLocalStorage('user'), '');
+    
+    reporter.log('Login init');
+    pu.getElementById('remInterval').value  = getLocalStorage('remInterval');
+    pu.getElementById('saveuser').checked   = user !== '';
+    pu.getElementById("user").value         = user; 
+    pu.getElementById('loginreset').checked = false;
 }
 function displayLogOn(yes) {
     pu.display(yes, true);
@@ -74,15 +88,13 @@ function loggedIn(response) {
     }
     return false;
 }
-function ajaxLoggedInCall(server, processResponse, parameters, async) {
+function ajaxLoggedInCall(server, processResponse, parameters, async) {    
     function ajaxProcess(response) {
         if (!loggedIn(response)) return;
         
         processResponse(response);
     }
     if (loggingIn()) return;
-
-    if (async === undefined) async = true;
 
     ajaxCall(server, parameters, ajaxProcess, async);
     setUsingMYSQL('mysqldiv');
@@ -108,22 +120,28 @@ function login(server, event) {
         if (params[0] === 'yes') {
             displayLogOn(false);
             
-            pu.getElementById("user").value = '';
             setHidden("logoff", false);
             
+            setLocalStorage('requestReminders', remfrq !== '');
+            setLocalStorage('remInterval',      remfrq);
+            setLocalStorage('remLast',          null);
+            setLocalStorage('user',             pu.getElementById('saveuser').checked? pu.getElementById("user").value : null);
+                        
             if (appMYSQLUpdater !== undefined) setUsingMYSQL(appMYSQLUpdater);
-            if (appReset        !== undefined) appReset(true);
+            if (appReset        !== undefined) appReset(true);  
+            
+            pu.getElementById('loginreset').checked = true;
         } else
             displayAlert("Security Failure", params[0]);
     }
     if (event !== undefined) {
         if (event.keyCode !== 13) return;
     }
-    restoreUser();
     setMYSQL(pu.getElementById('mysql').checked);
     
     setLocalStorage('browserlog', pu.getElementById('browserlog').checked);
     
+    var remfrq     = trim(pu.getValueById('remInterval'));
     var parameters = addParameter("", "action", "login");
 
     if (pu.getValueById("user") === "") {
@@ -143,11 +161,11 @@ function login(server, event) {
         displayAlert("Validation Failure", "Must enter a value for both New Password and Confirm Password or neither");
         return;
     }
+    setLocalStorage('requestReminders', false);
     parameters = addParameter(parameters, "mysql", getMYSQL());
     parameters = addLoginParameter(parameters, "user");
     parameters = addLoginParameter(parameters, "password");
     parameters = addLoginParameter(parameters, "newpassword");
-    saveUser();
     pu.getElementById("password").value        = "";
     pu.getElementById("newpassword").value     = "";
     pu.getElementById("confirmpassword").value = "";
@@ -162,13 +180,8 @@ function logOff() {
     parameters = addParameter(parameters, "mysql", getMYSQL());
     ajaxCall(pu.getValueById('secserver'), parameters, processResponse, false);
 }
-function configureLogin(secserver, homeElementId) {    
-    try {
-        pu = new popUp();
-    } catch (err) {
-        alert('login.js popUp undefined');
-        return;
-    }
+function configureLogin(secserver, homeElementId) {   
+    setPopup();
     if (homeElementId === undefined) homeElementId = 'loginframe';
         
     pu.initialise(homeElementId);

@@ -66,6 +66,7 @@ public class RecordReminder extends ApplicationServer {
     public void initApplication (ServletConfig config, ApplicationServer.Configuration.Databases databases) throws ServletException, IOException {
         this.config.load(config, databases);        
     }
+    @Override
     public void processAction(
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {

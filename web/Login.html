@@ -12,18 +12,24 @@ and open the template in the editor.
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
+    <!-- 
+    onload='top.initLogin() fails as the screen does not seem to be properly defined, perhaps because
+    it is in a frame. A workaround is to set initLogin as the onfocus event of the user element, which
+    receives the focus on the screen display.
+    -->
     <body>
-        <form id="loginform" class="centered-abs-xy" autocomplete="on" onload="top.restoreUser()">
+        <form id="loginform" class="centered-abs-xy" autocomplete="on">
+            <div hidden>
+                <input id="loginreset" tabindex="-1" value="reset" type="checkbox" checked="checked">
+                <input id="secserver">
+            </div>
             <fieldset>
                 <legend>Login Details</legend>
                 <div>
-                    <div hidden>
-                        <input id="secserver">
-                    </div>
                     <label for="user">User</label>
-                    <input type="text" name="User" size ="10" id="user" onfocus="top.restoreUser()">
+                    <input type="text" name="User" size ="10" id="user" onfocus="top.initLogin()">
                     <label for="saveuser" class="nogap">Save</label>
-                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox" onclick="top.saveUser()">
+                    <input id="saveuser" name="saveuser" tabindex="-1" value="saveuser" type="checkbox">
                     <label for="browserlog" class="nogap">Browser Log</label>
                     <input id="browserlog" tabindex="-1" value="log" type="checkbox" checked="checked">
                 </div>
@@ -42,6 +48,10 @@ and open the template in the editor.
                 <div>
                     <label for="requestlogin"></label>
                     <input id="requestlogin" name="requestlogin" type="button" value="Login" onclick="top.login(document.getElementById('secserver').value);" tabindex="3">
+                </div>
+                <div>
+                    <label for="remInterval">Reminder Request Interval</label>
+                    <input id="remInterval" type="text" onkeypress="top.allowedInNumberField(event);">
                 </div>
                 <div id="mysqldiv" hidden>
                     <label for="mysql">Use MySQL</label>

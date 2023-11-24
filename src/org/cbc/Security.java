@@ -39,7 +39,6 @@ class Security {
     private String                protocol        = null;
     private String                origin          = null;
     private String                referrer        = null;
- //   private DateFormatter         df              = new DateFormatter("yyyy-MM-dd HH:mm:ss");
     private DateFormatter         df              = new DateFormatter("dd-MM-yyyy HH:mm:ss");
     private HTTPRequestHandler    handler;
     private SecurityConfiguration config;

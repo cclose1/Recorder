@@ -256,7 +256,6 @@ public class CarUsage extends ApplicationServer {
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
                     data.append(ctx.getReplyBuffer(), "");
-                    ctx.setStatus(200);
                     break;
                 }
             case "chargers":
@@ -277,7 +276,6 @@ public class CarUsage extends ApplicationServer {
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
                     data.append(ctx.getReplyBuffer(), "");
-                    ctx.setStatus(200);
                     break;
                 }
             case "sessionlog":
@@ -293,7 +291,6 @@ public class CarUsage extends ApplicationServer {
                     rs = executeQuery(ctx, sql);
                     data.add("SessionLog", rs);
                     data.append(ctx.getReplyBuffer(), "");
-                    ctx.setStatus(200);
                     break;
                 }
             case "getList":
@@ -301,10 +298,11 @@ public class CarUsage extends ApplicationServer {
                 break;
             default:
                 ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action " + action + " is invalid"); 
+                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid"); 
                 break;
         }
     }
+    @Override
     public void init(ServletConfig config) throws ServletException{
         super.init(config);
                 

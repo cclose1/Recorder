@@ -31,53 +31,53 @@
                         <div>
                             <div>
                                 <label for="date">Date</label>
-                                <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
+                                <input type="text" name="Date" id="date" class='date' maxlength="11" onchange="checkDate()" tabindex="-1">
                                 <label for="time" class="nogap">Time</label>
-                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                                <input type="text" name="Time" size="8" id="time" class='time' maxlength="8" onchange="checkTime()"  tabindex="-1">
                             </div>
                             <div>
                                 <label for="gas">Gas</label>
-                                <input type= "text" name="Gas" id="gas" size="8" oninput="setDateTime();">
+                                <input type= "text" name="Gas" id="gas" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                                 Ft3
                             </div>
                             <div>
                                 <label for="electric">Electric</label>
-                                <input type= "text" name="Electric" id="electric" size="8" oninput="setDateTime();">
+                                <input type= "text" name="Electric" id="electric" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                                 Kwh
                             </div>
                             <div>
                                 <label for="solar">Solar</label>
-                                <input type= "text" name="Solar" id="solar" size="8" oninput="setDateTime();">
+                                <input type='text' name="Solar" id="solar" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();" >
                                 Kwh
                             </div>
                             <div>
                                 <label for="estimated">Estimated</label>
-                                <input id="estimated" type="checkbox">
+                                <input id="estimated" Name="Estimated" type="checkbox">
                             </div>
                             <div>
                                 <label for="comment">Comment</label>
-                                <textarea id='comment' rows='2'></textarea>
+                                <textarea id='comment' Name="Comment" rows='2'></textarea>
                             </div>
                             <div>
                                 <label for="readings">Readings</label>
-                                <select id="readings" class='optlist' onchange="requestReadings()">
+                                <select id="readings" name='Readings' class='optlist notparam' onchange="requestReadings()">
                                     <option>Meter</option>
                                     <option>Bounded</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="save"></label>
-                                <input id="save"   name="save"   type="button" value="Create" onclick="send();">
-                                <input id="cancel" name="cancel" type="button" value="Cancel" onclick="send('CancelCreate');">
+                                <input id="save"   name="save"   class='notparam' type="button" value="Create" onclick="send();">
+                                <input id="cancel" name="cancel" class='notparam' type="button" value="Cancel" onclick="send('CancelCreate');">
                             </div>
                             <div id="logoff" hidden>
                                 <label for="logoffbtn"></label>
-                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
+                                <input id="logoffbtn" name="logoffbtn" class='notparam' type="button" value="Logoff" onclick="logOff();">
                             </div>
                             <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                             <div>
                                 <label>Show Filter</label>
-                                <input name='Show Filter' type="checkbox" onclick="setFilterVisible('readingskey');">
+                                <input name='Show Filter' class='notparam' type="checkbox" onclick="setFilterVisible('readingskey');">
                             </div>
                         </div>
                     </fieldset>
@@ -88,7 +88,7 @@
                                 <label for="ddate">Date</label>
                                 <input readonly type="text" name="Date" id="ddate" class='date' maxlength="11" tabindex="-1">
                                 <label for="dtime" class="nogap">Time</label>
-                                <input readonly type="text" name="time" size="8" id="dtime" class='time' maxlength="8" tabindex="-1">
+                                <input readonly type="text" name="Time" size="8" id="dtime" class='time' maxlength="8" tabindex="-1">
                             </div>
                             <div>
                                 <label for="dtype">Type</label>
@@ -97,24 +97,24 @@
                             <div>
                                 <label for="reading">Reading</label>
                                 <input readonly type= "text" name="Reading" id="reading" size="6">
-                                <label id="labunits" class="nogap">Kwh</label>
+                                <label id="labunits" class='nogap notparam'>Kwh</label>
                             </div>
                             <div>
                                 <label for="destimated">Estimated</label>
-                                <input id="destimated" type="checkbox">
+                                <input id="destimated" name='Estimated' type="checkbox">
                             </div>
                             <div>
                                 <label for="copy">Copy</label>
-                                <input id="copy" type="checkbox">
+                                <input id="copy" name='Copy'  type="checkbox">
                             </div>
                             <div>
                                 <label for="dcomment">Comment</label>
-                                <textarea readonly id='dcomment' rows='2'></textarea>
+                                <textarea readonly id='dcomment' name='Comment' rows='2'></textarea>
                             </div>
                             <div>
                                 <label for="delete"></label>
-                                <input id="delete"  name="delete"  type="button" value="Delete" onclick="send();">
-                                <input id="dcancel" name="dcancel" type="button" value="Cancel" onclick="send();">
+                                <input id="delete"  name="delete"  class='notparam' type="button" value="Delete" onclick="send();">
+                                <input id="dcancel" name="dcancel" class='notparam' type="button" value="Cancel" onclick="send();">
                             </div>
                         </div>
                     </fieldset>
@@ -125,45 +125,49 @@
 
                 </div>
                 <div class="floatleft">
-                    <fieldset id="tariff" class='form'>
+                    <fieldset id="tariff" class='centreminwidth form'>
                         <legend>Tariff</legend>
                         <div>
                             <div>
                                 <label for="tdate">Date</label>
-                                <input type="text" name="Date" id="tdate" class='date' maxlength="11" tabindex="-1">
-                                <label for="ttime" class="nogap">Time</label>
-                                <input type="text" name="Time" size="8" id="ttime" class='time' tabindex="-1">
+                                <input type="text" name="Date" id="tdate" class='date' maxlength="11" onchange="checkDate()"  tabindex="-1">                             
+                            </div>
+                            <div>
+                                <label for="tariffcode" >Tariff</label>
+                                <select id="tariffcode" name="Code"  tabindex="0">
+                                    <option></option>
+                                </select>
                             </div>
                             <div>
                                 <label for="tgrate">Gas Rate</label>
-                                <input type= "text" name="Gas Rate" id="tgrate" size='2' oninput="setDateTime('tdate', 'ttime');">
+                                <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                                 <label for="tgstanding" class="nogap">Standing</label>
-                                <input type="text" name="Gas Standing" id="tgstanding" size='2' oninput="setDateTime('tdate', 'ttime');">
+                                <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                                 <label for="tgcalval" class="nogap">Cal Value</label>
-                                <input type="text" name="Calorific Value" id="tgcalval" size='2' oninput="setDateTime('tdate', 'ttime');">
+                                <input type="text" name="CalorificValue" id="tgcalval" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                             </div>
                             <div>
                                 <label for="terate">Electric Rate</label>
-                                <input type="text" name="Electric Rate" id="terate" size='2' oninput="setDateTime('tdate', 'ttime');">
+                                <input type="text" name="Electric UnitRate" id="terate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
                                 <label for="testanding" class="nogap">Standing</label>
-                                <input type="text" name="Electric Standing" id="testanding" size='2' oninput="setDateTime('tdate', 'ttime');">
+                                <input type="text" name="Electric StandingCharge" id="testanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
                             </div>
                             <div>
                                 <label for="tcomment">Comment</label>
-                                <textarea id='tcomment' rows='2'></textarea>
+                                <textarea id='tcomment' name="Comment" rows='2'></textarea>
                             </div>
                             <div>
                                 <label for="tsave"></label>
-                                <input id="tsave"   name="save"   type="button" value="Create" onclick="send();">
-                                <input id="tcancel" name="cancel" type="button" value="Cancel" onclick="send('CancelCreate');">
+                                <input id="tsave"   class="notparam" name="save"   type="button" value="Create" onclick="actionTariff();">
+                                <input id="tcancel" class="notparam" name="cancel" type="button" value="Cancel" onclick="actionTariff();">
                             </div>
                             <div>
                                 <label>Show Filter</label>
-                                <input name='Show ' type="checkbox" onclick='setFilterVisible("tariffkey");'>
+                                <input name='Show' class="notparam" type="checkbox" onclick='setFilterVisible("tariffkey");'>
                             </div>
                         </div>
-                    <fieldset id="tariffsfilter" class='form filter'>
-                    </fieldset>
+                        <fieldset id="tariffsfilter" class='form filter'>
+                        </fieldset>
                     </fieldset>
                     
                     <table id="tariffs">

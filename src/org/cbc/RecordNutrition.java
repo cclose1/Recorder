@@ -226,336 +226,331 @@ public class RecordNutrition extends ApplicationServer {
             Context ctx,
             String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
 
-        if (action.equals("getweight")) {
-            Date date = ctx.getDate("date");
-
-            ctx.getReplyBuffer().append(getWeight(ctx, date));
-            ctx.setStatus(200);
-        } else if (action.equals("getitem")) {
-            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
-
-            sql.addField("iitem",         "Item");
-            sql.addField("isource",       "Source");
-            sql.addField("itype",         "Type");
-            sql.addField("istart",        "Start");
-            sql.addField("iend",          "End");
-            sql.addField("icomment",      "Comment");
-            sql.addField("ivolume",       "IsVolume");
-            sql.addField("icalories",     "Calories");
-            sql.addField("iprotein",      "Protein");
-            sql.addField("icholesterol",  "Cholesterol");
-            sql.addField("ifat",          "Fat");
-            sql.addField("isaturated",    "Saturated");
-            sql.addField("icarbohydrate", "Carbohydrate");
-            sql.addField("isugar",        "Sugar");
-            sql.addField("ifibre",        "Fibre");
-            sql.addField("isalt",         "Salt");
-            sql.addField("isimple",       "Simple");
-            sql.addField("iabv",          "ABV");
-            sql.addField("idefault",      "DefaultSize");
-            sql.addField("ipacksize",     "PackSize");
-
-            sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
-            sql.addAnd("Source", "=", ctx.getParameter("isource"));
-            addItemStartTime(ctx, sql);
-
-            JSONArray fields = new JSONArray();
-            ResultSet rs     = executeQuery(ctx, sql);
-
-            fields.addFields(rs);
-            fields.append(ctx.getReplyBuffer());
-
-            ctx.setStatus(200);
-        } else if (action.equals("getitemcount")) {
-            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
-            
-            sql.addField("Count",  sql.setFieldSource("Count(*)"));
-
-            sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
-            sql.addAnd("Source", "=", ctx.getParameter("isource"));
-
-            ResultSet rs = executeQuery(ctx, sql);
-
-            ctx.getReplyBuffer().append(rs.next()? rs.getInt("Count") : 0);
-
-            ctx.setStatus(200);
-        } else if (action.equals("applyitemupdate")) {
-            Date   start    = ctx.getTimestamp("start");
-            Date   end      = ctx.getTimestamp("end");
-            Date   previous = ctx.getTimestamp("previousStart");
-            String command  = ctx.getParameter("command");
-            String item     = ctx.getParameter("item");
-            String source   = ctx.getParameter("source");
-            ResultSet rs;
-
-            ctx.getAppDb().startTransaction();
-
-            if (previous != null) {
-                SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionDetail");
-
-                sql.addField("End", start);
-                sql.addAnd("Start",  "=", previous);
-                sql.addAnd("Item",   "=", item);
-                sql.addAnd("Source", "=", source);
-                executeUpdate(ctx, sql);
-                command = "create";
-            }
-            if (command.equalsIgnoreCase("create")) {
-                rs = ctx.getAppDb().insertTable("NutritionDetail");
-                rs.moveToInsertRow();
-                setItemFields(ctx, rs);
-                rs.updateString("Start", ctx.getDbTimestamp(start));
-                rs.updateString("End",   ctx.getDbTimestamp(end));
-                rs.insertRow();
+        switch (action) {
+            case "getweight":
+                Date date = ctx.getDate("date");
+                ctx.getReplyBuffer().append(getWeight(ctx, date));
                 ctx.setStatus(200);
-            } else {
-                SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
-                sql.addAnd("Item",   "=", item);
-                sql.addAnd("Source", "=", source);
-                sql.addAnd("Start",  "=", start);
-                rs = updateQuery(ctx, sql.build());
-
-                if (!rs.next()) {
-                    ctx.getReplyBuffer().append("No record for Item '").append(item).append(", Source '").append(source).append("'");
-                } else {
-                    rs.moveToCurrentRow();
-                    setItemFields(ctx, rs);
-                    rs.updateRow();
+                break;
+            case "getitem":
+                {
+                    SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
+                    sql.addField("iitem",         "Item");
+                    sql.addField("isource",       "Source");
+                    sql.addField("itype",         "Type");
+                    sql.addField("istart",        "Start");
+                    sql.addField("iend",          "End");
+                    sql.addField("icomment",      "Comment");
+                    sql.addField("ivolume",       "IsVolume");
+                    sql.addField("icalories",     "Calories");
+                    sql.addField("iprotein",      "Protein");
+                    sql.addField("icholesterol",  "Cholesterol");
+                    sql.addField("ifat",          "Fat");
+                    sql.addField("isaturated",    "Saturated");
+                    sql.addField("icarbohydrate", "Carbohydrate");
+                    sql.addField("isugar",        "Sugar");
+                    sql.addField("ifibre",        "Fibre");
+                    sql.addField("isalt",         "Salt");
+                    sql.addField("isimple",       "Simple");
+                    sql.addField("iabv",          "ABV");
+                    sql.addField("idefault",      "DefaultSize");
+                    sql.addField("ipacksize",     "PackSize");
+                    sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
+                    sql.addAnd("Source", "=", ctx.getParameter("isource"));
+                    addItemStartTime(ctx, sql);
+                    JSONArray fields = new JSONArray();
+                    ResultSet rs     = executeQuery(ctx, sql);
+                    fields.addFields(rs);
+                    fields.append(ctx.getReplyBuffer());
                     ctx.setStatus(200);
+                    break;
                 }
-            }
-            rs.close();
-            ctx.getAppDb().commit();
-        } else if (action.equals("eventhistory")) {
-            JSONObject data = new JSONObject();
-            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEventSummary");
-
-            sql.setProtocol(ctx.getAppDb().getProtocol());
-            sql.setMaxRows(config.getIntProperty("nutritionhistoryrows", 100));
-
-            sql.addField("Timestamp");
-            sql.addField("Weekday");
-            sql.addField("Description", sql.setValue(""));
-            sql.addField("Comment",     sql.setValue(""));
-            sql.addField("Calories");
-            sql.addField("Protein");
-            sql.addField("Fat");
-            sql.addField("Saturated");
-            sql.addField("Carb",        "Carbohydrate");
-            sql.addField("Sugar");
-            sql.addField("Fibre");
-            sql.addField("Salt");
-            sql.addField("Units");
-            sql.setOrderBy("Timestamp DESC");
-
-            if (ctx.existsParameter("filter")) {
-                sql.addAnd(ctx.getParameter("filter"));
-            } else {
-                ctx.addAnd(sql, "Weekday",     "=",    "day");
-                ctx.addAnd(sql, "Description", "LIKE", "description");
-            }
-            ResultSet rs = executeQuery(ctx, sql);
-
-            data.add("EventHistory", rs);
-            data.append(ctx.getReplyBuffer());
-
-            ctx.setStatus(200);
-        } else if (action.equals("requestitemlist")) {
-            JSONObject       data   = new JSONObject();
-            SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionItem");
-
-            sql.addField("Item");
-            sql.addField("ABV",         sql.setValue(0));
-            sql.addField("Source",      sql.setValue(""));
-            sql.addField("Type",        sql.setValue(""));
-            sql.addField("Simple",      sql.setValue(""));
-            sql.addField("IsVolume",    sql.setValue(""));
-            sql.addField("DefaultSize", sql.setValue(0));
-            sql.addField("Salt");
-            sql.addField("Calories");
-            sql.addField("Protein");
-            sql.addField("Fat");
-            sql.addField("Carbohydrate");
-            sql.setOrderBy("Item");
-
-            ctx.addAnd(sql, "Source", "=",    "source");
-            ctx.addAnd(sql, "Type",   "=",    "type");
-            ctx.addAnd(sql, "Item",   "LIKE", "item");
-            addItemStartTime(ctx, sql);
-
-            ResultSet rs = executeQuery(ctx, sql.build());
-            data.add("ItemDetails", rs);
-            data.append(ctx.getReplyBuffer());
-            ctx.setStatus(200);
-        } else if (action.equals("getList")) {
-            String field = ctx.getParameter("field");
-
-            if (field.equalsIgnoreCase("source")) {
+            case "getitemcount":
+                {
+                    SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
+                    sql.addField("Count",  sql.setFieldSource("Count(*)"));
+                    sql.addAnd("Item",   "=", ctx.getParameter("iitem"));
+                    sql.addAnd("Source", "=", ctx.getParameter("isource"));
+                    ResultSet rs = executeQuery(ctx, sql);
+                    ctx.getReplyBuffer().append(rs.next()? rs.getInt("Count") : 0);
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "applyitemupdate":
+                {
+                    Date   start    = ctx.getTimestamp("start");
+                    Date   end      = ctx.getTimestamp("end");
+                    Date   previous = ctx.getTimestamp("previousStart");
+                    String command  = ctx.getParameter("command");
+                    String item     = ctx.getParameter("item");
+                    String source   = ctx.getParameter("source");
+                    ResultSet rs;
+                    ctx.getAppDb().startTransaction();
+                    if (previous != null) {
+                        SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionDetail");
+                        
+                        sql.addField("End", start);
+                        sql.addAnd("Start",  "=", previous);
+                        sql.addAnd("Item",   "=", item);
+                        sql.addAnd("Source", "=", source);
+                        executeUpdate(ctx, sql);
+                        command = "create";
+                    }       if (command.equalsIgnoreCase("create")) {
+                        rs = ctx.getAppDb().insertTable("NutritionDetail");
+                        rs.moveToInsertRow();
+                        setItemFields(ctx, rs);
+                        rs.updateString("Start", ctx.getDbTimestamp(start));
+                        rs.updateString("End",   ctx.getDbTimestamp(end));
+                        rs.insertRow();
+                        ctx.setStatus(200);
+                    } else {
+                        SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionDetail");
+                        sql.addAnd("Item",   "=", item);
+                        sql.addAnd("Source", "=", source);
+                        sql.addAnd("Start",  "=", start);
+                        rs = updateQuery(ctx, sql.build());
+                        
+                        if (!rs.next()) {
+                            ctx.getReplyBuffer().append("No record for Item '").append(item).append(", Source '").append(source).append("'");
+                        } else {
+                            rs.moveToCurrentRow();
+                            setItemFields(ctx, rs);
+                            rs.updateRow();
+                            ctx.setStatus(200);
+                        }
+                    }       rs.close();
+                    ctx.getAppDb().commit();
+                    break;
+                }
+            case "eventhistory":
+                {
+                    JSONObject data = new JSONObject();
+                    SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEventSummary");
+                    sql.setProtocol(ctx.getAppDb().getProtocol());
+                    sql.setMaxRows(config.getIntProperty("nutritionhistoryrows", 100));
+                    sql.addField("Timestamp");
+                    sql.addField("Weekday");
+                    sql.addField("Description", sql.setValue(""));
+                    sql.addField("Comment",     sql.setValue(""));
+                    sql.addField("Calories");
+                    sql.addField("Protein");
+                    sql.addField("Fat");
+                    sql.addField("Saturated");
+                    sql.addField("Carb",        "Carbohydrate");
+                    sql.addField("Sugar");
+                    sql.addField("Fibre");
+                    sql.addField("Salt");
+                    sql.addField("Units");
+                    sql.setOrderBy("Timestamp DESC");
+                    if (ctx.existsParameter("filter")) {
+                        sql.addAnd(ctx.getParameter("filter"));
+                    } else {
+                        ctx.addAnd(sql, "Weekday",     "=",    "day");
+                        ctx.addAnd(sql, "Description", "LIKE", "description");
+                    }       ResultSet rs = executeQuery(ctx, sql);
+                    data.add("EventHistory", rs);
+                    data.append(ctx.getReplyBuffer());
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "requestitemlist":
+                {
+                    JSONObject       data   = new JSONObject();
+                    SQLSelectBuilder sql    = ctx.getSelectBuilder("NutritionItem");
+                    sql.addField("Item");
+                    sql.addField("ABV",         sql.setValue(0));
+                    sql.addField("Source",      sql.setValue(""));
+                    sql.addField("Type",        sql.setValue(""));
+                    sql.addField("Simple",      sql.setValue(""));
+                    sql.addField("IsVolume",    sql.setValue(""));
+                    sql.addField("DefaultSize", sql.setValue(0));
+                    sql.addField("Salt");
+                    sql.addField("Calories");
+                    sql.addField("Protein");
+                    sql.addField("Fat");
+                    sql.addField("Carbohydrate");
+                    sql.setOrderBy("Item");
+                    ctx.addAnd(sql, "Source", "=",    "source");
+                    ctx.addAnd(sql, "Type",   "=",    "type");
+                    ctx.addAnd(sql, "Item",   "LIKE", "item");
+                    addItemStartTime(ctx, sql);
+                    ResultSet rs = executeQuery(ctx, sql.build());
+                    data.add("ItemDetails", rs);
+                    data.append(ctx.getReplyBuffer());
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "getList":
+                getList(ctx);
+                /*
+                String field = ctx.getParameter("field");
+                
+                if (field.equalsIgnoreCase("source")) {
                 getList(ctx, "NutritionSources", "Name");
-            } else {
+                } else {
                 getList(ctx, "NutritionTypes", "Name");
-            }
-        } else if (action.equals("addListItem")) {
-            String           field = ctx.getParameter("field");
-            String           table = field.equalsIgnoreCase("source") ? "NutritionSources" : "NutritionTypes";
-            SQLInsertBuilder sql   = ctx.getInsertBuilder(table);
-
-            sql.addField("Name", ctx.getParameter("item"));
-            executeUpdate(ctx, sql);
-            ctx.setStatus(200);
-        } else if (action.equals("createevent")) {
-            Date timestamp     = ctx.getTimestamp("crdate", "crtime");
-            String description = ctx.getParameter("crdescription");
-            String comment     = ctx.getParameter("crcomment");
-            String weight      = ctx.getParameter("crweight");
-
-            if (eventFor(ctx, timestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(timestamp);
-            } else {
-                SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
-
-                sql.addField("Timestamp",   ctx.getDbTimestamp(timestamp));
-                sql.addField("Description", description);
-                sql.addField("Comment",     comment);
-                executeUpdate(ctx, sql);
-            }
-            updateWeight(ctx, timestamp, weight);
-            ctx.setStatus(200);
-        } else if (action.equals("updateevent")) {
-            Date timestamp     = ctx.getTimestamp("date", "time");
-            String description = ctx.getParameter("description");
-            String comment     = ctx.getParameter("comment");
-
-            SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionEvent");
-
-            sql.addField("Description", description);
-            sql.addField("Comment",     comment);
-            sql.addAnd("Timestamp", "=", timestamp);
-            executeUpdate(ctx, sql);
-            ctx.setStatus(200);
-        } else if (action.equals("copyevent")) {
-            Date   sTimestamp   = ctx.getTimestamp("sdate", "stime");
-            Date   cTimestamp   = ctx.getTimestamp("cdate", "ctime");
-            String cDescription = ctx.getParameter("cdescription");
-            String cComment     = ctx.getParameter("ccomment");
-
-            if (eventFor(ctx, cTimestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(cTimestamp);
-            } else {
-                SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
-
-                sql.addField("Timestamp",   cTimestamp);
-                sql.addField("Description", cDescription);
-                sql.addField("Comment",     cComment);
-                executeUpdate(ctx, sql);
-                executeUpdate(ctx,
-                        "INSERT NutritionRecord(Timestamp, Item, Source, Quantity, ABV, IsComposite) "
-                        + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Item, Source, Quantity, ABV, IsComposite "
-                        + "FROM   NutritionRecord "
-                        + "WHERE Timestamp = ' " + ctx.getDbTimestamp(sTimestamp) + "'");
-            }
-            updateWeight(ctx, cTimestamp, ctx.getParameter("cweight"));
-            ctx.setStatus(200);
-        } else if (action.equals("deleteevent")) {
-            Date timestamp = ctx.getTimestamp("date", "time");
-            SQLDeleteBuilder sql = ctx.getDeleteBuilder("NutritionRecord");
-
-            sql.addAnd("Timestamp", "=", timestamp);
-            executeUpdate(ctx, sql.build());
-            sql.setTable("NutritionEvent");
-            executeUpdate(ctx, sql.build());
-
-            ctx.setStatus(200);
-        } else if (action.equals("removeitem")) {
-            Date             timestamp   = ctx.getTimestamp("date", "time");
-            String           item        = ctx.getParameter("item");
-            String           source      = ctx.getParameter("source");
-            String           description = ctx.getParameter("description");
-            SQLDeleteBuilder sqld        = ctx.getDeleteBuilder("NutritionRecord");
-            SQLUpdateBuilder sqlu        = ctx.getUpdateBuilder("NutritionEvent");
-
-            sqld.addAnd("Timestamp", "=", timestamp);
-            sqld.addAnd("Item",      "=", item);
-            sqld.addAnd("Source",    "=", source);
-            
-            executeUpdate(ctx, sqld.build());
-            
-            sqlu.addField("Description", description);
-            sqlu.addAnd("Timestamp", "=", timestamp);
-            
-            executeUpdate(ctx, sqlu.build());
-
-            ctx.setStatus(200);
-        } else if (action.equals("modifyitem")) {
-            Date   timestamp = ctx.getTimestamp("date", "time");
-            String item      = ctx.getParameter("item");
-            String source    = ctx.getParameter("source");
-
-            SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEvent");
-
-            sql.addField("Timestamp");
-            sql.addField("Description");
-            sql.addAnd("Timestamp", "=", timestamp);
-
-            ResultSet rs = updateQuery(ctx, sql.build());
-            updateNutritionEvent(ctx, rs);
-            
-            sql.clear();
-            sql.setFrom("NutritionRecord");
-            sql.addField("Timestamp");
-            sql.addField("Item");
-            sql.addField("Source");
-            sql.addField("Quantity");
-            sql.addField("ABV");
-            sql.addField("IsComposite");
-            
-            sql.addAnd("Timestamp", "=", timestamp);
-            sql.addAnd("Item",      "=", item);
-            sql.addAnd("Source",    "=", source);
-
-            rs = updateQuery(ctx, sql.build());
-            
-            updateNutritionRecord(ctx, rs);
-            ctx.setStatus(200);
-        } else if (action.equals("getactiveevent")) {
-            JSONObject       data      = new JSONObject();
-            Date             timestamp = ctx.getTimestamp("date", "time");
-            SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
-            
-            sql.addField("Item");
-            sql.addField("Simple",       sql.setValue(""));
-            sql.addField("IsVolume",     sql.setValue(""));
-            sql.addField("ABV",          sql.setValue(0));
-            sql.addField("Quantity",     sql.setValue(0));
-            sql.addField("Source",       sql.setValue(""));
-            sql.addField("Type",         sql.setValue(""));
-            sql.addField("Calories",     sql.setValue(0));
-            sql.addField("Protein",      sql.setValue(0));
-            sql.addField("Fat",          sql.setValue(0));
-            sql.addField("Saturated",    sql.setValue(0));
-            sql.addField("Carbohydrate", sql.setValue(0));
-            sql.addField("Sugar",        sql.setValue(0));
-            sql.addField("Salt",         sql.setValue(0));
-            sql.setOrderBy("Item");
-
-            sql.setFrom("NutritionRecordFull");
-            sql.addAnd("Timestamp", "=", timestamp);
-
-            ResultSet rs = executeQuery(ctx, sql);
-            data.add("ItemDetails", rs);
-            data.append(ctx.getReplyBuffer());
-
-            ctx.setStatus(200);
-        } else if (action.equals("checktimestamp")) {
-            Date timestamp = ctx.getTimestamp("date", "time");
-
-            if (eventFor(ctx, timestamp)) {
-                ctx.getReplyBuffer().append("Change time as event already recorded for ").append(ctx.getDbTimestamp(timestamp));
-            }
-            ctx.setStatus(200);
-        } else {
-            ctx.dumpRequest("Action " + action + " is invalid");
-            ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
+                }
+                */              break;
+            case "addListItem":
+                {
+                    String           field = ctx.getParameter("field");
+                    String           table = field.equalsIgnoreCase("source") ? "NutritionSources" : "NutritionTypes";
+                    SQLInsertBuilder sql   = ctx.getInsertBuilder(table);
+                    sql.addField("Name", ctx.getParameter("item"));
+                    executeUpdate(ctx, sql);
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "createevent":
+                {
+                    Date timestamp     = ctx.getTimestamp("crdate", "crtime");
+                    String description = ctx.getParameter("crdescription");
+                    String comment     = ctx.getParameter("crcomment");
+                    String weight      = ctx.getParameter("crweight");
+                    if (eventFor(ctx, timestamp)) {
+                        ctx.getReplyBuffer().append("Change time as event already recorded for ").append(timestamp);
+                    } else {
+                        SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
+                        
+                        sql.addField("Timestamp",   ctx.getDbTimestamp(timestamp));
+                        sql.addField("Description", description);
+                        sql.addField("Comment",     comment);
+                        executeUpdate(ctx, sql);
+                    }       updateWeight(ctx, timestamp, weight);
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "updateevent":
+                {
+                    Date timestamp     = ctx.getTimestamp("date", "time");
+                    String description = ctx.getParameter("description");
+                    String comment     = ctx.getParameter("comment");
+                    SQLUpdateBuilder sql = ctx.getUpdateBuilder("NutritionEvent");
+                    sql.addField("Description", description);
+                    sql.addField("Comment",     comment);
+                    sql.addAnd("Timestamp", "=", timestamp);
+                    executeUpdate(ctx, sql);
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "copyevent":
+                Date   sTimestamp   = ctx.getTimestamp("sdate", "stime");
+                Date   cTimestamp   = ctx.getTimestamp("cdate", "ctime");
+                String cDescription = ctx.getParameter("cdescription");
+                String cComment     = ctx.getParameter("ccomment");
+                if (eventFor(ctx, cTimestamp)) {
+                    ctx.getReplyBuffer().append("Change time as event already recorded for ").append(cTimestamp);
+                } else {
+                    SQLInsertBuilder sql = ctx.getInsertBuilder("NutritionEvent");
+                    
+                    sql.addField("Timestamp",   cTimestamp);
+                    sql.addField("Description", cDescription);
+                    sql.addField("Comment",     cComment);
+                    executeUpdate(ctx, sql);
+                    executeUpdate(ctx,
+                            "INSERT NutritionRecord(Timestamp, Item, Source, Quantity, ABV, IsComposite) "
+                                    + "SELECT '" + ctx.getDbTimestamp(cTimestamp) + "', Item, Source, Quantity, ABV, IsComposite "
+                                            + "FROM   NutritionRecord "
+                                            + "WHERE Timestamp = ' " + ctx.getDbTimestamp(sTimestamp) + "'");
+                }   updateWeight(ctx, cTimestamp, ctx.getParameter("cweight"));
+                ctx.setStatus(200);
+                break;
+            case "deleteevent":
+                {
+                    Date timestamp = ctx.getTimestamp("date", "time");
+                    SQLDeleteBuilder sql = ctx.getDeleteBuilder("NutritionRecord");
+                    sql.addAnd("Timestamp", "=", timestamp);
+                    executeUpdate(ctx, sql.build());
+                    sql.setTable("NutritionEvent");
+                    executeUpdate(ctx, sql.build());
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "removeitem":
+                {
+                    Date             timestamp   = ctx.getTimestamp("date", "time");
+                    String           item        = ctx.getParameter("item");
+                    String           source      = ctx.getParameter("source");
+                    String           description = ctx.getParameter("description");
+                    SQLDeleteBuilder sqld        = ctx.getDeleteBuilder("NutritionRecord");
+                    SQLUpdateBuilder sqlu        = ctx.getUpdateBuilder("NutritionEvent");
+                    sqld.addAnd("Timestamp", "=", timestamp);
+                    sqld.addAnd("Item",      "=", item);
+                    sqld.addAnd("Source",    "=", source);
+                    executeUpdate(ctx, sqld.build());
+                    sqlu.addField("Description", description);
+                    sqlu.addAnd("Timestamp", "=", timestamp);
+                    executeUpdate(ctx, sqlu.build());
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "modifyitem":
+                {
+                    Date   timestamp = ctx.getTimestamp("date", "time");
+                    String item      = ctx.getParameter("item");
+                    String source    = ctx.getParameter("source");
+                    SQLSelectBuilder sql = ctx.getSelectBuilder("NutritionEvent");
+                    sql.addField("Timestamp");
+                    sql.addField("Description");
+                    sql.addAnd("Timestamp", "=", timestamp);
+                    ResultSet rs = updateQuery(ctx, sql.build());
+                    updateNutritionEvent(ctx, rs);
+                    sql.clear();
+                    sql.setFrom("NutritionRecord");
+                    sql.addField("Timestamp");
+                    sql.addField("Item");
+                    sql.addField("Source");
+                    sql.addField("Quantity");
+                    sql.addField("ABV");
+                    sql.addField("IsComposite");
+                    sql.addAnd("Timestamp", "=", timestamp);
+                    sql.addAnd("Item",      "=", item);
+                    sql.addAnd("Source",    "=", source);
+                    rs = updateQuery(ctx, sql.build());
+                    updateNutritionRecord(ctx, rs);
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "getactiveevent":
+                {
+                    JSONObject       data      = new JSONObject();
+                    Date             timestamp = ctx.getTimestamp("date", "time");
+                    SQLSelectBuilder sql       = ctx.getSelectBuilder(null);
+                    sql.addField("Item");
+                    sql.addField("Simple",       sql.setValue(""));
+                    sql.addField("IsVolume",     sql.setValue(""));
+                    sql.addField("ABV",          sql.setValue(0));
+                    sql.addField("Quantity",     sql.setValue(0));
+                    sql.addField("Source",       sql.setValue(""));
+                    sql.addField("Type",         sql.setValue(""));
+                    sql.addField("Calories",     sql.setValue(0));
+                    sql.addField("Protein",      sql.setValue(0));
+                    sql.addField("Fat",          sql.setValue(0));
+                    sql.addField("Saturated",    sql.setValue(0));
+                    sql.addField("Carbohydrate", sql.setValue(0));
+                    sql.addField("Sugar",        sql.setValue(0));
+                    sql.addField("Salt",         sql.setValue(0));
+                    sql.setOrderBy("Item");
+                    sql.setFrom("NutritionRecordFull");
+                    sql.addAnd("Timestamp", "=", timestamp);
+                    ResultSet rs = executeQuery(ctx, sql);
+                    data.add("ItemDetails", rs);
+                    data.append(ctx.getReplyBuffer());
+                    ctx.setStatus(200);
+                    break;
+                }
+            case "checktimestamp":
+                {
+                    Date timestamp = ctx.getTimestamp("date", "time");
+                    if (eventFor(ctx, timestamp)) {
+                        ctx.getReplyBuffer().append("Change time as event already recorded for ").append(ctx.getDbTimestamp(timestamp));
+                    }       ctx.setStatus(200);
+                    break;
+                }
+            default:
+                ctx.dumpRequest("Action " + action + " is invalid");
+                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
+                break;
         }
     }
 }

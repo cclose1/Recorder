@@ -174,6 +174,33 @@
                                 <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
                             </div>
                         </fieldset>
+                        <fieldset id="updatelog" hidden class='form centreminwidth'>
+                            <legend>Update Log</legend>
+                            <div>
+                                <label for="lcarreg">Car Reg</label>
+                                <input readonly id="lcarreg" type='text' name='CarReg' size ='14' tabindex="0">
+                            </div>
+                            <div>
+                                <label for="lsession">Session</label>
+                                <input readonly id="lsession" type='text' name='Session' size ='14' tabindex="0">
+                            </div>
+                            <div>
+                                <label for="ltimestamp">Time</label>
+                                <input readonly id="ltimestamp" type='text' name='Timestamp' size ='14' tabindex="0">
+                            </div> 
+                            <div>
+                                <label for="lchargepc">Charge %</label>
+                                <input type="text" name='Percent' size ='14' id="lchargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                            </div>
+                            <div>
+                                <label for="lmiles">Miles</label>
+                                <input type="text" name="Miles" size ='14' id="lmiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                            </div>                   
+                            <div class="centre">
+                                <input name="delete" class='notparam' type="button" value="Delete" onclick="updateLog();">
+                                <input name="cancel" class='notparam' type="button" value="Cancel" onclick="updateLog();">
+                            </div>
+                        </fieldset>
                         <fieldset id="sessionlog" class='form centreminwidth'>
                             <legend>Session Log</legend>
                             <table id="sessionlogtable">

@@ -25,99 +25,12 @@ import org.cbc.utils.system.Calendar;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public class RecordEnergy extends ApplicationServer {
-
-    private class ValidateCreate {
-        public Date    timestamp;
-        public String  type;
-        public double  reading;
-        public String  error = "";
-        public String  estimated;
-        public Context ctx;
-        
-        private void setError(String message) {
-            if (reading != -1)
-                error = "Reading for " + type + " is " + reading + " " + message;
-            else
-                error = message;
-            
-            throw new ErrorExit(error);
-        }
-        private void validate(String type) throws ParseException, SQLException {
-            SQLSelectBuilder sel = ctx.getSelectBuilder("BoundedReading");
-            ResultSet        rs;
-            double           startReading;
-            double           endReading;
-            int              days;
-
-            this.timestamp = ctx.getTimestamp("date", "time");
-            this.type      = type;
-            this.reading   = ctx.getDouble(type, -2);
-            this.estimated = ctx.getParameter("estimated").equalsIgnoreCase("true") ? "Y" : "";
-
-            if (this.reading == -2) return;
-            
-            sel.addField("Start");
-            sel.addField("Type");
-            sel.addField("StartReading");
-            sel.addField("EndReading");
-            sel.addField("Days");
-            sel.addAnd("Type", "=", type);
-            sel.addAndStart(timestamp);
-
-            rs = executeQuery(ctx, sel);
-
-            if (rs.next()) {
-                /*
-                 * Check if new reading can be created in between the 2 that span it. If the new reading is negative a
-                 * value is estimated based on were it lies between the 2, otherwise the new value has to be
-                 * between startReading and endReading,
-                 */
-                startReading = rs.getDouble("StartReading");
-                endReading   = rs.getDouble("EndReading");
-                days         = rs.getInt("Days");
-
-                if (reading < 0) {
-                    int dayOffset = Calendar.daysBetween(rs.getDate("Start"), timestamp);
-
-                    reading   = startReading + (endReading - startReading) * dayOffset / days;
-                    estimated = "Y";
-                } else {
-                    if (reading < startReading || reading > endReading) {
-                        setError("but must be between " + startReading + " and " + endReading);
-                    }
-                }
-            } else if (reading != -1) {
-                /*
-                 * Reading must be greater that the latest for type.
-                 */
-
-                sel = ctx.getSelectBuilder("MeterReading");
-                sel.addField("Reading", "Max(Reading)");
-                sel.addAnd("Type", "=", type);
-               
-                rs = executeQuery(ctx, sel);
-
-                if (rs.next()) {
-                    if (reading < rs.getDouble("Reading")) {
-                        setError("but must be greater than " + rs.getDouble("Reading"));
-                    }
-                }
-            } else
-                setError("Estimates not supported after latest reading");
-        }
-        public ValidateCreate(Context ctx) throws ParseException, SQLException {
-            this.ctx = ctx;
-        }
-        public void setType(String type) throws ParseException, SQLException {
-            validate(type);
-        }
-    }
     private SQLSelectBuilder getReadingsSQL(Context ctx, String readings) throws SQLException {
         SQLSelectBuilder sel;
-        
+
         if (readings.equals("Meter")) {
             sel = ctx.getSelectBuilder("MeterReading");
-            
+
             sel.addField("Timestamp");
             sel.addField("Weekday");
             sel.addField("Reading");
@@ -126,7 +39,7 @@ public class RecordEnergy extends ApplicationServer {
             sel.setOrderBy("Timestamp DESC, Type");
         } else {
             sel = ctx.getSelectBuilder("BoundedReading");
-            
+
             sel.addField("Start");
             sel.addField("Weekday");
             sel.addField("Days");
@@ -138,14 +51,15 @@ public class RecordEnergy extends ApplicationServer {
             sel.setOrderBy("Start DESC, Type");
         }
         sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
-        sel.addField("Comment",   sel.setValue(""));
+        sel.addField("Comment", sel.setValue(""));
         sel.addAnd(ctx.getParameter("filter"));
-        
+
         return sel;
     }
     private SQLSelectBuilder getTariffsSQL(Context ctx) throws SQLException {
         SQLSelectBuilder sel = ctx.getSelectBuilder("Tariff");
-        
+
+        sel.addField("Tariff", "Code");
         sel.addField("Start");
         sel.addField("End");
         sel.addField("Type");
@@ -155,9 +69,11 @@ public class RecordEnergy extends ApplicationServer {
         sel.setOrderBy("Start DESC, Type");
         sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
         sel.addAnd(ctx.getParameter("filter"));
-        
+
         return sel;
     }
+
+    @Override
     public String getVersion() {
         return "V2.2 Released 05-Dec-18";
     }
@@ -170,24 +86,103 @@ public class RecordEnergy extends ApplicationServer {
                 super.config.getProperty("enpassword"));
 
     }
-    private boolean addReading(ValidateCreate create, String type) throws SQLException, ParseException {
-        SQLInsertBuilder sql = create.ctx.getInsertBuilder("MeterReading");
+    @Override
+    protected void getList(Context ctx) throws SQLException, ParseException, JSONException {
+        super.getList(ctx);
+    }
+    private boolean addTariff(Context ctx, String type) throws ParseException, SQLException {
+        SQLInsertBuilder sql      = ctx.getInsertBuilder("Tariff");
+        EnclosingRecords er       = new EnclosingRecords(ctx, "Tariff");
+        Date             start    = ctx.getTimestamp("Date");
+        double           rate     = ctx.getDouble(type + " UnitRate",       -1);
+        double           standing = ctx.getDouble(type + " StandingCharge", -1);
+        ResultSet upper;
+        ResultSet lower;
 
-        create.setType(type);
-        
-        if (create.reading <= -2) {
-            return false;
+        if (rate < 0) return false;
+
+        er.addField("Code",  ctx.getParameter("Code"),  true);
+        er.addField("Type",  type,                      true);
+        er.addField("Start", start,                     false);
+
+        upper = er.getAfter();
+
+        if (upper != null) {
+            throw new ErrorExit("Must be after latest tarriff record");
         }
-        sql.addField("Timestamp", create.timestamp);
-        sql.addField("Type",      type);
-        sql.addField("Reading",   create.reading);
-        sql.addField("Estimated", create.estimated);
-        sql.addField("Comment",   create.ctx.getParameter("comment"));
-        executeUpdate(create.ctx, sql);
+        lower = er.getBefore();
+   
+        if (lower != null) { 
+            if (start.equals(lower.getDate("Start"))) throw new ErrorExit("Tariff already exists for this date");
+            
+            lower.updateDate("End", ctx.getSQLDate(start));
+            lower.updateRow();
+        }        
+        sql.addField("Start",          start);
+        sql.addField("Type",           type);        
+        sql.addField("Code",           ctx.getParameter("Code"));
+        sql.addField("UnitRate",       rate);
+        sql.addField("StandingCharge", standing);
+        sql.addField("Comment",        ctx.getParameter("Comment"));
         
+        if (type.equalsIgnoreCase("gas")) sql.addField("CalorificValue", ctx.getParameter("CalorificValue"));
+        
+        executeUpdate(ctx, sql);
         return true;
     }
+    private boolean addReading(Context ctx, String type) throws SQLException, ParseException {
+        SQLInsertBuilder sql       = ctx.getInsertBuilder("MeterReading");
+        EnclosingRecords er        = new EnclosingRecords(ctx, "MeterReading");
+        Date             timestamp = ctx.getTimestamp("Date", "Time");
+        double           reading   = ctx.getDouble(type,       -2);
+        String           estimated = ctx.getParameter("Etimated").equalsIgnoreCase("true") ? "Y" : "";
+        ResultSet        upper;
+        ResultSet        lower;
+        double           minReading = -1;
+        double           maxReading = -1;
+        
+        if (reading <= -2) return false;
 
+        er.addField("Code",      ctx.getParameter("Code"), true);
+        er.addField("Type",      type,                     true);
+        er.addField("Timestamp", timestamp,                false);
+        
+        lower = er.getBefore();
+        upper = er.getAfter();
+        lower = er.getBefore();
+        
+        if (lower != null) minReading = lower.getDouble("Reading");
+        if (upper != null) maxReading = upper.getDouble("Reading");
+        if (reading >= 0) {
+            /*
+             * Reading provided so check if between lower and upper.
+             */
+            if (minReading >= 0 && reading < minReading) 
+                errorExit(type + " reading  must be greater than " + minReading);
+            if (maxReading >= 0 && reading >= maxReading) 
+                errorExit(type + " reading must be less than " + maxReading);
+        } else {
+            /*
+             * Calculate reading by interpolating between lower and upper.
+             */
+            if (lower == null || upper == null)
+                errorExit("Estimating a " + type + " reading, requires it's time lies between 2 readings");
+            
+            int days      = Calendar.daysBetween(lower.getDate("Timestamp"), upper.getDate("Timestamp"));
+            int dayOffset = Calendar.daysBetween(lower.getDate("Timestamp"), timestamp);
+            
+            reading   = minReading + (maxReading - minReading) * dayOffset / days;
+            estimated = "Y";
+        }
+        sql.addField("Timestamp", timestamp);
+        sql.addField("Type",      type);
+        sql.addField("Reading",   reading);
+        sql.addField("Estimated", estimated);
+        sql.addField("Comment",   ctx.getParameter("Comment"));
+        executeUpdate(ctx, sql);
+
+        return true;
+    } 
     @Override
     public void processAction(
             Context ctx,
@@ -195,18 +190,16 @@ public class RecordEnergy extends ApplicationServer {
         
         SQLSelectBuilder sel;
         SQLDeleteBuilder del;
-        JSONObject       data   = new JSONObject();
-        boolean          commit = false;
-        String           readings;
-        ResultSet        rs;
+        JSONObject data = new JSONObject();
+        boolean commit = false;
+        String readings;
+        ResultSet rs;
 
         switch (action) {
             case "Create":
-                ValidateCreate create = new ValidateCreate(ctx);
-
-                if (addReading(create, "Gas"))      commit = true;
-                if (addReading(create, "Electric")) commit = true;
-                if (addReading(create, "Solar"))    commit = true;
+                if (addReading(ctx, "Gas"))      commit = true;
+                if (addReading(ctx, "Electric")) commit = true;                
+                if (addReading(ctx, "Solar"))    commit = true;
                 
                 if (!commit) throw new ErrorExit("At least 1 reading is required");
                 
@@ -215,8 +208,8 @@ public class RecordEnergy extends ApplicationServer {
                 break;
             case "Delete":
                 del = ctx.getDeleteBuilder("MeterReading");
-                del.addAnd("Timestamp", "=", ctx.getTimestamp("ddate", "dtime"));
-                del.addAnd("Type",      "=", ctx.getParameter("dtype"));
+                del.addAnd("Timestamp", "=", ctx.getTimestamp("Date", "Time"));
+                del.addAnd("Type",      "=", ctx.getParameter("Type"));
                 executeUpdate(ctx, del.build());
                 ctx.getAppDb().commit();
                 ctx.setStatus(200);
@@ -231,9 +224,20 @@ public class RecordEnergy extends ApplicationServer {
                 break;
             case "tariffs":
                 sel = getTariffsSQL(ctx);
-                rs  = executeQuery(ctx, sel);
+                rs = executeQuery(ctx, sel);
                 data.add("tariffs", rs);
                 data.append(ctx.getReplyBuffer());
+                ctx.setStatus(200);
+                break;
+            case "CreateTariff":
+                ctx.getAppDb().startTransaction();
+                
+                boolean gas = addTariff(ctx, "Gas");                
+                boolean elc = addTariff(ctx, "Electric");
+                
+                if (!gas && !elc) errorExit("Tariff details must be provide for at least 1 of Gas or Electric");
+                
+                ctx.getAppDb().commit();
                 ctx.setStatus(200);
                 break;
             case "getList":
@@ -241,7 +245,7 @@ public class RecordEnergy extends ApplicationServer {
                 break;
             default:
                 ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action " + action + " is invalid");
+                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
                 break;
         }
     }

@@ -24,10 +24,11 @@ public class Reminder {
     private static final int MSINDAY            = 24*60*60*1000;
     private static final int MSINMINUTE         = 60*1000;
     private DatabaseSession  db;
-    private int              alertFrequency      = 10;
+    private int              alertFrequency      = 1;
     private int              immediateDays       = 1;
     private Date             lastAlert           = null;
     private Date             lastFrequencyUpdate = new Date((new Date()).getTime() - MSINDAY);
+    private boolean          noAlerts            = false;
     
     public class State {
         private int  active    = 0;
@@ -91,16 +92,23 @@ public class Reminder {
         db.executeUpdate(sql.build());
         lastFrequencyUpdate = new Date();
     }
-    public State alert() throws SQLException, ParseException {
+    public void setNoAlerts(boolean on) {
+        this.noAlerts = on;
+    }
+    public boolean getNoAlerts() {
+        return this.noAlerts;
+    }
+    public State alert(boolean ignoreDelay) throws SQLException, ParseException {
         Date  now   = new Date();
         State state = new State();
-        
+       
+        if (noAlerts && !ignoreDelay) return state;
         
         int  min = lastAlert == null? alertFrequency : (int)((now.getTime() - lastAlert.getTime()) / MSINMINUTE);
         
         updatebyFrequency(false);
         
-        if (min <= alertFrequency && lastAlert != null) return state;
+        if (!ignoreDelay && min <= alertFrequency && lastAlert != null) return state;
         
         lastAlert       = now;
         state.lastCheck = now;

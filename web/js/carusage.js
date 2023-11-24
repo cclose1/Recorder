@@ -209,9 +209,10 @@ function requestSessionLog(filter) {
     var parameters = createParameters('sessionlog');
 
     function processResponse(response) {
-        loadJSONArray(response, 'sessionlogtable', 
-            {splitName: true,
-             columns:   [{name: 'Device', minSize: 3, maxSize: 17}]});
+        loadJSONArray(response, 'sessionlogtable', {
+                onClick:   'btSessionLogRowClick(this)',
+                splitName: true,
+                columns:   [{name: 'Device', minSize: 3, maxSize: 17}]});
         document.getElementById('sessionlogtable').removeAttribute('hidden');
     }
     if (!getElement('logupdates').checked) return;
@@ -262,7 +263,8 @@ function setSessionLog(on) {
     else
         getElement('logupdates').checked = on;
     
-    setHidden('sessionlog', !on);    
+    setHidden('sessionlog', !on); 
+    setHidden('updatelog',  true);
     requestSessionLog();
 }
 function setNew(copy) {
@@ -421,6 +423,32 @@ function setCurrentTime(action) {
     clearElement(tid);
     setDateTime(did, tid);
 }
+
+function updateLog(action) {
+    if (action === undefined) action = event.target.value;
+    
+    let flds       = getParameters('updatelog');
+    let parameters = '';
+    
+    function processREsponse() {
+        requestSessionLog();
+    }
+    switch (action) {
+        case "Delete":
+            parameters = createParameters(
+                    'deleteTableRow', 
+                    flds, 
+                    [{name: 'table', value: 'ChargeSessionLog'}]);
+            ajaxLoggedInCall("CarUsage", processREsponse, parameters, false);
+            break;
+        case "Cancel":
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');            
+    }
+    clearValues(flds);
+    setHidden('updatelog', true);
+}
 function send(action) {
     if (action === undefined) action = event.target.value;
     
@@ -481,10 +509,6 @@ function send(action) {
     parameters = addParameter(parameters, 'estduration', convertDuration(document.getElementById('estduration').value, false));
     
     function processResponse(response) {
-        if (response.length > 2) {
-            displayAlert('Validation Failure', response);
-            return;
-        }
         requestChargeSessions();
         requestSessionLog();
         
@@ -562,6 +586,35 @@ function btChargeSessionsRowClick(row) {
 
     setSave('Update');
 }
+function btSessionLogRowClick(row) {
+    if (isDisabled(row)) return;
+    
+    var rdr  = new rowReader(row);
+    var flds = getParameters('updatelog');
+    
+    while (rdr.nextColumn()) {
+        var value = rdr.columnValue();
+        
+        switch (rdr.valueAttribute('name')) {
+            case 'CarReg':
+                flds.get('CarReg').value = value;
+                break;
+            case 'Session':
+                flds.get('Session').value = value;
+                break;
+            case 'Timestamp':
+                flds.get('Timestamp').value = value;
+                break;
+            case 'Percent':
+                flds.get('Percent').value = value;
+                break;
+            case 'Miles':
+                flds.get('Miles').value = value;
+                break;
+        }
+    }
+    setHidden('updatelog', false);
+}
 function btChargersRowClick(row) {
     if (isDisabled(row)) return;
     
@@ -592,10 +645,15 @@ function setLogFilter() {
     logFilter.setValue('Device',  device);
     logFilter.setValue('Percent', '');
 }
-function test(tableid, value, adjustText, first) {
-    var table     = getElement(tableid);
-    var body      = table.tBodies[0];
+/*
+ * Ad Hoc tests
+ */
+function test() {
+    var table;
+    var body;
     var type      = 'number';
+    var testval;
+    var elms      = document.querySelectorAll("#detailfields > input");
     var precision = 20;
     var scale     = 2;
     var rowNo     = 0;
@@ -604,6 +662,9 @@ function test(tableid, value, adjustText, first) {
     var row;
     var style;
     var test = {a: 1, b:2};
+    var first = true;
+    var testval;
+    var font;
     
     function testCall(command) {
         try {
@@ -612,105 +673,72 @@ function test(tableid, value, adjustText, first) {
             console.log(command + ' failed with ' + err.message);
         }
     }
-    var options = new JSONArrayOptions(
-            {columns: [
-                 {name: 'Location', minSize: 3, maxSize: null},
-                 {name: 'Tariff',   minSize: 3}]});
-         
-    style = options.getUsed();
-    options.setUsed(true);
-    style = options.getUsed();
-    style = options.getUsed('minSize');
-    options.setUsed('minSize', true);
-    style = options.getUsed('minSize');
-    style = ('a' in test);
-    style = ('x' in test);
-    
-    test.a = undefined;
-    
-    style = ('a' in test);
-    row  = body.insertRow(rowNo++);        
-    cell = document.createElement('tr');
-    cell.innerHTML = value;
-    row.appendChild(cell);
-    col  = new Column(
-            value,
-            cell,
-            -1,
-            type,
-            precision,
-            scale,
-            false,
-            options);
-    style = col.textWidth;
-    style = col.pub;
-    testCall("col.#priv");
-    style = col.getPriv();
-    if (!isNull(first) && first) {
-        var testFilter = getFilter('testKey', document.getElementById('filter'), requestChargeSessions, {
-            allowAutoSelect: true,
-            autoSelect: true,
-            title: 'Test Filter',
-            forceGap: '4px',
-            initialDisplay: false});
-        testFilter.addFilter('CarReg', {name: 'CarReg', values: ''});
-        testFilter.addFilter('ChargerLab', {name: 'Charger', values: 'a,b'});
-        testFilter.addFilter('Field1', {name: 'Field1'});
-        testFilter.addFilter('Field2Lab', {name: 'Field2'});
-        var filterField = getFilterField(testFilter, 'CarReg');
-        filterField = getFilterField(testFilter, 'Charger');
-        filterField = getFilterField(testFilter, 'Field1');
-        filterField = getFilterField(testFilter, 'Field2');
-        testCall("filterField = getFilterField(testFilter, 'Type1')");
-        col.setProperty('xxx', 'Crap', true);
-        testCall("col.setProperty('zzz', 'Crap', false)");
-        testCall("col.setProperty('zzz', 'Crap')");
-        testCall("col.getProperty('abc')");
-        testCall("Column.abc = 'Test'");
-        style = col.getProperty('name');
-        style = col.getProperty('minSize');
-        style = col.hasProperty('abc');
-        style = col.hasProperty('maxSize');
-        
-        style = col.xxx;
-        style = 'width:' + col.textWidth() + 'px';
-        testCall("col.yyy = 'MoreCrap'");
-        testCall("col.size = 'Crap'");
-        style = col.yyy;
+    function testlocal(tableid, value, adjustText) {
+        var options = new JSONArrayOptions(
+                {columns: [
+                        {name: 'Location', minSize: 3, maxSize: null},
+                        {name: 'Tariff', minSize: 3}]});
+
+        table = getElement(tableid);
+        body  = table.tBodies[0];
+        style = options.getUsed();
+        options.setUsed(true);
+        style = options.getUsed();
+        style = options.getUsed('minSize');
+        options.setUsed('minSize', true);
+        style = options.getUsed('minSize');
+        style = ('a' in test);
+        style = ('x' in test);
+
+        test.a = undefined;
+
+        style = ('a' in test);
+        row = body.insertRow(rowNo++);
+        cell = document.createElement('tr');
+        cell.innerHTML = value;
+        row.appendChild(cell);
+        col = new Column(
+                value,
+                cell,
+                -1,
+                type,
+                precision,
+                scale,
+                false,
+                options);
+        style = col.textWidth;
+        style = col.pub;
+        testCall("col.#priv");
+        style = col.getPriv();
+        cell.setAttribute("style", style);
+        style = readComputedStyle(cell, 'width');
+
+        var wd = parseFloat(style.substring(0, style.length - 2)).toFixed(2);
+        reporter.log(
+                "Value " + rpad(value, 15) +
+                ' size ' + rpad(col.size(), 4) +
+                ' min ' + rpad(col.minSize(), 4) +
+                ' max ' + rpad(col.maxSize(), 4) +
+                ' size ' + rpad(col.size(), 4) +
+                ' textWidth ' + rpad(col.textWidth(), 4) +
+                ' styleWidth ' + rpad(wd, 4) +
+                ' per char ' + rpad((col.textWidth() / col.size()).toFixed(2), 4) +
+                ' adjusted ' + (!isNull(adjustText) && adjustText));
+        return col;
     }
-    cell.setAttribute("style", style);
-    style = readComputedStyle(cell, 'width');
+    testval = testlocal('chargerstable', 'Josh-Alex B', false);
+    testval = testlocal('chargerstable', 'Josh-Alex B', false, true);
+    testval = testlocal('chargerstable', 'Josh-Alex B', true);
+    testval = testlocal('chargerstable', 'Josh-Alex Bt');    
+    testval = testlocal('chargerstable', 'Josh-AlexaBt');   
+    testval = testlocal('chargerstable', 'Josh-AlexABt');
+    testval = testlocal('chargerstable', 'JoshaAlexaBt');
+    testval = testlocal('chargerstable', '1114-01');
+    testval = testlocal('chargerstable', '1114-01', true);
+    testval = testlocal('chargerstable', 'HomePodPoint');
+    testval = testlocal('chargerstable', 'HomePodPoint', true);
+    testval = testlocal('chargerstable', 'HomePodPoint');
     
-    var wd = parseFloat(style.substring(0, style.length - 2)).toFixed(2);
-    reporter.log(
-            "Value "       + rpad(value, 15) + 
-            ' size '       + rpad(col.size(), 4) +
-            ' min '        + rpad(col.minSize(), 4) +
-            ' max '        + rpad(col.maxSize(), 4) +
-            ' size '       + rpad(col.size(), 4) +
-            ' textWidth '  + rpad(col.textWidth(), 4) + 
-            ' styleWidth ' + rpad(wd, 4) +
-            ' per char '   + rpad((col.textWidth() / col.size()).toFixed(2), 4) +
-            ' adjusted '   + (!isNull(adjustText) && adjustText));
-    return col;
-}
-function test2() {    
-    var props = readComputedStyle(getElement('sessionlogtable'));
-    var font;
-    var testval;
-
-    testval = test('chargerstable', 'Josh-Alex B', false, true);
-    testval = test('chargerstable', 'Josh-Alex B', true);
-    testval = test('chargerstable', 'Josh-Alex Bt');    
-    testval = test('chargerstable', 'Josh-AlexaBt');   
-    testval = test('chargerstable', 'Josh-AlexABt');
-    testval = test('chargerstable', 'JoshaAlexaBt');
-    testval = test('chargerstable', '1114-01');
-    testval = test('chargerstable', '1114-01', true);
-    testval = test('chargerstable', 'HomePodPoint');
-    testval = test('chargerstable', 'HomePodPoint', true);
-
-    testval = test('chargerstable', 'HomePodPoint');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-style');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-variant');
     font = readComputedStyle(getElement('sessionlogtable'), 'font-weight');
@@ -726,13 +754,50 @@ function test2() {
     testval = displayTextWidth("MilesAdded", font);
     testval = displayTextWidth("Miles Added", font);
     testval = displayTextWidth("eo70 ecc");
+    
+    var testFilter = getFilter('testKey', document.getElementById('filter'), requestChargeSessions, {
+        allowAutoSelect: true,
+        autoSelect: true,
+        title: 'Test Filter',
+        forceGap: '4px',
+        initialDisplay: false});
+    testFilter.addFilter('CarReg', {name: 'CarReg', values: ''});
+    testFilter.addFilter('ChargerLab', {name: 'Charger', values: 'a,b'});
+    testFilter.addFilter('Field1', {name: 'Field1'});
+    testFilter.addFilter('Field2Lab', {name: 'Field2'});
+    var filterField = getFilterField(testFilter, 'CarReg');
+    filterField = getFilterField(testFilter, 'Charger');
+    filterField = getFilterField(testFilter, 'Field1');
+    filterField = getFilterField(testFilter, 'Field2');
+    testCall("filterField = getFilterField(testFilter, 'Type1')");
+    col.setProperty('xxx', 'Crap', true);
+    testCall("col.setProperty('zzz', 'Crap', false)");
+    testCall("col.setProperty('zzz', 'Crap')");
+    testCall("col.getProperty('abc')");
+    testCall("Column.abc = 'Test'");
+    style = col.getProperty('name');
+    style = col.getProperty('minSize');
+    style = col.hasProperty('abc');
+    style = col.hasProperty('maxSize');
+
+    style = col.xxx;
+    style = 'width:' + col.textWidth() + 'px';
+    testCall("col.yyy = 'MoreCrap'");
+    testCall("col.size = 'Crap'");
+    style = col.yyy;    
 }
 function initialize(loggedIn) {
     if (!loggedIn) return;
     
     reporter.setFatalAction('throw'); 
-    test2();
-    
+    test();
+    let rems = getLocalStorage('requestReminders');
+    let rfrq = getLocalStorage('remFrequency');
+    getReminderAlerts();
+    getList('CarUsage', {
+        name: "carreg",    
+        table: 'Car', 
+        field: 'Registration'});
     sessionFilter = getFilter('filterKey', document.getElementById('filter'), requestChargeSessions, {
         server:          'CarUsage',
         allowAutoSelect: true, 
@@ -755,6 +820,7 @@ function initialize(loggedIn) {
     logFilter.addFilter('CarReg',  {name: 'CarReg',  listTable: 'Car', listColumn: 'Registration'});
     logFilter.addFilter('Device',  {name: 'Device',  listTable: 'SessionLog'});
     logFilter.addFilter('Percent', {name: 'Percent'});
+    
     
     setHidden('updatetable', true);
     setSessionLog(false);

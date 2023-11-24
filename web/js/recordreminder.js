@@ -45,15 +45,6 @@ function checkRefId() {
 
     function processResponse(response) {
         if (!loggedIn) return;
-        /*
-         * The response string includes quotes. So the blank string will have length 2.
-         * When processed by OpenShift the response is a single quote. So if more than 2
-         * characters assume it is the error response.
-         */
-        if (response.length > 2) {
-            displayAlert("Validation Failure", response);
-            valid = false;
-        }
     }
     parameters = addParameterById(parameters, 'refid');
 
@@ -93,7 +84,7 @@ function deleteData() {
     var parameters = createParameters('deletereminder');
 
     parameters = addParameterById(parameters, 'refid');
-
+parameters.
     ajaxLoggedInCall('Reminder', reset, parameters);
 }
 function requestReminders(filter) {

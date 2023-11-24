@@ -99,11 +99,7 @@ function modify(deleteRow) {
         parameters = addParameterById(parameters, 'uorientation');
         parameters = addParameterById(parameters, 'ucomment');
     }
-    function processResponse(response) {
-        if (response.length >= 3) {
-            displayAlert('Validation Error', response);
-            return true;
-        }
+    function processResponse() {
         document.getElementById("ukindividual").value = "";
         document.getElementById("uktimestamp").value  = ""; 
         document.getElementById("ukside").value       = "Left";
