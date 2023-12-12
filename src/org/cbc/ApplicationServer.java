@@ -1,6 +1,15 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * This package is responsible for handling the HTML request and response. Some requests are handled entirely
+ * by the package and the others are passed to sub class override of the abstract processAction. The
+ * subclasses can also override the methods that such as getList that are handled by this package.
+ *
+ * Note: There is a problem with the response method setStatus. This can ignore the setStatus, i.e. it does not
+ *       replace the current value with the new one. This seems to occur after writing to the response using
+ *       the response getWriter() method. Don't see any documentation that says this should happen.
+ *       Could be a bug specific to Tomcat.
+ *
+ *       The package executes setStatus(200) at various points. This is redundant as this is the default value. May
+ *       be better to remove these, to avoid the danger that it overrides an error status code setting.
  */
 package org.cbc;
 
@@ -19,6 +28,7 @@ import java.util.TreeMap;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -49,14 +59,45 @@ import org.cbc.utils.system.SecurityConfiguration;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
-    public class ErrorExit extends RuntimeException {
+    public enum Severity {Validation, Error, ApplicationError};
+    
+    public class ErrorExit extends RuntimeException { 
+        String   message  = null;
+        Severity severity = Severity.Validation;
         
         public ErrorExit(String message) {
             super(message);
         }
+        public ErrorExit(String message, Severity severity) {
+            super(message);
+            this.severity = severity;
+        }
+        public Severity getSeverity() {
+            return severity;
+        }
+        public void setMessage(String message) {
+            this.message = message;
+        }
+        public String getMessage() {
+            return message == null? super.getMessage() : message;
+        }
+        public int getStatus() {
+            switch (severity) {
+                case Validation:
+                    return 400;
+                case Error:
+                    return 410;
+                case ApplicationError:
+                    return 415;
+            }
+            return -1;
+        }
     }
     public void errorExit(String message) {
         throw new ErrorExit(message);
+    }
+    public void invalidAction() {
+        throw new ErrorExit("ActionError", Severity.ApplicationError);
     }
     public void checkExit(boolean test, String message) throws ErrorExit {
         if (test) throw new ErrorExit(message);
@@ -93,7 +134,7 @@ public abstract class ApplicationServer extends HttpServlet {
         sql.setOptions("DISTINCT");
         sql.addField(field);
         sql.setWhere(field + " IS NOT NULL");
-        sql.addAnd( ctx.getParameter("filter"));
+        sql.addAnd(ctx.getParameter("filter"));
         sql.setOrderBy(field);
         
         return sql.build();
@@ -113,15 +154,42 @@ public abstract class ApplicationServer extends HttpServlet {
 
         getList(ctx, table, field);
     }
-    protected void deleteTableRow(Context ctx) throws SQLException, ParseException {
+    protected void changeTableRow(Context ctx) throws SQLException, ParseException {
+        SQLBuilder                        sql;
+        String                            action      = ctx.getParameter("action");
+        boolean                           delete      = true;
+        boolean                           keyRequired = true;
         DatabaseSession.TableDefinition   table   = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
-        ArrayList<DatabaseSession.Column> columns = table.getKeyColumns();       
-        SQLDeleteBuilder                  sql     = ctx.getDeleteBuilder(table.getName());
+        ArrayList<DatabaseSession.Column> columns = table.getColumns(); 
         
-        for (DatabaseSession.Column col : columns) {
-            sql.addAnd(col.getName(), "=", ctx.getParameter(col.getName()), col.getTypeName());
+        switch (action) {
+            case "deleteTableRow":
+                delete = true;
+                sql    = ctx.getDeleteBuilder(ctx.getParameter("table"));
+                break;
+            case "updateTableRow":
+                delete = false;
+                sql    = ctx.getUpdateBuilder(ctx.getParameter("table"));
+                break;
+            case "createTableRow":
+                delete      = false;
+                keyRequired = false;
+                sql         = ctx.getInsertBuilder(ctx.getParameter("table"));
+                break;
+            default:                
+                sql = new SQLDeleteBuilder("", ""); // Prevent null derefencing warnings 
+                throw new ErrorExit("Action " + action + " is not a table action", Severity.ApplicationError);
         }
-        executeUpdate(ctx, sql.build());
+        for (DatabaseSession.Column col : columns) {
+            if (col.isPrimeKeyColumn() && keyRequired) {
+                if (!ctx.existsParameter(col.getName())) 
+                    throw new ErrorExit("Key column " + col.getName() + " is not a parameter", Severity.ApplicationError);
+                
+                sql.addAnd(col.getName(), "=", ctx.getParameter(col.getName()), col.getTypeName());
+            } else if (!delete)
+                sql.addField(col.getName(), ctx.getParameter(col.getName()), col.getTypeName());
+        }
+        executeUpdate(ctx, sql.build());      
     }
     protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
         /*
@@ -261,7 +329,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public boolean getLoginRequired() {
             return loginRequired;
-        }
+        }        
         public boolean getSSHRequired()
         {
             return sshRequired;
@@ -282,8 +350,14 @@ public abstract class ApplicationServer extends HttpServlet {
         private HTTPRequestHandler  handler;
         private HttpServletResponse response;
         private StringBuilder       replyBuffer;
-        private boolean             statusSet = false;
+        private Trace               trace;
         
+        public void setTrace(Trace trace) {
+            this.trace = trace;
+        }
+        public void printTrace(String message) {
+            if (trace != null) trace.report('C', message);
+        }
         public void addAnd(SQLBuilder sql, String field, String operator, String paramName) throws SQLException {
             String value = getParameter(paramName);
             
@@ -306,43 +380,7 @@ public abstract class ApplicationServer extends HttpServlet {
         } 
         public java.sql.Date getSQLDate(Date date) {
             return date == null? null : new java.sql.Date(date.getTime());
-        }   
-        /*
-         * The sqlOnly was introduced to allow the connection to be closed only if the 
-         * db protocol is sqlserver.
-         */      
-        private void close(DatabaseSession db, boolean sqlOnly) throws SQLException {
-            if (db != null && db.isOpen()) {
-                if (db.getProtocol().equals("sqlserver") || !sqlOnly) db.close();
-            }
-        }
-        /*
-         * If sqlOnly the database is closed only if it is sqlserver.
-         *
-         * This was introduced to overcome a problem if the sql server is connected
-         * as a DAC (Dedicated Admin Connection). This occured as a result of incorrectly
-         * setting up the sql server database.
-         *
-         * In the code all calls ctx.close(true) are only required if sql server has been
-         * incorrectly configured.
-         */
-        public void close(boolean sqlOnly) throws SQLException {
-            close(appDb, sqlOnly);
-            close(secDb, sqlOnly);
-            close(remDb, sqlOnly);
-        }
-        public void close() throws SQLException {
-            close(false);
-        }
-        /*
-         * This is part of a work around for a problem with sql server, where connections are being
-         * created as DAC (Dedicated Admin Connection) of which there can only be one.
-         *
-         * This is called at significant points to ensure all connections are closed. DatabaseSession automatically
-         * opens the connection when a method is used that requires a connection.
-         *
-         * Would be better to find out why sql Server connections are created like this, but have failed so far.
-         */
+        }         
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
             Trace           t       = new Trace("openDatabase");
             DatabaseSession session = new DatabaseSession(useMySql? "mysql" : "sqlserver", config.getDbServer(), login.name);
@@ -383,9 +421,17 @@ public abstract class ApplicationServer extends HttpServlet {
         public StringBuilder getReplyBuffer() {
             return replyBuffer;
         }
+        public void outputReplyBuffer() throws IOException {
+            printTrace("Starting response");
+            handler.getResponse().getWriter().println(replyBuffer.toString());
+            printTrace("Response added");
+        }
+        public boolean existsParameter(String name) {
+            return handler.existsParameter(name);
+        }
         public String getParameter(String name, String nullDefault) {
             return handler.getParameter(name, nullDefault);
-        }   
+        }        
         public String getParameter(String name) {
             return handler.getParameter(name);
         }
@@ -414,9 +460,6 @@ public abstract class ApplicationServer extends HttpServlet {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
             }
         }        
-        public boolean existsParameter(String name) {
-            return handler.existsParameter(name);
-        }        
         public Date getTimestamp(String date, String time) throws ParseException {
             String dt = getParameter(date).trim();
             String tm = getParameter(time).trim();
@@ -436,9 +479,18 @@ public abstract class ApplicationServer extends HttpServlet {
         public Date getDate(String date) throws ParseException {
             return getTimestamp(date);
         }
-        public void setStatus(int status) {
-            statusSet = true;
+        public void setStatus(int status, String location) {
             handler.getResponse().setStatus(status);
+            
+            int stat = handler.getResponse().getStatus();
+            /*
+             * This was introduced while investigating the setStatus issue described in the note at
+             * the top of this package.
+             */            
+            if (stat != status) Report.error(location, (location == null? "" : "From " + location + " ") + "setStatus ignored new status " + status + " still set to " + stat);
+        }
+        public void setStatus(int status) {
+            setStatus(status, null);
         }
         public void dumpRequest(String reason) throws ServletException, IOException {            
             handler.dumpRequest(reason);
@@ -853,12 +905,12 @@ public abstract class ApplicationServer extends HttpServlet {
     }
     private void rollback(Context ctx, int status) {
         rollback(ctx);
-        ctx.setStatus(status);
+        ctx.setStatus(status, "rollback");
     }
     private void reply(Context ctx, Exception ex, int status) {
         Report.error("ErRep", ex);
-        ctx.getReplyBuffer().append(ex.getMessage());  
         rollback(ctx, status);
+        ctx.getReplyBuffer().append(ex.getMessage());  
     }
     public abstract String getVersion();
     public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
@@ -1087,12 +1139,22 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         return false;
     }
+    /*
+     * The specific application code can override this if it wants to perform additional procesing for the
+     * the actions handled by the application code,
+     *
+     * Implementations should ignore actions that are not relevant to them, i.e. it should not generate
+     * an error for them.
+     */
+    protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException {
+        
+    }
     private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException, NoSuchAlgorithmException, ParseException, JSONException {
-        Trace  t      = new Trace("ASProcessAction");
-        String action = ctx.getParameter("action");
+        Trace  t         = new Trace("ASProcessAction");
+        String action    = ctx.getParameter("action");
+        boolean complete = true;
         
         t.report('C', action);
-        ctx.close(true);
         /*
          * Start with the actions that don't require the user to be logged in.
          */     
@@ -1115,12 +1177,17 @@ public abstract class ApplicationServer extends HttpServlet {
             /*
              * All the actions from here on require the user to be logged in.
              */
+            complete = true;
+            completeAction(ctx, true);
+            
             switch (action) {
                 case "getList":
                     getList(ctx);
                     break;
+                case "createTableRow":
+                case "updateTableRow":
                 case "deleteTableRow":
-                    deleteTableRow(ctx);
+                    changeTableRow(ctx);
                     break;
                 case "loggedin":
                     ctx.getReplyBuffer().append(security.isLoggedIn() ? "true" : "false");
@@ -1139,8 +1206,13 @@ public abstract class ApplicationServer extends HttpServlet {
                     remindersDue(ctx, true);
                     break;
                 case "":
-                    ctx.getHandler().dumpRequest("No action parameter");
-                    break;
+                    /*
+                     * Setting the null parameter to response causes a problem. Writing to the response seems to
+                     * cause subsequent setStatus calls to be ignored.
+                     */
+                    ctx.getHandler().dumpRequest(null, "No action parameter");
+                    invalidAction();
+                    break;               
                 default:
                     if (!config.getAppName().equals("Reminder") && !reminder.getNoAlerts()) {
                         /*
@@ -1148,12 +1220,12 @@ public abstract class ApplicationServer extends HttpServlet {
                         */
                         remindersDue(ctx, false);
                     }       
-                    ctx.close(true);
+                    complete = false;
                     processAction(ctx, action);
                     break;
             }
+            if (complete) completeAction(ctx, false);
         }
-        if (!ctx.statusSet) ctx.setStatus(200);
     }    
     @Override
     public void init(ServletConfig config) throws ServletException{ 
@@ -1191,6 +1263,26 @@ public abstract class ApplicationServer extends HttpServlet {
         t.report('C', "Servlet name " + config.getServletName() + " started");
         t.exit();
     }
+    /*
+     * Currently the mysql flag is passed in the action parameters. It makes more sense to pass it in the
+     * session data, and set it in the session data at log on.
+     * 
+     * This method looks in both places and uses the parameters by preference. Eventually will be changed
+     * to use the session data by preference once the client side has been changed to use session data only.
+     */
+    protected boolean getMySQL(Context ctx) {
+        Cookie cookie = ctx.getHandler().getCookie("mysql");
+        String mysqlp = ctx.getParameter("mysql");
+        String mysqlc = cookie == null? "" : cookie.getValue();
+        
+        if (mysqlp.length() != 0) {
+            if (mysqlc.length() != 0 && !mysqlp.equals(mysqlc)) 
+                Report.error(null,"Session mysql " + mysqlc + " does equal parameter mysql " + mysqlp);
+        } else
+            mysqlp = mysqlc;
+        
+        return mysqlp.equalsIgnoreCase("true");
+    }
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Thread.attach(config.getAppName());
         Measurement m   = new Measurement();
@@ -1202,10 +1294,11 @@ public abstract class ApplicationServer extends HttpServlet {
         ctx.replyBuffer = new StringBuilder();
         
         String  action     = ctx.getParameter("action");
-        boolean useMySql   = ctx.getParameter("mysql").equalsIgnoreCase("true");
+        boolean useMySql   = getMySQL(ctx);
         int     maxRepeats = 5;
         int     repeat     = 0;
         
+        ctx.setTrace(t);
         try {
             Report.comment(null, "processRequest called with action " + action + " sessionId " + ctx.getHandler().getCookie("sessionid") + " mysql " + useMySql + " default " + System.getProperty("user.dir"));
             
@@ -1241,11 +1334,12 @@ public abstract class ApplicationServer extends HttpServlet {
                     repeat++;
                 }
             }
-            ctx.close();
         } catch (SQLException ex) {
             reply(ctx, ex, 410);
-        } catch (ErrorExit ex) {
-            reply(ctx, ex, 400);
+        } catch (ErrorExit ex) {          
+            if (ex.getMessage().equals("ActionError")) ex.setMessage(action.length() == 0? "No action parameter" : "Action " + action + " is invalid");
+            
+            reply(ctx, ex, ex.getStatus());
         } catch (IOException | ServletException ex) {
             reply(ctx, ex, 400);
         } catch (ParseException | NoSuchAlgorithmException | JSONException ex) {
@@ -1253,9 +1347,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         if (repeat != 0) t.report('C', "Deadlock count " + repeat);
         
-        t.report('C', "Starting response");
-        response.getWriter().println(ctx.getReplyBuffer().toString());
-        t.report('C', "Response added");
+        ctx.outputReplyBuffer();
         
         if (response.getStatus() != 200) t.report('C', ctx.getReplyBuffer().toString());
         

@@ -1,5 +1,19 @@
 'use strict';
 
+function globalError(message, file, line, column, error) {
+    let location = '';
+    let cause    = 'Error';
+    
+    if (!isNull(file)) {
+        location = file.split("/");
+        location = location[location.length - 1] + '(' + line + ')';
+    }
+    if (error.constructor.name === 'ErrorObject') {
+        cause = error.getName();
+        message = error.getMessage();
+    }
+    displayAlert(cause, message + ' at ' + location);
+}
 function Statistics(enabled) {
     this.start;
     this.id         = createUID(3);
@@ -281,6 +295,28 @@ function clearValues(elementMap, exclude) {
 }
 function getParameters(id) {
     return getElements('#' + id + ' :is(select:not(.notparam), checkbox:not(.notparam), input:not(.notparam), textarea');
+}
+class screenFields {
+    #fields;
+    #id;
+    
+    constructor(elementid) {
+        this.#id     = elementid;
+        this.#fields = getParameters(elementid);
+        
+        if (isNull(this.#fields)) throw 'Element ' + elementid + ' passed to screenFields does not exist';
+    }
+    set(field, value, mustExist) {
+        var elm = this.#fields.get(field);
+        
+        if (isNull(elm)) {
+            if (defaultNull(mustExist, true)) throw 'Field ' + field + ' is not present in screenFields ' + this.#id;
+            else return false;
+        } else
+            elm.value = value;       
+        
+        return true;
+    }
 }
 /*
  * object can be one of the following:
@@ -1410,6 +1446,7 @@ function JSONArrayColumnOptions(pOptions) {
  * - wrapHeader    If true, the header size is determined by the largest field resulting from splitting on space,
  *                 e.g. if the column header is 'Multiple Field Heading', the size is determined by Multiple.
  * - usePrecision  If true, column size is set to the database precision, rather than size of the maximum sized.
+ * - setTableName  If true, the table name attribute is set to Table name returned in the json data.
  */
 function JSONArrayOptions(pOptions) {    
     BaseOptions.call(this, false);
@@ -1434,6 +1471,7 @@ function JSONArrayOptions(pOptions) {
     this.addSpec({name: 'splitName',     type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'wrapHeader',    type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'usePrecision',  type: 'boolean', default: false,  mandatory: false});
+    this.addSpec({name: 'setTableName',  type: 'boolean', default: false,  mandatory: false});
         
     this.clear();
     this.load(pOptions);
@@ -2489,7 +2527,7 @@ function loadJSONArray(jsonArray, id, options) {
         var tableSizer;
         var jval;
         var row;
-        
+        var svrName    = json.getMember('Table').value;
         /*
          * If the element is not a table, search for the first child that is a table. If there is no
          * child table, create one and make table the parent.
@@ -2504,6 +2542,7 @@ function loadJSONArray(jsonArray, id, options) {
             } else
                 table = tabs[0];
         }
+        if (options.setTableName) table.setAttribute('Name', svrName);
         if (isNull(table.tBodies[0])) table.createTBody();
         
         clearTable(table);
@@ -2879,6 +2918,7 @@ function getReminderAlerts(server, callerParams) {
         if (dateDiff(new Date(last), new Date(), 'Minutes') < getLocalStorage('remInterval')) return;
     }
     function processResponse(response) {
+        setLocalStorage('remLast', (new Date()).toString());
         reporter.log('getReminderAlerts response ' + response);
     }
     ajaxLoggedInCall(defaultNull(server, 'Reminder'), processResponse, parameters, false);
@@ -2921,11 +2961,15 @@ function ajaxCall(destination, parameters, processResponse, async) {
                     console.log('No processResponse defined, but response has the following data-' + response);
                 break;
             case 400:
-                displayAlert('Validation Failure', response);
+                displayAlert('Server Error', response);
                 break;
             case 410:
                 console.log(response);
                 displayAlert('Error', response);
+                break;
+            case 415:
+                console.log(response);
+                displayAlert('Application Error', response);
                 break;
             default:
                 alert("HTTP error " + request.status + ": " + response);

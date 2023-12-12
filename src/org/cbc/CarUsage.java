@@ -84,7 +84,7 @@ public class CarUsage extends ApplicationServer {
 
         if (!ctx.getParameter("logupdates").equalsIgnoreCase("true")) return;
             
-        sql.addField("CarReg", ctx.getParameter("carreg"));
+        sql.addField("CarReg",   ctx.getParameter("carreg"));
         sql.addField("Session",  ctx.getTimestamp("sdatetime"));
         
         switch (action) {
@@ -278,27 +278,25 @@ public class CarUsage extends ApplicationServer {
                     data.append(ctx.getReplyBuffer(), "");
                     break;
                 }
-            case "sessionlog":
-                {             
-                    JSONObject       data   = new JSONObject();
-                    ResultSet        rs;
-                    SQLSelectBuilder sql    =  ctx.getSelectBuilder("SessionLog");
-                    sql.setProtocol(ctx.getAppDb().getProtocol());
-                    sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
-                    sql.addField("*");
-                    sql.addAnd(ctx.getParameter("filter"));
-                    sql.addOrderByField("Timestamp", true);
-                    rs = executeQuery(ctx, sql);
-                    data.add("SessionLog", rs);
-                    data.append(ctx.getReplyBuffer(), "");
-                    break;
-                }
+            case "sessionlog": {
+                JSONObject      data = new JSONObject();
+                ResultSet         rs;
+                SQLSelectBuilder sql = ctx.getSelectBuilder("SessionLog");
+                sql.setProtocol(ctx.getAppDb().getProtocol());
+                sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
+                sql.addField("*");
+                sql.addAnd(ctx.getParameter("filter"));
+                sql.addOrderByField("Timestamp", true);
+                rs = executeQuery(ctx, sql);
+                data.add("SessionLog", rs);
+                data.append(ctx.getReplyBuffer(), "");
+                break;
+            }
             case "getList":
                 getList(ctx);
                 break;
             default:
-                ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid"); 
+                invalidAction();
                 break;
         }
     }

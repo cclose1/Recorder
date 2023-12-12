@@ -7,25 +7,25 @@ var tariffsFilter;
 
 function copyFld(fromFlds, fromName, toFlds, toName) {
     toName = defaultNull(toName, fromName);
-    
+
     copyElement(fromFlds.get(fromName), toFlds.get(toName));
 }
 function reset() {
-    clearValues(getParameters('detailfields'));                                             
+    clearValues(getParameters('detailfields'));
     requestReadings();
 }
 function resetDelete(cancel) {
     let dflds = getParameters('deletefields');
     let rflds = getParameters('detailfields');
-    
+
     if (!cancel) {
         if (dflds.get('Copy').checked) {
             reset();
-            copyFld(dflds, 'Date',      rflds);
-            copyFld(dflds, 'Time',      rflds);
+            copyFld(dflds, 'Date', rflds);
+            copyFld(dflds, 'Time', rflds);
             copyFld(dflds, 'Estimated', rflds);
-            copyFld(dflds, 'Comment',   rflds);
-            
+            copyFld(dflds, 'Comment', rflds);
+
             switch (dflds.get('Type').value) {
                 case "Gas":
                     copyFld(dflds, 'Reading', rflds, 'Gas');
@@ -33,48 +33,72 @@ function resetDelete(cancel) {
                 case "Electric":
                     copyFld(dflds, 'Reading', rflds, 'Electric');
                     break;
+                case "Export":
+                    copyFld(dflds, 'Reading', rflds, 'Export');
+                    break;
                 case "Solar":
                     copyFld(dflds, 'Reading', rflds, 'Solar');
                     break;
             }
-        }           
-        requestReadings();            
+        }
+        requestReadings();
     }
     clearValues(dflds);
     setHidden('deletefields', true);
 }
-function actionTariff(action) {
-    if (action === undefined) action = event.target.value;
+function actionTariff(action, fields) {
+    action = defaultNull(action, event.target.value);
     
-    let flds = getParameters('tariff');
+    let flds = getParameters(defaultNull(fields, 'tariff'));
     let check;
     let parameters;
     let hasValues;
-    
+
     switch (action) {
         case "Create":
-            
-            if (!fieldHasValue(flds.get('Date'))) return;
-            
+            if (!fieldHasValue(flds.get('Date')))
+                return;
+
             hasValues = valuesAllOrNone(flds.get('Gas UnitRate'), flds.get('Gas StandingCharge'), flds.get('CalorificValue'));
-            
-            if (hasValues === null) return;
-            
-            check  = valuesAllOrNone(flds.get('Electric UnitRate'), flds.get('Electric StandingCharge'));
-            
-            if (check === null) return;
-            
+
+            if (hasValues === null)
+                return;
+
+            check = valuesAllOrNone(flds.get('Electric UnitRate'), flds.get('Electric StandingCharge'));
+
+            if (check === null)
+                return;
+
             if (!hasValues && !check) {
                 displayAlert('Validation Error', 'Must set values for at least one of Gas or Electric');
                 return;
             }
             parameters = createParameters('CreateTariff', flds);
-            
+            setHidden('modifytariff', true);
             break;
         case "Cancel":
+            clearValues(flds, 'Code');
+            return;
+            break;
+        case "Modify":
+            parameters = createParameters(
+                'updateTableRow',
+                flds, 
+                [{name: 'table', value: 'Tariff'}]);
+            break;
+        case "Delete":
+            parameters = createParameters(
+                'deleteTableRow',
+                flds, 
+                [{name: 'table', value: 'Tariff'}]);
+            break;
+        case "CancelModify":
+            clearValues(flds);
+            setHidden('modifytariff', true);
+            return;
             break;
         default:
-            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');            
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
     }
     function processResponse(response) {
         clearValues(flds, 'Code');
@@ -83,24 +107,26 @@ function actionTariff(action) {
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function send(action) {
-    if (action === undefined) action = event.target.value;
-    
+    action = defaultNull(action, event.target.value);
+
     var parameters = createParameters(action);
     let flds = null;
-   
+
     switch (action) {
         case "Create":
             flds = getParameters('detailfields');
             parameters = createParameters(action, flds);
-            
-            if (!fieldHasValue(flds.get('Date'))) return;
-            
+
+            if (!fieldHasValue(flds.get('Date')))
+                return;
+
             break;
         case "Delete":
             flds = getParameters('deletefields');
             parameters = createParameters(action, flds);
-            
-            if (!fieldHasValue(flds.get('Date'))) return;
+
+            if (!fieldHasValue(flds.get('Date')))
+                return;
             break;
         case "Cancel":
             resetDelete(true);
@@ -111,7 +137,7 @@ function send(action) {
             return;
             break;
         default:
-            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');            
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
     }
 
     function processResponse(response) {
@@ -122,26 +148,50 @@ function send(action) {
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function readingsRowClick(row) {
+function loadFieldsDateTime(fields, dateField, timeField, timestamp) {
+    if (isNull(timeField))
+        fields.get(dateField).value = timestamp;
+    else {
+        var tmflds = timestamp.split(" ");
+
+        if (tmflds.length === 2) {
+            fields.get('Date').value = tmflds[0];
+            fields.get('Time').value = tmflds[1];
+        }        
+    }
+}
+/*
+ * 
+ * row    Clicked row.
+ * source Database source providing the html table data.
+ * 
+ * source is not actually used. The loadJSONArray option setTableName means it's the name property of the html
+ * table. Hence source will have the same value as src.
+ */
+function readingsRowClick(row, source) {
     var rdr = new rowReader(row);
+    let src = row.parentElement.parentElement.getAttribute('name');
     let flds = getParameters('deletefields');
-    
+
+    if (src !== 'Meter') {
+        displayAlert('Warning', 'Click on row only implemented when readings sourced from Meter');
+        return;
+    }
     while (rdr.nextColumn()) {
-        var value   = rdr.columnValue();
-        
+        var value = rdr.columnValue();
+
         switch (rdr.columnName()) {
             case 'Timestamp':
             case 'Start':
-                var fields = value.split(" ");
-
-                if (fields.length === 2) {
-                    flds.get('Date').value = fields[0];
-                    flds.get('Time').value = fields[1];
-                }
+                loadFieldsDateTime(flds, 'Date', 'Time', value);
                 break;
+            case 'Meter':
+                flds.get('Meter').value = value;
+                break;
+
             case 'Type':
-                    flds.get('Type').value = value;
-                    getElement("labunits").innerHTML = value === 'Gas' ? 'Ft3' : 'Kwh';
+                getElement("labunits").innerHTML = value === 'Gas' ? 'Ft3' : 'Kwh';
+                flds.get('Type').value = value;
                 break;
             case 'Reading':
             case 'StartReading':
@@ -159,20 +209,66 @@ function readingsRowClick(row) {
     flds.get('Copy').checked = false;
     setHidden('deletefields', false);
 }
+function menuClick(option) {
+    setHidden('meter', option !== 'meter');
+    setHidden('rates', option !== 'rates');
+}
 function tariffsRowClick(row) {
-    
+    var rdr  = new rowReader(row);
+    let flds = new screenFields('modifytariff');
+
+    while (rdr.nextColumn()) {
+        var value = rdr.columnValue();
+
+        switch (rdr.columnName()) {
+            case 'Start':
+                flds.set('Start', value);
+                break;
+            case 'End':
+                flds.set('End', value);
+                break;
+            case 'Type':
+                flds.set('Type', value);
+                break;
+            case 'Tariff':
+                flds.set('Code', value);
+                break;
+            case 'UnitRate':
+                flds.set('UnitRate', value);
+                break;
+            case 'StandingCharge':
+                flds.set('StandingCharge', value);
+                break;
+            case 'CalorificValue':
+                flds.set('CalorificValue', value);
+                break;
+            case 'Comment':
+                flds.setComment('Type', value);
+                break;
+        }
+    }
+    setHidden('modifytariff', false);
 }
 function requestReadings() {
-    var readings   = getElement('readings').value;
-    var parameters = createParameters('readingshistory');
+    let readings = getElement('readings').value;
+    let parameters = createParameters('readingshistory');
 
     function processResponse(response) {
-        loadJSONArray(response, "history", {maxSize: 19, onClick: "readingsRowClick(this)"});
+        /*
+         * The first attempt to readings as parameter, to identify the data source failed due to a coding error. This
+         * was done instead using setTableName to get it from the json response.
+         * 
+         * Fixing the coding error means the setTableName is no longer required, but is left in as an example.
+         * 
+         * Note: For a variable to be included in the processResponse closure, it must be referenced.
+         *       Hence readings is included but parameters is not.
+         */
+        loadJSONArray(response, "history", {maxSize: 19, onClick: "readingsRowClick(this, '" + readings + "')", setTableName: true});
     }
     parameters = addParameter(parameters, 'readings', readings);
-    
+
     parameters = readingsFilter.addFilterParameter(parameters);
-    
+
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function requestTariffs() {
@@ -182,75 +278,77 @@ function requestTariffs() {
         loadJSONArray(response, "tariffs", {maxSize: 19, onClick: "tariffsRowClick(this)"});
     }
     parameters = tariffsFilter.addFilterParameter(parameters);
-    
+
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function test(elapsed) {
-    let sec  = Math.trunc(elapsed/1000);
+    let sec = Math.trunc(elapsed / 1000);
     let msec = elapsed % 1000;
-    
+
     let res = lpad(sec, 2, ' ') + '.' + lpad(msec, 3, '0');
-    
+
     return res;
 }
-function initialize(loggedIn) {    
-    if (!loggedIn) return;
-    
-    reporter.setFatalAction('error'); 
-    
+function initialize(loggedIn) {
+    if (!loggedIn)
+        return;
+
+    reporter.setFatalAction('error');
+
     test(900);
     test(1100);
     test(100);
     test(1);
     test(20);
     getList('Energy', {
-        name: "tariffcode",    
-        table: 'TariffName', 
+        name: "tariffcode",
+        table: 'TariffName',
         field: 'Code',
         async: true});
     getList('Energy', {
-        name: "tariffcode",    
-        table: 'TariffName', 
+        name: "tariffcode",
+        table: 'TariffName',
         field: 'Code',
-        async: false});   
+        async: false});
     reporter.logStore();
     readingsFilter = getFilter('readingskey', getElement('readingsfilter'), requestReadings, {
-        allowAutoSelect: true, 
-        autoSelect:      true,
-        title:           'Filter Readings',
-        forceGap:        '4px',
-        initialDisplay:  false,
-        popup:           true});
-    
+        allowAutoSelect: true,
+        autoSelect: true,
+        title: 'Filter Readings',
+        forceGap: '4px',
+        initialDisplay: false,
+        popup: true});
+
     readingsFilter.addFilter(
             'Types', {
-                name:   'Type',      
+                name: 'Type',
                 values: 'Gas,Electric,Solar'});
     readingsFilter.addFilter(
             'Estimated', {
                 name: 'Estimated',
                 values: ',Y,N'});
     requestReadings();
-    
-    tariffsFilter = getFilter('tariffkey', getElement('tariffsfilter'), requestTariffs,{
-        server:          'Energy',
-        allowAutoSelect: true, 
-        autoSelect:      true,
-        title:           'Filter Tariff',
-        forceGap:        '4px',
-        initialDisplay:  true,
-        trigger:         getElement('tariffsfilter')});
-    
+
+    tariffsFilter = getFilter('tariffkey', getElement('tariffsfilter'), requestTariffs, {
+        server: 'Energy',
+        allowAutoSelect: true,
+        autoSelect: true,
+        title: 'Filter Tariff',
+        forceGap: '4px',
+        initialDisplay: true,
+        trigger: getElement('tariffsfilter')});
+
     tariffsFilter.addFilter(
             'Tariff', {
-                name:       'Code',  
-                listTable:  'TariffName',             
+                name: 'Code',
+                listTable: 'TariffName',
                 listColumn: 'Code'});
     tariffsFilter.addFilter(
             'Types', {
-                name:   'Type',      
+                name: 'Type',
                 values: 'Gas,Electric'});
     getElement('tariffcode').value = 'SSEStd';
+    getElement('menu1').checked = true;
     requestReadings();
     requestTariffs();
     setHidden('deletefields', true);

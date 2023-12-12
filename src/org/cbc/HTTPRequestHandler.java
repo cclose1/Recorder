@@ -41,29 +41,36 @@ public class HTTPRequestHandler {
     public HttpServletResponse getResponse() {
         return response;
     }
-    public void dumpRequest() {
-        for (Enumeration e = request.getHeaderNames(); e.hasMoreElements();) {
-            String name = (String) e.nextElement();
-            
-            dumpLine(null, "Property " + name + "=" + request.getHeader(name));
+    private void outputRequest(PrintWriter out, boolean paramsOnly) {
+        if (!paramsOnly) {
+            for (Enumeration e = request.getHeaderNames(); e.hasMoreElements();) {
+                String name = (String) e.nextElement();
+
+                dumpLine(out, "Property " + name + "=" + request.getHeader(name));
+            }
         }
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements();) {
             String parameter = (String) e.nextElement();
             
-            dumpLine(null, "Parameter " + parameter + "= " + request.getParameter(parameter));
-        }
+            dumpLine(out, "Parameter " + parameter + "= " + request.getParameter(parameter));
+        }        
     }
+    public void dumpRequest() {
+        outputRequest(null, false);
+    }
+    /*
+     * Setting the response to null causes the dump to go to the comment stream only.
+     * 
+     * If the response is not null it is also written to response. On reflection this does not appear
+     * to be particularly useful, particularly as it seems to cause subsequent setStatus calls to be ignored.
+     */
     public void dumpRequest(HttpServletResponse response, String reason) throws ServletException, IOException {
-
         PrintWriter out = response == null? null : response.getWriter();
         try {
             dumpLine(out, "Servlet Message " + request.getContextPath() + " fail reason " + reason);
             dumpLine(out, "Query String    " + request.getQueryString());
-
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements();) {
-                String parameter = (String) e.nextElement();
-                dumpLine(out, "Parameter       " + parameter + "= " + request.getParameter(parameter));      
-            }
+            
+            outputRequest(out, true);
         } finally {
             if (out != null) out.close();
         }

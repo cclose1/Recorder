@@ -13,10 +13,12 @@ import java.util.Date;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
+import org.cbc.application.reporting.Report;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
+import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.system.Calendar;
 
 /**
@@ -25,18 +27,34 @@ import org.cbc.utils.system.Calendar;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public class RecordEnergy extends ApplicationServer {
+    private String getMeter(Context ctx, Date timestamp, String type) throws SQLException, ParseException {
+        SQLSelectBuilder sel = ctx.getSelectBuilder("Meter");
+        String           ts  = ctx.getDbTimestamp(timestamp);
+        ResultSet        rs;
+       
+        sel.addField("Identifier");
+        sel.addAnd("Type", "=", type);
+        sel.addAnd("Installed", "<=", ts);
+        sel.setWhere("AND ('" + ts + "' <= Removed OR Removed IS NULL)");
+        rs = executeQuery(ctx, sel);
+        
+        return rs.next()? rs.getString("Identifier") : "";
+    }
     private SQLSelectBuilder getReadingsSQL(Context ctx, String readings) throws SQLException {
         SQLSelectBuilder sel;
 
         if (readings.equals("Meter")) {
-            sel = ctx.getSelectBuilder("MeterReading");
+            sel = ctx.getSelectBuilder(null);
 
             sel.addField("Timestamp");
             sel.addField("Weekday");
             sel.addField("Reading");
+            sel.addField("Meter");
             sel.addField("Type");
-            sel.addField("Estimated", sel.setValue(""));
-            sel.setOrderBy("Timestamp DESC, Type");
+            sel.addField("Estimated",  sel.setValue(""));
+            sel.addField("Comment",    sel.setFieldSource("MR.Comment"), sel.setValue(""));
+            sel.setFrom("MeterReading AS MR LEFT JOIN Meter AS MT ON Meter = Identifier");
+            sel.setOrderBy("Timestamp DESC, Meter");
         } else {
             sel = ctx.getSelectBuilder("BoundedReading");
 
@@ -48,10 +66,10 @@ public class RecordEnergy extends ApplicationServer {
             sel.addField("StartEstimated");
             sel.addField("EndReading");
             sel.addField("Kwh");
+            sel.addField("Comment", sel.setValue(""));
             sel.setOrderBy("Start DESC, Type");
         }
         sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
-        sel.addField("Comment", sel.setValue(""));
         sel.addAnd(ctx.getParameter("filter"));
 
         return sel;
@@ -87,8 +105,23 @@ public class RecordEnergy extends ApplicationServer {
 
     }
     @Override
-    protected void getList(Context ctx) throws SQLException, ParseException, JSONException {
-        super.getList(ctx);
+    protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException {
+        String action        = ctx.getParameter("action");
+        SQLUpdateBuilder sql = null;
+        
+        if (start) return;
+        
+        if (!(action.equals("deleteTableRow") && ctx.getParameter("table").equals("Tariff"))) return;
+        
+        sql = ctx.getUpdateBuilder(ctx.getParameter("table"));
+        
+        sql.addAnd("End", "=", ctx.getTimestamp("Start"));
+        sql.addAnd("Code", "=", ctx.getParameter("Code"));        
+        sql.addAnd("Type", "=", ctx.getParameter("Type"));
+        
+        sql.addField("End");
+        
+        executeUpdate(ctx, sql);
     }
     private boolean addTariff(Context ctx, String type) throws ParseException, SQLException {
         SQLInsertBuilder sql      = ctx.getInsertBuilder("Tariff");
@@ -134,6 +167,7 @@ public class RecordEnergy extends ApplicationServer {
         SQLInsertBuilder sql       = ctx.getInsertBuilder("MeterReading");
         EnclosingRecords er        = new EnclosingRecords(ctx, "MeterReading");
         Date             timestamp = ctx.getTimestamp("Date", "Time");
+        String           meter     = getMeter(ctx, timestamp, type);
         double           reading   = ctx.getDouble(type,       -2);
         String           estimated = ctx.getParameter("Etimated").equalsIgnoreCase("true") ? "Y" : "";
         ResultSet        upper;
@@ -143,9 +177,8 @@ public class RecordEnergy extends ApplicationServer {
         
         if (reading <= -2) return false;
 
-        er.addField("Code",      ctx.getParameter("Code"), true);
-        er.addField("Type",      type,                     true);
-        er.addField("Timestamp", timestamp,                false);
+        er.addField("Meter",     meter,     true);
+        er.addField("Timestamp", timestamp, false);
         
         lower = er.getBefore();
         upper = er.getAfter();
@@ -175,7 +208,7 @@ public class RecordEnergy extends ApplicationServer {
             estimated = "Y";
         }
         sql.addField("Timestamp", timestamp);
-        sql.addField("Type",      type);
+        sql.addField("Meter",     meter);
         sql.addField("Reading",   reading);
         sql.addField("Estimated", estimated);
         sql.addField("Comment",   ctx.getParameter("Comment"));
@@ -198,7 +231,8 @@ public class RecordEnergy extends ApplicationServer {
         switch (action) {
             case "Create":
                 if (addReading(ctx, "Gas"))      commit = true;
-                if (addReading(ctx, "Electric")) commit = true;                
+                if (addReading(ctx, "Electric")) commit = true;
+                if (addReading(ctx, "Export"))   commit = true;                
                 if (addReading(ctx, "Solar"))    commit = true;
                 
                 if (!commit) throw new ErrorExit("At least 1 reading is required");
@@ -209,7 +243,7 @@ public class RecordEnergy extends ApplicationServer {
             case "Delete":
                 del = ctx.getDeleteBuilder("MeterReading");
                 del.addAnd("Timestamp", "=", ctx.getTimestamp("Date", "Time"));
-                del.addAnd("Type",      "=", ctx.getParameter("Type"));
+                del.addAnd("Meter",     "=", ctx.getParameter("Meter"));
                 executeUpdate(ctx, del.build());
                 ctx.getAppDb().commit();
                 ctx.setStatus(200);
@@ -218,7 +252,7 @@ public class RecordEnergy extends ApplicationServer {
                 readings = ctx.getParameter("readings");
                 sel      = getReadingsSQL(ctx, readings);;
                 rs       = executeQuery(ctx, sel);
-                data.add("history", rs);
+                data.add(readings, rs);
                 data.append(ctx.getReplyBuffer());
                 ctx.setStatus(200);
                 break;
@@ -240,12 +274,13 @@ public class RecordEnergy extends ApplicationServer {
                 ctx.getAppDb().commit();
                 ctx.setStatus(200);
                 break;
+            case "DeleteTariff":
+                break;
             case "getList":
                 getList(ctx);
                 break;
             default:
-                ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
+                invalidAction();
                 break;
         }
     }

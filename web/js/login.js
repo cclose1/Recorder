@@ -161,6 +161,7 @@ function login(server, event) {
         displayAlert("Validation Failure", "Must enter a value for both New Password and Confirm Password or neither");
         return;
     }
+    setCookie('mysql', getMYSQL());
     setLocalStorage('requestReminders', false);
     parameters = addParameter(parameters, "mysql", getMYSQL());
     parameters = addLoginParameter(parameters, "user");
@@ -203,7 +204,8 @@ function configureLogin(secserver, homeElementId) {
 function connectToServer(server, homeElementId, reset) {
     configureLogin(server, homeElementId);
     appMYSQLUpdater = document.getElementById('mysqldiv');
-    appReset        = reset;
+    appReset        = reset;   
+    window.onerror  = globalError;
     
     if (reset !== undefined) appReset(serverAcceptingRequests(server));
 }

@@ -430,22 +430,29 @@ function updateLog(action) {
     let flds       = getParameters('updatelog');
     let parameters = '';
     
-    function processREsponse() {
+    function processResponse() {
         requestSessionLog();
     }
     switch (action) {
+        case "Update":
+            action = 'updateTableRow';
+            break;
         case "Delete":
-            parameters = createParameters(
-                    'deleteTableRow', 
-                    flds, 
-                    [{name: 'table', value: 'ChargeSessionLog'}]);
-            ajaxLoggedInCall("CarUsage", processREsponse, parameters, false);
+            action = 'deleteTableRow';
             break;
         case "Cancel":
+            action = '';
             break;
         default:
             throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');            
     }
+    if (action !== '') {
+        parameters = createParameters(
+                action,
+                flds, 
+                [{name: 'table', value: 'ChargeSessionLog'}]);
+        ajaxLoggedInCall("CarUsage", processResponse, parameters, false);
+    }    
     clearValues(flds);
     setHidden('updatelog', true);
 }

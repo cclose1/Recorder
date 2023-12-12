@@ -24,9 +24,22 @@
         </div>        
         <form class="frame" id="appframe" autocomplete="off">
             <h1>Record Energy Usage</h1>
+            <fieldset class='centreminwidth form'>
+                <legend>Select Function</legend>
+                <div>
+                    <div>
+                        <input type="radio" id="menu1" name="menu" value="meter" onclick="menuClick(this.value)" />
+                        <label for="menu1" class="left largelab">Enter Readings</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="menu2" name="menu" value="rates" onclick="menuClick(this.value)"/>
+                        <label for="menu2" class="left largelab">Manage Tariffs</label>
+                    </div>
+                </div>
+            </fieldset>
             <div class="innerfields">
-                <div class='floatleft'>
-                    <fieldset id="detailfields" class='form'>
+                <div id="meter" class='floatleft'>
+                    <fieldset id="detailfields" class='centreminwidth form'>
                         <legend>Meter Readings</legend>
                         <div>
                             <div>
@@ -43,6 +56,11 @@
                             <div>
                                 <label for="electric">Electric</label>
                                 <input type= "text" name="Electric" id="electric" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                                Kwh
+                            </div>
+                            <div>
+                                <label for="export">Export</label>
+                                <input type= "text" name="Export" id="export" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
                                 Kwh
                             </div>
                             <div>
@@ -80,10 +98,19 @@
                                 <input name='Show Filter' class='notparam' type="checkbox" onclick="setFilterVisible('readingskey');">
                             </div>
                         </div>
+                        <!-- Layout looks wrong. Perhaps look at later to understand why.
+                        <div>
+                            <iframe id="readingsfilter" src="Filter.html" scrolling="no" frameborder="0" class='form filter'>
+                            </iframe>
+                        </div>
+                        -->
+                        <fieldset id="readingsfilter" class='form filter'>
+                        </fieldset>
                     </fieldset>
-                    <fieldset id="deletefields" class='form'>                        
+                    <fieldset id="deletefields" class='centreminwidth form'>                        
                         <legend>Delete Reading</legend>
                         <div>
+                            <input readonly type= "text" name="Type" id="type" size="6" hidden>
                             <div>
                                 <label for="ddate">Date</label>
                                 <input readonly type="text" name="Date" id="ddate" class='date' maxlength="11" tabindex="-1">
@@ -91,8 +118,8 @@
                                 <input readonly type="text" name="Time" size="8" id="dtime" class='time' maxlength="8" tabindex="-1">
                             </div>
                             <div>
-                                <label for="dtype">Type</label>
-                                <input readonly type= "text" name="Type" id="dtype" size="8">
+                                <label for="dmeter">Meter</label>
+                                <input readonly type= "text" name="Meter" id="dmeter" size="8">
                             </div>
                             <div>
                                 <label for="reading">Reading</label>
@@ -118,13 +145,15 @@
                             </div>
                         </div>
                     </fieldset>
-                    <div>
-                        <iframe id="readingsfilter" src="Filter.html" scrolling="no" frameborder="0" class='form filter'>
-                        </iframe>
-                    </div>
-
+                    <table id="history">
+                        <caption>Recent Readings</caption>
+                        <thead>
+                            <tr><th></th></tr>
+                        </thead>
+                        <tr><th></th></tr>
+                    </table>
                 </div>
-                <div class="floatleft">
+                <div id="rates" class="floatleft" hidden>
                     <fieldset id="tariff" class='centreminwidth form'>
                         <legend>Tariff</legend>
                         <div>
@@ -169,7 +198,50 @@
                         <fieldset id="tariffsfilter" class='form filter'>
                         </fieldset>
                     </fieldset>
-                    
+         
+                    <fieldset id="modifytariff" class='centreminwidth form' hidden>                        
+                        <legend>Modify Tariff</legend>
+                        <div>
+                            <div>
+                                <label for="trsdate" class="largelab">Start Date</label>
+                                <input readonly type="text" name="Start" id="trsdate" class='date' maxlength="11" tabindex="-1">                                
+                            </div>
+                            <div>
+                                <label for="tredate" class="largelab">End Date</label>
+                                <input readonly type="text" name="End" id="tredate" class='date' maxlength="11" tabindex="-1">
+                            </div>                    
+                            <div>
+                                <label for="mtcode" class="largelab">Tariff</label>
+                                <input type="text" name="Code" id="mtcode" size='2' readonly />
+                             </div>                     
+                            <div>
+                                <label for="mttype" class="largelab">Type</label>
+                                <input type="text" name="Type" id="mttype" size='2' readonly />
+                             </div>                     
+                            <div>
+                                <label for="mtrate" class="largelab">Unit Rate</label>
+                                <input type="text" name="UnitRate" id="mtrate" size='2' onkeypress="allowedInNumberField();" >
+                             </div>                    
+                            <div>
+                                <label for="mtstchrg" class="largelab">Standing Charge</label>
+                                <input type="text" name="StandingCharge" id="mtstchrg" size='2' onkeypress="allowedInNumberField();" >
+                             </div>                    
+                            <div>
+                                <label for="mtcalval" class="largelab">Calorific Value</label>
+                                <input type="text" name="CalorificValue" id="mtcalval" size='2' onkeypress="allowedInNumberField();" >
+                            </div>
+                            <div>
+                                <label for="trcomment" class="largelab">Comment</label>
+                                <textarea id='trcomment' name='Comment' rows='2'></textarea>
+                            </div>                            
+                            <div>
+                                <label for="trdelete"></label>
+                                <input id="trdelete" name="delete"   class='notparam' type="button" value="Delete" onclick="actionTariff('Delete',       'modifytariff');">
+                                <input id="trcancel" name="trcancel" class='notparam' type="button" value="Cancel" onclick="actionTariff('CancelModify', 'modifytariff');"> 
+                                <input id="trmodify" name="trmodify" class='notparam' type="button" value="Modify" onclick="actionTariff('Modify',       'modifytariff');">
+                            </div>
+                        </div>
+                    </fieldset>           
                     <table id="tariffs">
                         <caption>Recent Tariffs</caption>
                         <thead>
@@ -180,13 +252,6 @@
                 </div>
             </div> 
 
-            <table id="history">
-                <caption>Recent Readings</caption>
-                <thead>
-                    <tr><th></th></tr>
-                </thead>
-                <tr><th></th></tr>
-            </table>
         </form>
     </body>
 </html>
