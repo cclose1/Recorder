@@ -138,7 +138,7 @@ public class Reminder {
         JSONObject       data = new JSONObject();
         SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder", db.getProtocol());
         
-        sql.addField("RefId");
+        sql.addField("Refid");
         sql.addField("Timestamp"); 
 
         if (sql.getProtocol().equalsIgnoreCase("sqlserver")) {
@@ -151,6 +151,8 @@ public class Reminder {
         sql.addField("WarnDays");
         sql.addField("Suspended");
         sql.addField("Description");
+        sql.addField("Phone");
+        sql.addField("Web");
         sql.addField("Comment");
         sql.setOrderBy("Timestamp DESC");
         sql.addAnd(filter);

@@ -86,7 +86,7 @@ public class HTTPRequestHandler {
         return getParameter(name, "");
     }
     public boolean existsParameter(String name) {
-        return request.getParameter(name) != null;
+        return getParameter(name, null) != null;
     }
 
     public Cookie getCookie(String name) {

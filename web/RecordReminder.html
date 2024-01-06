@@ -36,29 +36,29 @@
                                 <label for="date">Date</label>
                                 <input type="text" name="Date" id="date" class='date' maxlength="11" tabindex="-1">
                                 <label for="time" class="nogap">Time</label>
-                                <input type="text" name="time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
+                                <input type="text" name="Time" size="8" id="time" class='time' maxlength="8" tabindex="-1">
                             </div>
                             <div>
                                 <label for="refid">Ref Id</label>
-                                <input type= "text" id="refid" size="6" oninput="setTime();">
+                                <input type= "text" id="refid" name="Refid"  size="6" oninput="setTime();">
                             </div>
                             <div>
                                 <label for="type">Type</label>
-                                <select id="type" tabindex="-1" onchange="setTime();">
+                                <select id="type" name="Type" tabindex="-1" onchange="setTime();">
                                     <option></option>
                                 </select>
                             </div>
                             <div>
                                 <label for="warndays">Warn Days</label>
-                                <input type="text" size ="3" id="warndays" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">                            
+                                <input type="text" size ="3" id="warndays" name="WarnDays" tabindex="-1" oninput="setTime();" onkeypress="allowedInNumberField();">                            
                             </div>
                             <div>
                                 <label for="showall">Show All</label>
-                                <input id="showall" type="checkbox" onclick="requestReminders();">
+                                <input id="showall" type="checkbox" class="notparam" onclick="requestReminders();">
                             </div>
                             <div>
                                 <label for="frequency">Frequency</label>
-                                <select id="frequency" tabindex="-1" onchange="setTime();">
+                                <select id="frequency" name="Frequency" tabindex="-1" onchange="setTime();">
                                     <option></option>
                                     <option>M</option>
                                     <option>Y</option>
@@ -66,15 +66,23 @@
                             </div>
                             <div>
                                 <label for="description">Description</label>
-                                <input type= "text" id="description" oninput="setTime();">
+                                <input type= "text" id="description" name="Description" oninput="setTime();">
+                            </div>
+                            <div>
+                                <label for="phone">Phone</label>
+                                <input type= "text" id="phone" name="Phone" oninput="setTime();">
+                            </div>
+                            <div>
+                                <label for="web">Web</label>
+                                <input type= "text" id="web" name="Web" oninput="setTime();">
                             </div>
                             <div>
                                 <label for="comment">Comment</label>
-                                <input type= "text" id="comment" oninput="setTime();">
+                                <input type= "text" id="comment" name="Comment" oninput="setTime();">
                             </div>
                             <div>
                                 <label for="suspended">Suspended</label>
-                                <select id="suspended" tabindex="-1" onchange="setTime();">
+                                <select id="suspended" name="Suspended" tabindex="-1" onchange="setTime();">
                                     <option></option>
                                     <option>Y</option>
                                     <option>N</option>
@@ -82,13 +90,13 @@
                             </div>
                             <div>
                                 <label for="save"></label>
-                                <input id="save" name="save" type="button" value="Create" onclick="send();">
-                                <input id="clone" name="clone" type="button" hidden value="Clone" onclick="clonedata();">
-                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="deleteData();">
+                                <input id="save" class="notparam" name="save" type="button" value="Create" onclick="send();">
+                                <input id="clone" class="notparam" name="clone" type="button" hidden value="Clone" onclick="clonedata();">
+                                <input id="remove" class="notparam" name="remove" type="button" hidden value="Delete" onclick="send();">
                             </div>
                             <div id="logoff" hidden>
                                 <label for="logoffbtn"></label>
-                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
+                                <input id="logoffbtn" class="notparam" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
                             </div>
                             <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                             <div>

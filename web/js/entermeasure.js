@@ -16,7 +16,7 @@ function newSession() {
     document.getElementById("timer").value = "";
     document.getElementById("try").value = 1;
     document.getElementById("systolic").focus();
-    
+    timer.start();
     return ts;
 }
 function setTime() {    
@@ -68,6 +68,7 @@ function send(ev) {
         document.getElementById("orientation").value = "";
         document.getElementById("comment").value = "";
         document.getElementById("try").value = parseInt(document.getElementById("try").value) + 1;
+        timer.start();
         requestHistory();
     }
     ajaxLoggedInCall("Record", processResponse, parameters);

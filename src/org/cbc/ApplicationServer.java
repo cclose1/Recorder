@@ -54,33 +54,43 @@ import org.cbc.utils.system.Environment;
 import org.cbc.utils.system.SecurityConfiguration;
 
 /**
- *k
+ * k
+ *
  * @author Chris
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
-    public enum Severity {Validation, Error, ApplicationError};
-    
-    public class ErrorExit extends RuntimeException { 
-        String   message  = null;
+
+    public enum Severity {
+        Validation, Error, ApplicationError
+    };
+
+    public class ErrorExit extends RuntimeException {
+
+        String message = null;
         Severity severity = Severity.Validation;
-        
+
         public ErrorExit(String message) {
             super(message);
         }
+
         public ErrorExit(String message, Severity severity) {
             super(message);
             this.severity = severity;
         }
+
         public Severity getSeverity() {
             return severity;
         }
+
         public void setMessage(String message) {
             this.message = message;
         }
+
         public String getMessage() {
-            return message == null? super.getMessage() : message;
+            return message == null ? super.getMessage() : message;
         }
+
         public int getStatus() {
             switch (severity) {
                 case Validation:
@@ -93,518 +103,668 @@ public abstract class ApplicationServer extends HttpServlet {
             return -1;
         }
     }
+
     public void errorExit(String message) {
         throw new ErrorExit(message);
     }
+
     public void invalidAction() {
         throw new ErrorExit("ActionError", Severity.ApplicationError);
     }
+
     public void checkExit(boolean test, String message) throws ErrorExit {
-        if (test) throw new ErrorExit(message);
+        if (test) {
+            throw new ErrorExit(message);
+        }
     }
     protected Reminder reminder = null;
+
     /*
      * Describes a table field.
      */
     protected class DBField {
-        String  name;         // DB Table field name.
-        String  parameter;    // Parameter name providing the field.
+
+        String name;         // DB Table field name.
+        String parameter;    // Parameter name providing the field.
         boolean key;          // Forms part of the primary key
         boolean blankToNull;
         boolean isDate;
-        
+
         public DBField(String name, boolean key, String parameter) {
-            this.name        = name;
-            this.key         = key;
-            this.parameter   = parameter;
+            this.name = name;
+            this.key = key;
+            this.parameter = parameter;
             this.blankToNull = false;
-            this.isDate      = false;
+            this.isDate = false;
         }
+
         public DBField(String name, boolean key, String parameter, boolean blankToNull, boolean isDateTime) {
-            this.name        = name;
-            this.key         = key;
-            this.parameter   = parameter;
+            this.name = name;
+            this.key = key;
+            this.parameter = parameter;
             this.blankToNull = blankToNull;
-            this.isDate      = isDateTime;
+            this.isDate = isDateTime;
         }
     }
+
     protected String getListSql(Context ctx, String table, String field) throws ParseException, SQLException {
         SQLSelectBuilder sql = ctx.getSelectBuilder(table);
-        
+
         sql.setOptions("DISTINCT");
         sql.addField(field);
         sql.setWhere(field + " IS NOT NULL");
         sql.addAnd(ctx.getParameter("filter"));
         sql.setOrderBy(field);
-        
+
         return sql.build();
     }
+
     protected void getList(Context ctx, String table, String field) throws SQLException, ParseException, JSONException {
         JSONObject data = new JSONObject();
-        ResultSet  rs   = executeQuery(ctx, getListSql(ctx, table, field));
+        ResultSet rs = executeQuery(ctx, getListSql(ctx, table, field));
 
         data.add(field, rs);
         data.append(ctx.getReplyBuffer());
 
         ctx.setStatus(200);
     }
+
     protected void getList(Context ctx) throws SQLException, ParseException, JSONException {
         String table = ctx.getParameter("table");
         String field = ctx.getParameter("field");
 
         getList(ctx, table, field);
     }
-    protected void changeTableRow(Context ctx) throws SQLException, ParseException {
-        SQLBuilder                        sql;
-        String                            action      = ctx.getParameter("action");
-        boolean                           delete      = true;
-        boolean                           keyRequired = true;
-        DatabaseSession.TableDefinition   table   = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
-        ArrayList<DatabaseSession.Column> columns = table.getColumns(); 
-        
+
+    protected void changeTableRow(Context ctx, String tableName, String action) throws SQLException, ParseException {
+        SQLBuilder sql;
+
+        boolean delete = true;
+        boolean keyRequired = true;
+        DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition(tableName);
+        ArrayList<DatabaseSession.Column> columns = table.getColumns();
+
         switch (action) {
             case "deleteTableRow":
                 delete = true;
-                sql    = ctx.getDeleteBuilder(ctx.getParameter("table"));
+                sql = ctx.getDeleteBuilder(tableName);
                 break;
             case "updateTableRow":
                 delete = false;
-                sql    = ctx.getUpdateBuilder(ctx.getParameter("table"));
+                sql = ctx.getUpdateBuilder(tableName);
                 break;
             case "createTableRow":
-                delete      = false;
+                delete = false;
                 keyRequired = false;
-                sql         = ctx.getInsertBuilder(ctx.getParameter("table"));
+                sql = ctx.getInsertBuilder(tableName);
                 break;
-            default:                
+            default:
                 sql = new SQLDeleteBuilder("", ""); // Prevent null derefencing warnings 
                 throw new ErrorExit("Action " + action + " is not a table action", Severity.ApplicationError);
         }
         for (DatabaseSession.Column col : columns) {
             if (col.isPrimeKeyColumn() && keyRequired) {
-                if (!ctx.existsParameter(col.getName())) 
-                    throw new ErrorExit("Key column " + col.getName() + " is not a parameter", Severity.ApplicationError);
-                
-                sql.addAnd(col.getName(), "=", ctx.getParameter(col.getName()), col.getTypeName());
-            } else if (!delete)
+                String keyParam = col.getName();
+
+                if (ctx.existsParameter("Key~" + col.getName())) {
+                    keyParam = "Key~" + col.getName();
+                } else if (!ctx.existsParameter(keyParam)) {
+                    throw new ErrorExit("Key column " + keyParam + " is not a parameter", Severity.ApplicationError);
+                }
+
+                sql.addAnd(col.getName(), "=", ctx.getParameter(keyParam), col.getTypeName());
+            }
+            if (!delete) {
                 sql.addField(col.getName(), ctx.getParameter(col.getName()), col.getTypeName());
+            }
         }
-        executeUpdate(ctx, sql.build());      
+        executeUpdate(ctx, sql.build());
     }
+
+    protected void changeTableRow(Context ctx) throws SQLException, ParseException {
+        changeTableRow(ctx, ctx.getParameter("table"), ctx.getParameter("action"));
+    }
+
     protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
         /*
          * No action required as a sub class can override this to update the table with
          * application relevant changes.
          */
     }
+
     protected void getTableDefinition(Context ctx) throws SQLException, ParseException, JSONException {
         DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition(ctx.getParameter("table"));
-        
+
         updateTableDefinition(ctx, table);
         table.toJson(true).append(ctx.getReplyBuffer());
         ctx.setStatus(200);
     }
+
     public static long getPID() {
         String processName
                 = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
         return Long.parseLong(processName.split("@")[0]);
     }
-    protected class Configuration implements SecurityConfiguration {  
-        Properties  properties = new Properties();  
-        Environment props      = new Environment(properties);
-        Environment envs       = new Environment();
-        
+
+    protected class Configuration implements SecurityConfiguration {
+
+        Properties properties = new Properties();
+        Environment props = new Environment(properties);
+        Environment envs = new Environment();
+
         protected class Databases {
+
             public class Login {
+
                 String name;
                 String user;
                 String password;
-                
+
                 private boolean equals(String a, String b) {
-                    if (a == null && b == null) return true;
-                    if (a == null || b == null) return false;
-                    
+                    if (a == null && b == null) {
+                        return true;
+                    }
+                    if (a == null || b == null) {
+                        return false;
+                    }
+
                     return (a.equals(b));
                 }
+
                 public void load(String name, String user, String password) {
                     this.name = name;
                     this.user = user;
                     this.password = password;
                 }
+
                 public boolean equals(Login login) {
                     return equals(name, login.name) && equals(user, login.user) && equals(password, login.password);
                 }
             }
             protected Login application = new Login();
-            protected Login security    = new Login();
-            protected Login reminder    = new Login();
-            
+            protected Login security = new Login();
+            protected Login reminder = new Login();
+
             public void setApplication(String name, String user, String password) {
                 Trace t = new Trace("setApplication");
-                
+
                 t.report('C', "Database " + name + " user " + user);
                 application.load(name, user, password);
             }
+
             public void setSecurity(String name, String user, String password) {
                 Trace t = new Trace("setSecurity");
-                
+
                 t.report('C', "Database " + name + " user " + user);
                 security.load(name, user, password);
             }
+
             public void setReminder(String name, String user, String password) {
                 Trace t = new Trace("setReminder");
-                
-                if (name     == null) name     = config.getProperty("remdatabase");                
-                if (user     == null) user     = config.getProperty("remuser");              
-                if (password == null) password = config.getProperty("rempassword");
+
+                if (name == null) {
+                    name = config.getProperty("remdatabase");
+                }
+                if (user == null) {
+                    user = config.getProperty("remuser");
+                }
+                if (password == null) {
+                    password = config.getProperty("rempassword");
+                }
 
                 t.report('C', "Database " + name + " user " + user);
                 reminder.load(name, user, password);
             }
         }
         protected Databases databases = new Databases();
-        private String  appName;
-        private String  dbServer;
-        private String  deadlockRetries;
-        private String  mysqlUseSSL;
-        
-        private String  hashAlgorithm;
+        private String appName;
+        private String dbServer;
+        private String deadlockRetries;
+        private String mysqlUseSSL;
+
+        private String hashAlgorithm;
         private boolean logRequest;
         private boolean logReply;
         private boolean loginRequired;
-        private double  longStatementTime;
+        private double longStatementTime;
         private boolean measureSQL;
         private boolean sqlServerAvailable;
         private boolean sshRequired;
-   
+
         public String getProperty(String name) {
             return props.getValue(name);
         }
+
         public int getIntProperty(String name, int defaultValue) {
             return props.getIntValue(name, defaultValue);
-        }        
+        }
+
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
-            
-            dbServer           = envs.getValue("DATABASE_SERVER", "127.0.0.1");
-            mysqlUseSSL        = envs.getValue("DATABASE_USE_SSL", "");
-            logRequest         = envs.getBooleanValue("LOG_HTML_REQUEST");
-            logReply           = envs.getBooleanValue("LOG_HTML_REPLY");
-            longStatementTime  = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
-            measureSQL         = envs.getBooleanValue("MEASURE_SQL_QUERY");
+
+            dbServer = envs.getValue("DATABASE_SERVER", "127.0.0.1");
+            mysqlUseSSL = envs.getValue("DATABASE_USE_SSL", "");
+            logRequest = envs.getBooleanValue("LOG_HTML_REQUEST");
+            logReply = envs.getBooleanValue("LOG_HTML_REPLY");
+            longStatementTime = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
+            measureSQL = envs.getBooleanValue("MEASURE_SQL_QUERY");
             sqlServerAvailable = envs.getBooleanValue("SQLSERVER_AVAILABLE");
-            sshRequired        = envs.getBooleanValue("SSH_REQUIRED");
-            appName            = config.getServletName();
-            deadlockRetries    = props.getValue("deadlockretries");
-            hashAlgorithm      = props.getValue("hashalgorithm", "SHA");
-            loginRequired      = props.getValue("loginrequired", "no").equalsIgnoreCase("yes");
-            
+            sshRequired = envs.getBooleanValue("SSH_REQUIRED");
+            appName = config.getServletName();
+            deadlockRetries = props.getValue("deadlockretries");
+            hashAlgorithm = props.getValue("hashalgorithm", "SHA");
+            loginRequired = props.getValue("loginrequired", "no").equalsIgnoreCase("yes");
+
             if (envs.getValue("DATABASE_PORT") != null) {
                 dbServer += ":" + envs.getValue("DATABASE_PORT");
             }
         }
+
         public boolean isSqlServerAvailable() {
             return sqlServerAvailable;
         }
+
         public String getAppName() {
             return appName;
         }
+
         public String getDbServer() {
             return dbServer;
         }
+
         public String getDeadlockRetries() {
             return deadlockRetries;
         }
+
         public String getMysqlUseSSL() {
             return mysqlUseSSL;
         }
+
         public String getHashAlgorithm() {
             return hashAlgorithm;
         }
+
         public boolean getLogRequest() {
             return logRequest;
         }
+
         public boolean getLogReply() {
             return logReply;
         }
+
         public boolean getLoginRequired() {
             return loginRequired;
-        }        
-        public boolean getSSHRequired()
-        {
+        }
+
+        public boolean getSSHRequired() {
             return sshRequired;
         }
+
         public boolean getMeasureSQL() {
             return measureSQL;
         }
+
         public double getLongStatementTime() {
             return longStatementTime;
         }
     }
     protected Configuration config = new Configuration();
-    
+
     protected class Context {
-        private DatabaseSession     appDb = null;
-        private DatabaseSession     secDb = null;
-        private DatabaseSession     remDb = null;
-        private HTTPRequestHandler  handler;
+
+        private DatabaseSession appDb = null;
+        private DatabaseSession secDb = null;
+        private DatabaseSession remDb = null;
+        private HTTPRequestHandler handler;
         private HttpServletResponse response;
-        private StringBuilder       replyBuffer;
-        private Trace               trace;
-        
+        private StringBuilder replyBuffer;
+        private Trace trace;
+        private boolean resolveTimestamp = true;
+
         public void setTrace(Trace trace) {
             this.trace = trace;
         }
+
         public void printTrace(String message) {
-            if (trace != null) trace.report('C', message);
+            if (trace != null) {
+                trace.report('C', message);
+            }
         }
+
         public void addAnd(SQLBuilder sql, String field, String operator, String paramName) throws SQLException {
             String value = getParameter(paramName);
-            
-            if (value.trim().length() != 0) sql.addAnd(field, operator, value);
+
+            if (value.trim().length() != 0) {
+                sql.addAnd(field, operator, value);
+            }
         }
-        public String getTimestamp(Date date, String format) { 
-            return date == null? null : (new SimpleDateFormat(format)).format(date);
+
+        public String getTimestamp(Date date, String format) {
+            return date == null ? null : (new SimpleDateFormat(format)).format(date);
         }
+
         public String getDbTimestamp(Date date) {
-            return date == null? null : DatabaseSession.getDateTimeString(date, appDb.getProtocol());
+            return date == null ? null : DatabaseSession.getDateTimeString(date, appDb.getProtocol());
         }
+
         public String getDbDate(Date date) {
-            return date == null? null : DatabaseSession.getDateString(date, appDb.getProtocol());
+            return date == null ? null : DatabaseSession.getDateString(date, appDb.getProtocol());
         }
-        public String getDbTime(Date date) { 
-            return date == null? null : DatabaseSession.getTimeString(date);
+
+        public String getDbTime(Date date) {
+            return date == null ? null : DatabaseSession.getTimeString(date);
         }
+
         public java.sql.Timestamp getSQLTimestamp(Date date) {
-            return date == null? null : new java.sql.Timestamp(date.getTime());
-        } 
+            return date == null ? null : new java.sql.Timestamp(date.getTime());
+        }
+
         public java.sql.Date getSQLDate(Date date) {
-            return date == null? null : new java.sql.Date(date.getTime());
-        }         
+            return date == null ? null : new java.sql.Date(date.getTime());
+        }
+
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
-            Trace           t       = new Trace("openDatabase");
-            DatabaseSession session = new DatabaseSession(useMySql? "mysql" : "sqlserver", config.getDbServer(), login.name);
-            
+            Trace t = new Trace("openDatabase");
+            DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), login.name);
+
             if (login.name != null) {
                 t.report('C', "Database " + login.name);
-                
+
                 session.setUser(login.user, login.password);
-                
-                if (useMySql && config.getMysqlUseSSL().length() != 0) session.addConnectionProperty("useSSL", config.getMysqlUseSSL());
-                
+
+                if (useMySql && config.getMysqlUseSSL().length() != 0) {
+                    session.addConnectionProperty("useSSL", config.getMysqlUseSSL());
+                }
+
                 session.connect();
                 t.report('C', "Connection string " + session.getConnectionString());
-            }   
+            }
             session.SetLongStatementTime(config.getLongStatementTime());
-            
-            if (!useMySql) session.close();
-            
+
+            if (!useMySql) {
+                session.close();
+            }
+
             t.exit();
-            
+
             return session;
         }
+
         public DatabaseSession getAppDb() {
             return appDb;
         }
+
         public DatabaseSession getSecDb() {
-            return secDb == null? appDb : secDb;
+            return secDb == null ? appDb : secDb;
         }
+
         public DatabaseSession getRemDb() {
             return remDb;
         }
+
         private HTTPRequestHandler getHandler() {
             return handler;
         }
+
         public HttpServletResponse getResponse() {
             return response;
         }
+
         public StringBuilder getReplyBuffer() {
             return replyBuffer;
         }
+
         public void outputReplyBuffer() throws IOException {
             printTrace("Starting response");
             handler.getResponse().getWriter().println(replyBuffer.toString());
             printTrace("Response added");
         }
-        public boolean existsParameter(String name) {
-            return handler.existsParameter(name);
-        }
-        public String getParameter(String name, String nullDefault) {
-            return handler.getParameter(name, nullDefault);
-        }        
+
+        /*
+         * This is the interface to handler.getParameter.
+         *
+         * It implements the resolveTimestamp feature. If this is enabled the parameter name Timestamp is
+         * handled is follows.
+         *
+         * If the value return is null. The parameters Date and Time are retrieved and if they
+         * are both not null, i.e. they exist as param, they are concatenated separatd by space and
+         * returned as the value.
+         *
+         * All the following getParameter methods call this.
+         */
         public String getParameter(String name) {
-            return handler.getParameter(name);
+            String value = handler.getParameter(name);
+
+            if (value.length() == 0 && resolveTimestamp && name.equals("Timestamp")) {
+                value = handler.getParameter("Date", null);
+
+                if (value != null && handler.getParameter("Time") != null) {
+                    value += " " + handler.getParameter("Time");
+                }
+            }
+            return value;
         }
+
+        public boolean existsParameter(String name) {
+            return handler.getParameter(name, null) != null;
+        }
+
+        public String getParameter(String name, String nullDefault) {
+            String value = getParameter(name);
+
+            return value == null ? nullDefault : value;
+        }
+
         public String[] getParameters(String name) {
             return handler.getRequest().getParameterValues(name);
         }
+
         public int getInt(String name, int nullDefault) {
-            String value = handler.getParameter(name);
-            
-            if (value == null) return nullDefault;
-            
+            String value = getParameter(name);
+
+            if (value == null) {
+                return nullDefault;
+            }
+
             try {
                 return Integer.parseInt(value);
             } catch (NumberFormatException e) {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to integer");
             }
         }
+
         public double getDouble(String name, int nullDefault) {
-            String value = handler.getParameter(name);
-            
-            if (value.length() == 0) return nullDefault;
-         
+            String value = getParameter(name);
+
+            if (value.length() == 0) {
+                return nullDefault;
+            }
+
             try {
                 return Double.parseDouble(value);
             } catch (NumberFormatException e) {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
             }
-        }        
+        }
+
         public Date getTimestamp(String date, String time) throws ParseException {
             String dt = getParameter(date).trim();
             String tm = getParameter(time).trim();
-            
-            return dt.length() == 0 && tm.length() == 0? null : DateFormatter.parseDate(dt + ' ' + tm);
-        }       
+
+            return dt.length() == 0 && tm.length() == 0 ? null : DateFormatter.parseDate(dt + ' ' + tm);
+        }
+
         public Date getTimestamp(String date) throws ParseException {
             String ts = getParameter(date);
-            
-            return ts.trim().length() == 0? null : DateFormatter.parseDate(ts);
-        }   
+
+            return ts == null || ts.trim().length() == 0 ? null : DateFormatter.parseDate(ts);
+        }
+
         public java.sql.Timestamp getSQLTimestamp(String date) throws ParseException {
             Date ts = getTimestamp(date);
-            
-            return ts == null? null : getSQLTimestamp(ts);
-        }         
+
+            return ts == null ? null : getSQLTimestamp(ts);
+        }
+
         public Date getDate(String date) throws ParseException {
             return getTimestamp(date);
         }
+
         public void setStatus(int status, String location) {
             handler.getResponse().setStatus(status);
-            
+
             int stat = handler.getResponse().getStatus();
             /*
              * This was introduced while investigating the setStatus issue described in the note at
              * the top of this package.
-             */            
-            if (stat != status) Report.error(location, (location == null? "" : "From " + location + " ") + "setStatus ignored new status " + status + " still set to " + stat);
+             */
+            if (stat != status) {
+                Report.error(location, (location == null ? "" : "From " + location + " ") + "setStatus ignored new status " + status + " still set to " + stat);
+            }
         }
+
         public void setStatus(int status) {
             setStatus(status, null);
         }
-        public void dumpRequest(String reason) throws ServletException, IOException {            
+
+        public void dumpRequest(String reason) throws ServletException, IOException {
             handler.dumpRequest(reason);
         }
+
         public void openDatabases(boolean useMySql) throws SQLException {
             appDb = openDatabase(config.databases.application, useMySql);
-            
-            if (!config.databases.application.equals(config.databases.security))
+
+            if (!config.databases.application.equals(config.databases.security)) {
                 secDb = openDatabase(config.databases.security, useMySql);
-            else
+            } else {
                 secDb = null;
-            
-            if (!config.databases.application.equals(config.databases.reminder))
+            }
+
+            if (!config.databases.application.equals(config.databases.reminder)) {
                 remDb = openDatabase(config.databases.reminder, useMySql);
-            else
+            } else {
                 remDb = appDb;
+            }
         }
+
         public SQLSelectBuilder getSelectBuilder(String table) {
             SQLSelectBuilder builder = new SQLSelectBuilder(table, appDb.getProtocol());
-            
+
             return builder;
         }
+
         public SQLUpdateBuilder getUpdateBuilder(String table) {
             SQLUpdateBuilder builder = new SQLUpdateBuilder(table, appDb.getProtocol());
-            
+
             return builder;
         }
+
         public SQLInsertBuilder getInsertBuilder(String table) {
             SQLInsertBuilder builder = new SQLInsertBuilder(table, appDb.getProtocol());
-                        
+
             return builder;
         }
+
         public SQLDeleteBuilder getDeleteBuilder(String table) {
             SQLDeleteBuilder builder = new SQLDeleteBuilder(table, appDb.getProtocol());
-            
+
             return builder;
         }
     }
-    protected class TableReader {     
-        private ResultSet rs        = null;
-        private boolean   rowExists = false;
-        
+
+    protected class TableReader {
+
+        private ResultSet rs = null;
+        private boolean rowExists = false;
+
         public void close() throws SQLException {
-            if (rs != null) rs.close();
-            
-            rowExists = false;            
+            if (rs != null) {
+                rs.close();
+            }
+
+            rowExists = false;
         }
+
         public void open(Context ctx, SQLSelectBuilder sql) throws SQLException {
             close();
             rs = executeQuery(ctx, sql);
-            rowExists = rs.first();            
+            rowExists = rs.first();
         }
+
         public void first() throws SQLException {
-            rowExists = rs.first();            
+            rowExists = rs.first();
         }
+
         public boolean next() throws SQLException {
             rowExists = rs.next();
             return rowExists;
         }
+
         public boolean rowExists() {
             return this.rowExists;
         }
+
         public boolean lastValueNull() throws SQLException {
             return rs.wasNull();
         }
+
         public double getDouble(String colName) throws SQLException {
             double val = rs.getDouble(colName);
-            
-            return rs.wasNull()? -1 : val;
+
+            return rs.wasNull() ? -1 : val;
         }
+
         public int getInt(String colName) throws SQLException {
             int val = rs.getInt(colName);
-            
-            return rs.wasNull()? -1 : val;
+
+            return rs.wasNull() ? -1 : val;
         }
+
         public Date getDate(String colName) throws SQLException {
             Date val = rs.getTimestamp(colName);
-            
-            return val;            
+
+            return val;
         }
     }
+
     /*
      * For a table enables the records surrounding the key of a new record.
      */
     protected class EnclosingRecords {
+
         private final ArrayList<Field> fields = new ArrayList<>();
         private final Context ctx;
 
         private class Field {
-            String   name;
-            boolean  equals;
+
+            String name;
+            boolean equals;
             SQLValue value;
 
             public Field(String name, SQLValue value, boolean equals) {
-                this.name   = name;
+                this.name = name;
                 this.equals = equals;
-                this.value  = value;
+                this.value = value;
             }
+
             public Field(String name, Date value, boolean equals) {
                 this(name, new SQLValue(value), equals);
             }
+
             public Field(String name, String value, boolean equals) {
                 this(name, new SQLValue(value), equals);
             }
+
             public Field(String name, int value, boolean equals) {
                 this(name, new SQLValue(value), equals);
             }
         }
-        private final String           table;
+        private final String table;
         private final SQLSelectBuilder sel;
 
         private ResultSet getBound(boolean before) throws SQLException {
-            String    operator;
-            boolean   desc;
+            String operator;
+            boolean desc;
             ResultSet rs;
 
             sel.clearWhere();
@@ -613,13 +773,13 @@ public abstract class ApplicationServer extends HttpServlet {
             for (Field fld : fields) {
                 if (fld.equals) {
                     operator = "=";
-                    desc     = false;
+                    desc = false;
                 } else if (before) {
                     operator = "<=";
-                    desc     = true;
+                    desc = true;
                 } else {
                     operator = ">";
-                    desc     = false;
+                    desc = false;
                 }
                 sel.addAnd(fld.name, operator, fld.value);
                 sel.addOrderByField(fld.name, desc);
@@ -627,19 +787,21 @@ public abstract class ApplicationServer extends HttpServlet {
             sel.setMaxRows(1);
 
             rs = updateQuery(ctx, sel);
-            
-            return rs.next()? rs : null;
+
+            return rs.next() ? rs : null;
         }
+
         /*
          * ctx   Application context.
          * table Database table to be searched.
          */
         public EnclosingRecords(Context ctx, String table) {
-            this.ctx   = ctx;
+            this.ctx = ctx;
             this.table = table;
-            this.sel   = ctx.getSelectBuilder(this.table);
+            this.sel = ctx.getSelectBuilder(this.table);
             this.sel.addField("*");
         }
+
         /*
          * name   Table column name.
          * value  Value of the field the new record will have for the column.
@@ -658,12 +820,15 @@ public abstract class ApplicationServer extends HttpServlet {
         public void addField(String name, String value, boolean equals) {
             fields.add(new Field(name, value, equals));
         }
+
         public void addField(String name, Date value, boolean equals) {
             fields.add(new Field(name, value, equals));
         }
+
         public void addField(String name, int value, boolean equals) {
             fields.add(new Field(name, value, equals));
         }
+
         /*
          * Returns the result set of the record the last record that is less than or equal the new record
          * where the column fields have equals false. Using the above example. The resulting query is
@@ -675,6 +840,7 @@ public abstract class ApplicationServer extends HttpServlet {
         public ResultSet getBefore() throws SQLException {
             return getBound(true);
         }
+
         /*
          * Returns the result set of the record the first record that is greater than the new record
          * where the column fields have equals false. The resulting query is
@@ -687,41 +853,48 @@ public abstract class ApplicationServer extends HttpServlet {
             return getBound(false);
         }
     }
+    @Deprecated
     protected class TableUpdater {
-        private final String             name;
+
+        private final String name;
         private final ArrayList<DBField> fields = new ArrayList<>();
-        private Context            ctx;
-        private ResultSet          rs;
-        private String             keyString;
-        
+        private Context ctx;
+        private ResultSet rs;
+        private String keyString;
+
         private void appendKeyString(String field, String value) throws SQLException {
             if (value != null && !"".equals(value)) {
-                if (!"".equals(keyString)) keyString += ", ";
-                
+                if (!"".equals(keyString)) {
+                    keyString += ", ";
+                }
+
                 keyString += field + " = " + value;
             } else {
                 throw new SQLException("Table " + name + " key field " + field + " is null");
             }
         }
+
         private void addKey(SQLBuilder sql, Context ctx, String keySource) throws ParseException, SQLException {
             HashMap<String, String> overrides = new HashMap<>();
-            
-            for(String str: keySource.split(",")) {
+
+            for (String str : keySource.split(",")) {
                 String flds[] = str.split("-");
-                
-                if (flds.length == 2) overrides.put(flds[0], flds[1]);
+
+                if (flds.length == 2) {
+                    overrides.put(flds[0], flds[1]);
+                }
             }
             keyString = "";
-            
-            for(DBField field : fields) {
+
+            for (DBField field : fields) {
                 String value = "";
-                
+
                 if (field.key) {
-                    String keyParam = overrides.containsKey(field.name)? overrides.get(field.name) : field.parameter;
-                    
+                    String keyParam = overrides.containsKey(field.name) ? overrides.get(field.name) : field.parameter;
+
                     if (field.isDate) {
-                        Date ts = ctx.getTimestamp(keyParam);                        
-                        sql.addAnd(field.name, "=",ts );
+                        Date ts = ctx.getTimestamp(keyParam);
+                        sql.addAnd(field.name, "=", ts);
                         value = ctx.getDbTimestamp(ts);
                     } else {
                         value = ctx.getParameter(keyParam);
@@ -730,28 +903,31 @@ public abstract class ApplicationServer extends HttpServlet {
                     appendKeyString(field.name, value);
                 }
             }
-        }    
+        }
+
         private void setFields(ResultSet rs, Context ctx) throws SQLException, ParseException {
-            for(DBField field : fields) {
-                if (field.isDate)
+            for (DBField field : fields) {
+                if (field.isDate) {
                     rs.updateString(field.name, ctx.getDbTimestamp(ctx.getTimestamp(field.parameter)));
-                else
-                {
+                } else {
                     String value = ctx.getParameter(field.parameter);
-                    
-                    if (value.trim().equals("") && field.blankToNull) value = null;
-                    
+
+                    if (value.trim().equals("") && field.blankToNull) {
+                        value = null;
+                    }
+
                     rs.updateString(field.name, value);
                 }
-            }            
+            }
         }
+
         private void update(String action, String keyOverride) throws ParseException, SQLException {
             /*
              * Attempt to retrieve a session for the primary key.
              */
             SQLSelectBuilder sql = ctx.getSelectBuilder(name);
             addKey(sql, ctx, keyOverride);
-           
+
             rs = ctx.getAppDb().updateQuery(sql.build());
 
             if (rs.next()) {
@@ -785,56 +961,76 @@ public abstract class ApplicationServer extends HttpServlet {
                     default:
                         throw new IllegalArgumentException("Action: " + action + " for TableUpdater.update");
                 }
-            }     
+            }
         }
+
         private void update(String action) throws ParseException, SQLException {
             update(action, "");
         }
+
         public void setContext(Context context) {
             ctx = context;
         }
+
         public TableUpdater(String tableName) {
             name = tableName;
         }
+
         public void addField(String name, boolean key, String parameter) {
             fields.add(new DBField(name, key, parameter));
         }
+
         public void addField(String name, boolean key, String parameter, boolean blankToNull, boolean isDateTime) {
             fields.add(new DBField(name, key, parameter, blankToNull, isDateTime));
         }
+
         public void addField(String name, boolean key, String parameter, boolean blankToNull) {
             fields.add(new DBField(name, key, parameter, blankToNull, false));
         }
+
         public void createRow() throws ParseException, SQLException {
             update("create");
         }
+
         public void updateRow(String keyOverride) throws ParseException, SQLException {
             update("update", keyOverride);
         }
+
         public void updateRow() throws ParseException, SQLException {
             update("update");
         }
+
         public void deleteRow() throws ParseException, SQLException {
             update("delete");
         }
+
         public void addOrderBy(SQLSelectBuilder sql, boolean desc) {
-            for(DBField field : fields) {
-                if (field.key) sql.addOrderByField(field.name, desc);
+            for (DBField field : fields) {
+                if (field.key) {
+                    sql.addOrderByField(field.name, desc);
+                }
             }
         }
-        public void addFilter(SQLSelectBuilder sql) throws SQLException {            
-            if (ctx.existsParameter("filter")) sql.addAnd(ctx.getParameter("filter"));            
+
+        public void addFilter(SQLSelectBuilder sql) throws SQLException {
+            if (ctx.existsParameter("filter")) {
+                sql.addAnd(ctx.getParameter("filter"));
+            }
         }
     }
+
     private class MeasureSql {
+
         Measurement m = null;
-        
+
         public void start() {
-            if (config.getMeasureSQL())
+            if (config.getMeasureSQL()) {
                 m = new Measurement();
-            else
+            } else {
                 m = null;
+            }
         }
+
         public void end(String sql) {
             if (m != null) {
                 m.report(true, "Sql " + sql);
@@ -842,6 +1038,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
     }
     private MeasureSql measureSQL = new MeasureSql();
+
     /*
      * This creates a result set that allows reposition to the start. 
      *
@@ -853,47 +1050,55 @@ public abstract class ApplicationServer extends HttpServlet {
         measureSQL.end(sql);
         return rs;
     }
+
     protected ResultSet executeQuery(Context ctx, SQLBuilder sql) throws SQLException {
         return executeQuery(ctx, sql.build());
     }
+
     protected ResultSet updateQuery(Context ctx, String sql) throws SQLException {
         measureSQL.start();
         ResultSet rs = ctx.getAppDb().updateQuery(sql);
         measureSQL.end(sql);
         return rs;
     }
+
     protected ResultSet updateQuery(Context ctx, SQLBuilder sql) throws SQLException {
         return updateQuery(ctx, sql.build());
     }
+
     protected int executeUpdate(Context ctx, String sql) throws SQLException {
         measureSQL.start();
         int cnt = ctx.getAppDb().executeUpdate(sql);
         measureSQL.end(sql);
         return cnt;
     }
+
     protected ResultSet executeUpdateGetKey(Context ctx, SQLBuilder sql) throws SQLException {
         ResultSet rs;
-        String    sqls = sql.build();
-        
+        String sqls = sql.build();
+
         measureSQL.start();
         rs = ctx.getAppDb().executeUpdateGetKey(sqls);
         measureSQL.end(sqls);
-        
+
         return rs;
     }
+
     protected int executeUpdate(Context ctx, SQLBuilder sql) throws SQLException {
         return executeUpdate(ctx, sql.build());
     }
+
     protected boolean exists(Context ctx, String table, SQLNamedValues where) throws SQLException {
-        ResultSet        rs;
+        ResultSet rs;
         SQLSelectBuilder sel = new SQLSelectBuilder(table, ctx.getAppDb().getProtocol());
-        
+
         sel.addField("Count", "1");
         sel.addAnd(where);
         rs = ctx.getAppDb().executeQuery(sel.build());
-        
+
         return rs.next();
     }
+
     private void rollback(Context ctx) {
         try {
             if (ctx.getAppDb() != null) {
@@ -901,24 +1106,30 @@ public abstract class ApplicationServer extends HttpServlet {
             }
         } catch (SQLException rb) {
             Report.error(null, "Rollback", rb);
-        }        
+        }
     }
+
     private void rollback(Context ctx, int status) {
         rollback(ctx);
         ctx.setStatus(status, "rollback");
     }
+
     private void reply(Context ctx, Exception ex, int status) {
         Report.error("ErRep", ex);
         rollback(ctx, status);
-        ctx.getReplyBuffer().append(ex.getMessage());  
+        ctx.getReplyBuffer().append(ex.getMessage());
     }
+
     public abstract String getVersion();
-    public abstract void initApplication (ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
+
+    public abstract void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
+
     public abstract void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException;
-    
+
     private void setKeyMessage(Context ctx, String prefix, String table, String key) {
         ctx.getReplyBuffer().append('!').append(prefix).append('!').append(table).append('!').append(key);
     }
+
     /*
      * Holds an unpcacked table update request from the HTML client. The request consists of the following parameters:
      *
@@ -933,28 +1144,34 @@ public abstract class ApplicationServer extends HttpServlet {
      *              Value   The value to be used in updating the table. It can contain commas.
      */
     protected class TableUpdateRequest {
+
         public class Column {
-            private final String  name;
+
+            private final String name;
             private final boolean isPkey;
-            private final String  type;
-            private final String  value;
-            
+            private final String type;
+            private final String value;
+
             public Column(String column) {
                 String fields[] = column.split(",", 4);
-                name   = fields[0];
-                type   = fields[1];
+                name = fields[0];
+                type = fields[1];
                 isPkey = fields[2].equalsIgnoreCase("true");
-                value  = fields[3];
+                value = fields[3];
             }
+
             public String getName() {
                 return name;
             }
+
             public boolean isPkey() {
                 return isPkey;
             }
+
             public String getValue() {
                 return value;
             }
+
             public String getType() {
                 return type;
             }
@@ -962,36 +1179,40 @@ public abstract class ApplicationServer extends HttpServlet {
         private final String table;
         private final String action;
         private final ArrayList<Column> columns;
-        
+
         public TableUpdateRequest(Context ctx) {
             this.columns = new ArrayList<>();
-            
-            String  fields[] = ctx.getParameter("table").split(",");
+
+            String fields[] = ctx.getParameter("table").split(",");
             String reqcols[] = ctx.getParameters("column");
-        
-            table   = fields[0];
-            action  = fields.length == 1 ? "Update" : fields[1];
+
+            table = fields[0];
+            action = fields.length == 1 ? "Update" : fields[1];
 
             for (String col : reqcols) {
                 columns.add(new Column(col));
             }
         }
+
         public String getTable() {
             return table;
         }
+
         public String getAction() {
             return action;
         }
+
         public ArrayList<Column> getColumns() {
             return columns;
         }
     }
+
     protected void updateTable(Context ctx) throws JSONException, ParseException, SQLException {
-        String             pKey    = "";
-        ResultSet          rs;
+        String pKey = "";
+        ResultSet rs;
         TableUpdateRequest request = new TableUpdateRequest(ctx);
-        SQLBuilder         sql     = null;
-        
+        SQLBuilder sql = null;
+
         switch (request.getAction()) {
             case "Read":
                 sql = new SQLSelectBuilder(request.getTable(), ctx.appDb.getProtocol());
@@ -1006,10 +1227,12 @@ public abstract class ApplicationServer extends HttpServlet {
                 sql = new SQLDeleteBuilder(request.getTable(), ctx.appDb.getProtocol());
                 break;
         }
-        for(TableUpdateRequest.Column col: request.getColumns()) {
+        for (TableUpdateRequest.Column col : request.getColumns()) {
             if (col.isPkey) {
-                if (pKey.length() != 0) pKey += ", ";
-                
+                if (pKey.length() != 0) {
+                    pKey += ", ";
+                }
+
                 pKey += col.getName() + "=" + col.getValue();
             }
             switch (request.getAction()) {
@@ -1017,74 +1240,84 @@ public abstract class ApplicationServer extends HttpServlet {
                     sql.addField(col.getName(), col.getValue(), col.getType());
                     break;
                 case "Update":
-                    if (!col.isPkey()) sql.addField(col.getName(), col.getValue(), col.getType());
+                    if (!col.isPkey()) {
+                        sql.addField(col.getName(), col.getValue(), col.getType());
+                    }
                     break;
                 case "Read":
-                    ((SQLSelectBuilder)sql).addField(col.getName());
+                    ((SQLSelectBuilder) sql).addField(col.getName());
                     break;
                 case "Delete":
-                    // Only where clause required for delete.
+                // Only where clause required for delete.
             }
-            if (!request.getAction().equals("Create") && col.isPkey()) sql.addAnd(col.getName(), "=", col.getValue(), col.getType());
+            if (!request.getAction().equals("Create") && col.isPkey()) {
+                sql.addAnd(col.getName(), "=", col.getValue(), col.getType());
+            }
         }
         switch (request.getAction()) {
-            case "Read":           
+            case "Read":
                 JSONObject data = new JSONObject();
 
                 rs = executeQuery(ctx, sql);
                 data.add("TableRow", rs);
 
-                if (data.get("Data").getArray().size() == 0)
+                if (data.get("Data").getArray().size() == 0) {
                     setKeyMessage(ctx, "Not found", request.getTable(), pKey);
-                else
+                } else {
                     data.append(ctx.getReplyBuffer());
+                }
                 break;
             case "Update":
-            case "Delete":      
+            case "Delete":
                 int cnt = executeUpdate(ctx, sql);
-                
-                if (cnt == 0) setKeyMessage(ctx, "Not found",  request.getTable(), pKey);
-                
+
+                if (cnt == 0) {
+                    setKeyMessage(ctx, "Not found", request.getTable(), pKey);
+                }
+
                 break;
             case "Create":
                 try {
-                    executeUpdate(ctx, sql);
-                } catch (SQLException ex) {
-                    if (ex.getMessage().startsWith("Duplicate"))
-                        setKeyMessage(ctx, "Already exists",  request.getTable(), pKey);
-                    else
-                        throw ex;
+                executeUpdate(ctx, sql);
+            } catch (SQLException ex) {
+                if (ex.getMessage().startsWith("Duplicate")) {
+                    setKeyMessage(ctx, "Already exists", request.getTable(), pKey);
+                } else {
+                    throw ex;
                 }
-                break;
+            }
+            break;
             default:
                 Report.error("", "Action " + request.getAction() + " not valid");
         }
     }
+
     private void addRowColumn(JSONArray row, String colName) throws JSONException {
         JSONObject col = new JSONObject();
-        
+
         col.add("Type", "varchar");
         col.add("Name", colName);
         row.add(col);
     }
+
     private void debugAction(Context ctx) throws JSONException {
-        String              request = ctx.getParameter("request");
-        JSONObject          data    = new JSONObject();
-        JSONArray           row     = new JSONArray();
-        JSONArray           rows;
-        int                 max = -1;
-        String              value;
-    
+        String request = ctx.getParameter("request");
+        JSONObject data = new JSONObject();
+        JSONArray row = new JSONArray();
+        JSONArray rows;
+        int max = -1;
+        String value;
+
         ctx.handler.dumpRequest();
         data.add("Table", "Debug");
         data.add("Header", row);
-        
+
         if (ctx.existsParameter("maxfield") && ctx.getParameter("maxfield").length() != 0) {
             max = Integer.parseInt(ctx.getParameter("maxfield"));
         }
         if (request.equals("Show Env")) {
             Map<String, String> envs = new TreeMap<>(System.getenv());
-            
+
             addRowColumn(row, "Variable");
             addRowColumn(row, "Value");
             rows = new JSONArray();
@@ -1092,7 +1325,7 @@ public abstract class ApplicationServer extends HttpServlet {
 
             for (String key : envs.keySet()) {
                 value = envs.get(key);
-                
+
                 if (max == -1 || value.length() <= max) {
                     row = new JSONArray();
                     rows.add(row);
@@ -1102,17 +1335,17 @@ public abstract class ApplicationServer extends HttpServlet {
             }
         } else if (request.equals("Report Streams")) {
             HashMap<String, Process.Stream.Summary> streams = Process.getProcess(config.getAppName()).getStreamSummaries();
-            
+
             addRowColumn(row, "Stream");
             addRowColumn(row, "File");
             addRowColumn(row, "FullFile");
             addRowColumn(row, "Prefix");
             rows = new JSONArray();
             data.add("Data", rows);
-            
+
             streams.entrySet().forEach((stream) -> {
                 Process.Stream.Summary smy = stream.getValue();
-                
+
                 JSONArray r = new JSONArray();
                 rows.add(r);
                 r.add(new JSONValue(smy.getName()));
@@ -1122,8 +1355,9 @@ public abstract class ApplicationServer extends HttpServlet {
             });
         }
         data.append(ctx.getReplyBuffer());
-        ctx.setStatus(200);                       
+        ctx.setStatus(200);
     }
+
     private boolean remindersDue(Context ctx, boolean ignoreDelay) throws SQLException, ParseException {
         Reminder.State state = reminder.alert(ignoreDelay);
 
@@ -1139,6 +1373,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         return false;
     }
+
     /*
      * The specific application code can override this if it wants to perform additional procesing for the
      * the actions handled by the application code,
@@ -1147,22 +1382,25 @@ public abstract class ApplicationServer extends HttpServlet {
      * an error for them.
      */
     protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException {
-        
+
     }
+
     private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException, NoSuchAlgorithmException, ParseException, JSONException {
-        Trace  t         = new Trace("ASProcessAction");
-        String action    = ctx.getParameter("action");
+        Trace t = new Trace("ASProcessAction");
+        String action = ctx.getParameter("action");
         boolean complete = true;
-        
+
         t.report('C', action);
         /*
          * Start with the actions that don't require the user to be logged in.
-         */     
+         */
         if (action.equals("login")) {
             security.login();
-            
-            if (security.isLoggedIn()) reminder.setNoAlerts(false);
-            
+
+            if (security.isLoggedIn()) {
+                reminder.setNoAlerts(false);
+            }
+
             ctx.getReplyBuffer().append(security.getReply());
         } else if (action.equals("logoff")) {
             security.logOff();
@@ -1179,7 +1417,7 @@ public abstract class ApplicationServer extends HttpServlet {
              */
             complete = true;
             completeAction(ctx, true);
-            
+
             switch (action) {
                 case "getList":
                     getList(ctx);
@@ -1212,37 +1450,42 @@ public abstract class ApplicationServer extends HttpServlet {
                      */
                     ctx.getHandler().dumpRequest(null, "No action parameter");
                     invalidAction();
-                    break;               
+                    break;
                 default:
                     if (!config.getAppName().equals("Reminder") && !reminder.getNoAlerts()) {
                         /*
                         * If reminders are due, places the reminder details at the start of the reply
-                        */
+                         */
                         remindersDue(ctx, false);
-                    }       
+                    }
                     complete = false;
                     processAction(ctx, action);
                     break;
             }
-            if (complete) completeAction(ctx, false);
+            if (complete) {
+                completeAction(ctx, false);
+            }
         }
-    }    
+    }
+
     @Override
-    public void init(ServletConfig config) throws ServletException{ 
+    public void init(ServletConfig config) throws ServletException {
         super.init(config);
         String arRoot = System.getenv("AR_ROOT");
         String arFile = System.getenv("AR_FILE");
         Process.setReportingRoot(arRoot);
-        
-        if (arFile != null) Process.setConfigFile(arFile);
-        
+
+        if (arFile != null) {
+            Process.setConfigFile(arFile);
+        }
+
         Thread.attach(config.getServletName());
         Trace t = new Trace("initRequest");
-        
+
         try {
             this.config.load(config);
             initApplication(config, this.config.databases);
-            
+
             if (this.config.databases.security.name == null) {
                 this.config.databases.setSecurity(
                         this.config.getProperty("secdatabase"),
@@ -1255,14 +1498,15 @@ public abstract class ApplicationServer extends HttpServlet {
         } catch (IOException ex) {
             Report.error(null, "IOException reading servlet properties", ex);
         }
-        Report.comment(null, 
-                "Version "        + getVersion() + 
-                " Home Dir "      + System.getProperty("user.home") +
-                " Current Dir "   + System.getProperty("user.dir")  +
-                " Report Config " + Process.getConfigFile().getAbsoluteFile());
+        Report.comment(null,
+                "Version " + getVersion()
+                + " Home Dir " + System.getProperty("user.home")
+                + " Current Dir " + System.getProperty("user.dir")
+                + " Report Config " + Process.getConfigFile().getAbsoluteFile());
         t.report('C', "Servlet name " + config.getServletName() + " started");
         t.exit();
     }
+
     /*
      * Currently the mysql flag is passed in the action parameters. It makes more sense to pass it in the
      * session data, and set it in the session data at log on.
@@ -1273,51 +1517,57 @@ public abstract class ApplicationServer extends HttpServlet {
     protected boolean getMySQL(Context ctx) {
         Cookie cookie = ctx.getHandler().getCookie("mysql");
         String mysqlp = ctx.getParameter("mysql");
-        String mysqlc = cookie == null? "" : cookie.getValue();
-        
+        String mysqlc = cookie == null ? "" : cookie.getValue();
+
         if (mysqlp.length() != 0) {
-            if (mysqlc.length() != 0 && !mysqlp.equals(mysqlc)) 
-                Report.error(null,"Session mysql " + mysqlc + " does equal parameter mysql " + mysqlp);
-        } else
+            if (mysqlc.length() != 0 && !mysqlp.equals(mysqlc)) {
+                Report.error(null, "Session mysql " + mysqlc + " does equal parameter mysql " + mysqlp);
+            }
+        } else {
             mysqlp = mysqlc;
-        
+        }
+
         return mysqlp.equalsIgnoreCase("true");
     }
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Thread.attach(config.getAppName());
-        Measurement m   = new Measurement();
-        Trace       t   = new Trace("processRequest");
-        Context     ctx = new Context();    
+        Measurement m = new Measurement();
+        Trace t = new Trace("processRequest");
+        Context ctx = new Context();
         response.setContentType("text/html;charset=UTF-8");
-     
-        ctx.handler     = new HTTPRequestHandler(request, response);
+
+        ctx.handler = new HTTPRequestHandler(request, response);
         ctx.replyBuffer = new StringBuilder();
-        
-        String  action     = ctx.getParameter("action");
-        boolean useMySql   = getMySQL(ctx);
-        int     maxRepeats = 5;
-        int     repeat     = 0;
-        
+
+        String action = ctx.getParameter("action");
+        boolean useMySql = getMySQL(ctx);
+        int maxRepeats = 5;
+        int repeat = 0;
+
         ctx.setTrace(t);
         try {
             Report.comment(null, "processRequest called with action " + action + " sessionId " + ctx.getHandler().getCookie("sessionid") + " mysql " + useMySql + " default " + System.getProperty("user.dir"));
-            
-            if (!config.isSqlServerAvailable()) useMySql = true;
-            
+
+            if (!config.isSqlServerAvailable()) {
+                useMySql = true;
+            }
+
             t.report('C', "action " + action + " server " + config.getDbServer() + " database " + config.databases.application.name + " user " + config.databases.application.user);
 
             ctx.openDatabases(useMySql || !config.isSqlServerAvailable());
-            
+
             Security security = new Security(ctx.getSecDb(), ctx.handler, config);
-            
+
             if (reminder == null) {
-                reminder = new Reminder(ctx.getRemDb());                
+                reminder = new Reminder(ctx.getRemDb());
                 reminder.setAlertOptions(
-                        this.config.getIntProperty("reminderalertrepeat",    0),
+                        this.config.getIntProperty("reminderalertrepeat", 0),
                         this.config.getIntProperty("reminderalertimmediate", 1));
-            } else
+            } else {
                 reminder.changeDatabase(ctx.getRemDb());
-            
+            }
+
             while (repeat <= maxRepeats) {
                 try {
                     security.checkSession(repeat);
@@ -1326,7 +1576,7 @@ public abstract class ApplicationServer extends HttpServlet {
                     break;
                 } catch (SQLException ex) {
                     t.report('C', "Exception", ex.getMessage());
-                    
+
                     if (ctx.getAppDb().getStandardError(ex) != DatabaseSession.Error.Deadlock || repeat == maxRepeats) {
                         throw ex;
                     }
@@ -1336,36 +1586,45 @@ public abstract class ApplicationServer extends HttpServlet {
             }
         } catch (SQLException ex) {
             reply(ctx, ex, 410);
-        } catch (ErrorExit ex) {          
-            if (ex.getMessage().equals("ActionError")) ex.setMessage(action.length() == 0? "No action parameter" : "Action " + action + " is invalid");
-            
+        } catch (ErrorExit ex) {
+            if (ex.getMessage().equals("ActionError")) {
+                ex.setMessage(action.length() == 0 ? "No action parameter" : "Action " + action + " is invalid");
+            }
+
             reply(ctx, ex, ex.getStatus());
         } catch (IOException | ServletException ex) {
             reply(ctx, ex, 400);
         } catch (ParseException | NoSuchAlgorithmException | JSONException ex) {
             reply(ctx, ex, 400);
         }
-        if (repeat != 0) t.report('C', "Deadlock count " + repeat);
-        
+        if (repeat != 0) {
+            t.report('C', "Deadlock count " + repeat);
+        }
+
         ctx.outputReplyBuffer();
-        
-        if (response.getStatus() != 200) t.report('C', ctx.getReplyBuffer().toString());
-        
-        if (config.getLogReply()) Report.comment(null, ctx.getReplyBuffer().toString());
-        
+
+        if (response.getStatus() != 200) {
+            t.report('C', ctx.getReplyBuffer().toString());
+        }
+
+        if (config.getLogReply()) {
+            Report.comment(null, ctx.getReplyBuffer().toString());
+        }
+
         t.exit();
         m.report(true, "Action " + action);
         Thread.detach();
     }
+
     @Override
     public void destroy() {
         Thread.attach(config.getAppName());
         Report.comment(null, "Servlet stopped");
     }
+
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
     /**
-     * Handles the HTTP
-     * <code>GET</code> method.
+     * Handles the HTTP <code>GET</code> method.
      *
      * @param request servlet request
      * @param response servlet response
@@ -1378,8 +1637,7 @@ public abstract class ApplicationServer extends HttpServlet {
     }
 
     /**
-     * Handles the HTTP
-     * <code>POST</code> method.
+     * Handles the HTTP <code>POST</code> method.
      *
      * @param request servlet request
      * @param response servlet response

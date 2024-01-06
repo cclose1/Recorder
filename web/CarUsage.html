@@ -27,216 +27,222 @@
         
         -->
         <fieldset class='noborder'>
-        <form class="frame" id="appframe" autocomplete="off">
-            <div>
-                <h1>Car Usage</h1>
-            </div>
-            <div class = "innerfields">
-                <input id="keytimestamp" type="hidden"/>
-                <div class='floatleft'>
-                    <fieldset id="detailfields" class='form'>
-                        <legend>Charge Session</legend>
-                        <div>
+            <form class="frame" id="appframe" autocomplete="off">
+                <div>
+                    <h1>Car Usage</h1>
+                </div>
+                <div class = "innerfields">
+                    <input id="keytimestamp" type="hidden"/>
+                    <div class='floatleft'>
+                        <fieldset id="detailfields" class='form'>
+                            <legend>Charge Session</legend>
                             <div>
-                                <label for="carreg" class = 'largelab'>Car Reg</label>
-                                <select id="carreg"  tabindex="0">
-                                    <option></option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="chargesource" class = 'largelab'>Charge Source</label>
-                                <input readonly type='text' name='Charge Source' size='15' id="chargesource"  tabindex="0">
-                            </div>
-                            <div>
-                                <label for="chargeunit" class = 'largelab'>Charge Unit</label>
-                                <input readonly type='text' name='Charge Unit' size='15' id="chargeunit"  tabindex="0">
-                            </div>
-                            <div>
-                                <label for="estduration" class = 'largelab'>Est Full Charge</label>
-                                <input type="text" name="Est Full Charge" size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
-                                <p class="nogap">Hours</p>                        
-                            </div>
-                            <div>
-                                <label for="sessioncomment" class = 'largelab'>Comment</label>
-                                <textarea id='sessioncomment' rows='2'></textarea>
-                            </div>
-                            <fieldset id="startfields" class = 'form'>
-                                <legend>Start</legend>
-                                <div>
-                                    <label for="sdate">Date</label>
-                                    <input type="text" name="Start Date" id="sdate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
-                                    <label for="stime" class="nogap">Time</label>
-                                    <input type="text" name="starttime" size="8" id="stime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                <div id='chargesessionform'>
+                                    <div>
+                                        <label for="carreg" class = 'largelab'>Car Reg</label>
+                                        <select id="carreg" name='CarReg'  tabindex="0">
+                                            <option></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="chargesource" class = 'largelab'>Charge Source</label>
+                                        <input readonly type='text' name='Charger' size='15' id="chargesource"  tabindex="0">
+                                    </div>
+                                    <div>
+                                        <label for="chargeunit" class = 'largelab'>Charge Unit</label>
+                                        <input readonly type='text' name='Unit' size='15' id="chargeunit"  tabindex="0">
+                                    </div>
+                                    <div>
+                                        <label for="estduration" class = 'largelab'>Est Full Charge</label>
+                                        <input type="text" name='EstDuration' size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
+                                        <p class="nogap">Hours</p>                        
+                                    </div>
+                                    <div>
+                                        <label for="sessioncomment" class = 'largelab'>Comment</label>
+                                        <textarea id='sessioncomment' name='Comment' rows='2'></textarea>
+                                    </div>
+                                    <fieldset id="startfields" class = 'form'>
+                                        <legend>Start</legend>
+                                        <div>
+                                            <label for="sdate">Date</label>
+                                            <input type="text" name='Start~Date' id="sdate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
+                                            <label for="stime" class="nogap">Time</label>
+                                            <input type="text" name='Start~Time' size="8" id="stime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                        </div>
+                                        <div>
+                                            <label for="mileage">Mileage</label>
+                                            <input type="text" name="Mileage" size ="7" id="mileage" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="schargepc">Charge %</label>
+                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="smiles">Miles</label>
+                                            <input type="text" name="StartMiles" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                    </fieldset>
+                                    <fieldset id="endfields" class = 'form'>
+                                        <legend>End</legend>
+                                        <div>
+                                            <label for="edate">Date</label>                   
+                                            <input type="text" name="End~Date" id="edate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
+                                            <label for="etime" class="nogap">Time</label>
+                                            <input type="text" name="End~Time" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                        </div>
+                                        <div>
+                                            <label for="gap">Since Update</label>
+                                            <input type="text" name="Timer" class='notparam' size ="7" id="gap" tabindex="0" readonly>                          
+                                        </div>
+                                        <div>
+                                            <label for="echargepc">Charge %</label>
+                                            <input type="text" name="EndPerCent" size ="7" id="echargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="emiles">Miles</label>
+                                            <input type="text" name="EndMiles" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="charge">Charge</label>
+                                            <input type="text" name='Charge' size ="7" id="charge" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="cost">Cost</label>
+                                            <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                    </fieldset> 
+                                </div>
+                                <div class="centre">
+                                    <input id="save"   name="save"   type="button" value="Create"        onclick="send();">
+                                    <input id="remove" name="remove" type="button" hidden value="Delete" onclick="send();">
+                                    <input id="copy"   name="copy"   type="button" hidden value="Copy"   onclick="send();">
+                                    <input id="clear"  name="clear"  type="button" value="Clear"         onclick="clearData();">
+                                </div>
+                                <div id="logoff" class="centre" hidden>
+                                    <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
                                 </div>
                                 <div>
-                                    <label for="mileage">Mileage</label>
-                                    <input type="text" name="Mileage" size ="7" id="mileage" tabindex="0" onkeypress="allowedInNumberField();">                            
-                                </div>
+                                    <label for="currenttime" class="largelab">Use Current Time</label>
+                                    <input id="currenttime" type="checkbox">
+                                </div>  
+                                <div id="allowstartchange" hidden>
+                                    <label for="setstartchange" class="largelab">Allow Start Change</label>
+                                    <input id="setstartchange" type="checkbox" onclick="lockKey();">
+                                </div>   
                                 <div>
-                                    <label for="schargepc">Charge %</label>
-                                    <input type="text" name="Start Charge% x" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
-                                </div>
+                                    <label for="logupdates" class="largelab">Log Updates</label>
+                                    <input id="logupdates" type="checkbox" onclick="setSessionLog()">
+                                </div>   
                                 <div>
-                                    <label for="smiles">Miles</label>
-                                    <input type="text" name="Start Miles" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <label for="showfilter" class="largelab">Show Filter</label>
+                                    <input id="showfilter" type="checkbox" onclick="setFilterVisible('filterKey');">
+                                </div>
+                                <div id="mysqldiv" class='label largelab' hidden>Using MySQL</div>
+                            </div>
+                        </fieldset>
+                        <fieldset id='filter' class='form'>
+                            <legend>Session Filter</legend>
+                        </fieldset>
+                    </div>
+                    <div class='floatleft'>
+                        <table id="chargerstable">
+                            <caption>Chargers</caption>
+                            <thead>
+                                <tr><th></th></tr>
+                            </thead>
+                            <tr><td></td></tr>
+                        </table>
+                        <div class='centre'>
+                            <fieldset id="progress" class='form centreminwidth'>
+                                <legend>Progress</legend>
+                                <div class='left'>
+                                    <label for='prgsrate' class='prglabwidth'>Session Rate (min/%)</label>
+                                    <input type="text" readonly size ="3" id="prgsrate" tabindex="0">                          
+                                </div>
+                                <div class='left'>
+                                    <label for='prgcstart' class='prglabwidth'>Current Start</label>
+                                    <input type="text" readonly size ="15" id='prgcstart' tabindex="0">                          
+                                </div>
+                                <div class='left'>
+                                    <label for='prgpcgain' class='prglabwidth'>Current % Gain</label>
+                                    <input type="text" readonly size ="3" id="prgpcgain" tabindex="0">                            
+                                </div>
+                                <div class='left'>
+                                    <label for='prgcgap' class='prglabwidth'>Current Elapsed</label>
+                                    <input type="text" readonly size ="4" id="prgcgap" tabindex="0">                            
+                                </div>
+                                <div class='left'>
+                                    <label for='prgcrate' class='prglabwidth'>Current Rate (min/%)</label>
+                                    <input type="text" readonly size ="3" id="prgcrate" tabindex="0">                            
+                                </div>
+                                <div class='left'>
+                                    <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
+                                    <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
                                 </div>
                             </fieldset>
-                            <fieldset id="endfields" class = 'form'>
-                                <legend>End</legend>
+                            <fieldset id="updatelog" hidden class='form centreminwidth'>
+                                <legend>Update Log</legend>
                                 <div>
-                                    <label for="edate">Date</label>                   
-                                    <input type="text" name="End Date" id="edate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
-                                    <label for="etime" class="nogap">Time</label>
-                                    <input type="text" name="End Time" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                    <label for="lcarreg">Car Reg</label>
+                                    <input readonly id="lcarreg" type='text' name='CarReg' size ='14' tabindex="0">
                                 </div>
                                 <div>
-                                    <label for="echargepc">Charge %</label>
-                                    <input type="text" name="End Charge% x" size ="7" id="echargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <label for="lsession">Session</label>
+                                    <input readonly id="lsession" type='text' name='Session' size ='14' tabindex="0">
                                 </div>
                                 <div>
-                                    <label for="emiles">Miles</label>
-                                    <input type="text" name="End Miles" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <label for="ltimestamp">Time</label>
+                                    <input readonly id="ltimestamp" type='text' name='Timestamp' size ='14' tabindex="0">
+                                </div> 
+                                <div>
+                                    <label for="lchargepc">Charge %</label>
+                                    <input type="text" name='Percent' size ='14' id="lchargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
-                                    <label for="charge">Charge</label>
-                                    <input type="text" name="Charge" size ="7" id="charge" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                    <label for="lmiles">Miles</label>
+                                    <input type="text" name="Miles" size ='14' id="lmiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                </div>                   
+                                <div class="centre">
+                                    <input name="update" class='notparam' type="button" value="Update" onclick="updateLog();">
+                                    <input name="delete" class='notparam' type="button" value="Delete" onclick="updateLog();">
+                                    <input name="cancel" class='notparam' type="button" value="Cancel" onclick="updateLog();">
                                 </div>
-                                <div>
-                                    <label for="cost">Cost</label>
-                                    <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
-                                </div>
-                            </fieldset>                       
-                            <div class="centre">
-                                <input id="save"   name="save"   type="button" value="Create"        onclick="send();">
-                                <input id="remove" name="remove" type="button" hidden value="Delete" onclick="send();">
-                                <input id="copy"   name="copy"   type="button" hidden value="Copy"   onclick="send();">
-                                <input id="clear"  name="clear"  type="button" value="Clear"         onclick="clearData();">
-                            </div>
-                            <div id="logoff" class="centre" hidden>
-                                <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
-                            </div>
-                            <div>
-                                <label for="currenttime" class="largelab">Use Current Time</label>
-                                <input id="currenttime" type="checkbox">
-                            </div>  
-                            <div id="allowstartchange" hidden>
-                                <label for="setstartchange" class="largelab">Allow Start Change</label>
-                                <input id="setstartchange" type="checkbox" onclick="lockKey();">
-                            </div>   
-                            <div>
-                                <label for="logupdates" class="largelab">Log Updates</label>
-                                <input id="logupdates" type="checkbox" onclick="setSessionLog()">
-                            </div>   
-                            <div>
-                                <label for="showfilter" class="largelab">Show Filter</label>
-                                <input id="showfilter" type="checkbox" onclick="setFilterVisible('filterKey');">
-                            </div>
-                            <div id="mysqldiv" class='label largelab' hidden>Using MySQL</div>
+                            </fieldset>
+                            <fieldset id="sessionlog" class='form centreminwidth'>
+                                <legend>Session Log</legend>
+                                <table id="sessionlogtable">
+                                    <thead>
+                                        <tr><th></th></tr>
+                                    </thead>
+                                    <tr><td></td></tr>
+                                </table>
+                                <fieldset id="logfilter" class='centreminwidth left'>
+                                    <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
+                                    </iframe>
+                                </fieldset>
+                            </fieldset>
                         </div>
-                    </fieldset>
-                    <fieldset id='filter' class='form'>
-                        <legend>Session Filter</legend>
-                    </fieldset>
-                </div>
-                <div class='floatleft'>
-                    <table id="chargerstable">
-                        <caption>Chargers</caption>
-                        <thead>
-                            <tr><th></th></tr>
-                        </thead>
-                        <tr><td></td></tr>
-                    </table>
-                    <div class='centre'>
-                        <fieldset id="progress" class='form centreminwidth'>
-                            <legend>Progress</legend>
-                            <div class='left'>
-                                <label for='prgsrate' class='prglabwidth'>Session Rate (min/%)</label>
-                                <input type="text" readonly size ="3" id="prgsrate" tabindex="0">                          
-                            </div>
-                            <div class='left'>
-                                <label for='prgcstart' class='prglabwidth'>Current Start</label>
-                                <input type="text" readonly size ="15" id='prgcstart' tabindex="0">                          
-                            </div>
-                            <div class='left'>
-                                <label for='prgpcgain' class='prglabwidth'>Current % Gain</label>
-                                <input type="text" readonly size ="3" id="prgpcgain" tabindex="0">                            
-                            </div>
-                            <div class='left'>
-                                <label for='prgcgap' class='prglabwidth'>Current Elapsed</label>
-                                <input type="text" readonly size ="4" id="prgcgap" tabindex="0">                            
-                            </div>
-                            <div class='left'>
-                                <label for='prgcrate' class='prglabwidth'>Current Rate (min/%)</label>
-                                <input type="text" readonly size ="3" id="prgcrate" tabindex="0">                            
-                            </div>
-                            <div class='left'>
-                                <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
-                                <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
-                            </div>
-                        </fieldset>
-                        <fieldset id="updatelog" hidden class='form centreminwidth'>
-                            <legend>Update Log</legend>
-                            <div>
-                                <label for="lcarreg">Car Reg</label>
-                                <input readonly id="lcarreg" type='text' name='CarReg' size ='14' tabindex="0">
-                            </div>
-                            <div>
-                                <label for="lsession">Session</label>
-                                <input readonly id="lsession" type='text' name='Session' size ='14' tabindex="0">
-                            </div>
-                            <div>
-                                <label for="ltimestamp">Time</label>
-                                <input readonly id="ltimestamp" type='text' name='Timestamp' size ='14' tabindex="0">
-                            </div> 
-                            <div>
-                                <label for="lchargepc">Charge %</label>
-                                <input type="text" name='Percent' size ='14' id="lchargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
-                            </div>
-                            <div>
-                                <label for="lmiles">Miles</label>
-                                <input type="text" name="Miles" size ='14' id="lmiles" tabindex="0" onkeypress="allowedInNumberField();">                            
-                            </div>                   
-                            <div class="centre">
-                                <input name="update" class='notparam' type="button" value="Update" onclick="updateLog();">
-                                <input name="delete" class='notparam' type="button" value="Delete" onclick="updateLog();">
-                                <input name="cancel" class='notparam' type="button" value="Cancel" onclick="updateLog();">
-                            </div>
-                        </fieldset>
-                        <fieldset id="sessionlog" class='form centreminwidth'>
-                            <legend>Session Log</legend>
-                            <table id="sessionlogtable">
-                                <thead>
-                                    <tr><th></th></tr>
-                                </thead>
-                                <tr><td></td></tr>
-                            </table>
-                            <fieldset id="logfilter" class='centreminwidth left'>
-                                <iframe id="filterframe" src="Filter.html" scrolling="no" frameborder="0">
-                                </iframe>
-                            </fieldset>
+                        <div class='centre'>
+                            <label for='selecttable' class='largelab'>Update Table</label>
+                            <select id='selecttable' onchange='tableSelected();'>
+                                <option value='None'>None</option>
+                                <option value='Test'>Test</option>
+                                <option value='Test2'>Test2</option>
+                                <option value='Test3'>Test3</option>
+                                <option value='ChargerNetwork'>Charger Network</option>
+                                <option value='ChargerLocation'>Charger Location</option>
+                                <option value='ChargerUnit'>Charger Unit</option>
+                                <option value='ChargeSession'>Charge Session</option>
+                            </select>
+                        </div>
+                        <fieldset id='updatetable' name='UpdateTable' class='form centreminwidth'>
                         </fieldset>
                     </div>
-                    <div class='centre'>
-                        <label for='selecttable' class='largelab'>Update Table</label>
-                        <select id='selecttable' onchange='tableSelected();'>
-                            <option value='None'>None</option>
-                            <option value='Test'>Test</option>
-                            <option value='Test2'>Test2</option>
-                            <option value='Test3'>Test3</option>
-                            <option value='ChargerNetwork'>Charger Network</option>
-                            <option value='ChargerLocation'>Charger Location</option>
-                            <option value='ChargerUnit'>Charger Unit</option>
-                            <option value='ChargeSession'>Charge Session</option>
-                        </select>
-                    </div>
-                    <fieldset id='updatetable' name='UpdateTable' class='form centreminwidth'>
-                    </fieldset>
+                </div> 
+                <div id="chargesessionstable">
+                    <p class="centredtext">Charge Sessions</p>
                 </div>
-            </div> 
-            <div id="chargesessionstable">
-                <p class="centredtext">Charge Sessions</p>
-            </div>
-        </form>
+            </form>
         </fieldset>
     </body>
 </html>

@@ -13,7 +13,6 @@ import java.util.Date;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import org.cbc.application.reporting.Report;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLDeleteBuilder;
@@ -77,13 +76,14 @@ public class RecordEnergy extends ApplicationServer {
     private SQLSelectBuilder getTariffsSQL(Context ctx) throws SQLException {
         SQLSelectBuilder sel = ctx.getSelectBuilder("Tariff");
 
-        sel.addField("Tariff", "Code");
+        sel.addField("Code");
         sel.addField("Start");
         sel.addField("End");
         sel.addField("Type");
         sel.addField("UnitRate");
         sel.addField("StandingCharge");
         sel.addField("CalorificValue");
+        sel.addField("Comment");
         sel.setOrderBy("Start DESC, Type");
         sel.setMaxRows(config.getIntProperty("spendhistoryrows", 100));
         sel.addAnd(ctx.getParameter("filter"));

@@ -1,9 +1,8 @@
 'use strict';
-
 function globalError(message, file, line, column, error) {
     let location = '';
-    let cause    = 'Error';
-    
+    let cause = 'Error';
+
     if (!isNull(file)) {
         location = file.split("/");
         location = location[location.length - 1] + '(' + line + ')';
@@ -16,32 +15,34 @@ function globalError(message, file, line, column, error) {
 }
 function Statistics(enabled) {
     this.start;
-    this.id         = createUID(3);
-    this.logEnabled = enabled === undefined? getLocalStorage('browserlog') : enabled;
-    
-    this.enableLog = function(yes) {
+    this.id = createUID(3);
+    this.logEnabled = enabled === undefined ? getLocalStorage('browserlog') : enabled;
+
+    this.enableLog = function (yes) {
         this.logEnabled = yes;
-    };       
-    this.isEnabled = function() {
+    };
+    this.isEnabled = function () {
         return this.logEnabled;
     };
-    this.setStart = function() {
+    this.setStart = function () {
         this.start = new Date();
     };
-    this.elapsed = function(asString) {
+    this.elapsed = function (asString) {
         let elapsed = new Date() - this.start;
-        
-        if (!defaultNull(asString, false)) return elapsed /1000;
-        
-        let sec  = Math.trunc(elapsed/1000);
+
+        if (!defaultNull(asString, false))
+            return elapsed / 1000;
+
+        let sec = Math.trunc(elapsed / 1000);
         let msec = elapsed % 1000;
-        
+
         return lpad(sec, 2, ' ') + '.' + lpad(msec, 3, '0') + ' sec ';
     };
-    this.log = function(message) {
-        if (this.logEnabled) console.log(timeString(this.start, true) + ' ' + this.id + ' ' + message);
+    this.log = function (message) {
+        if (this.logEnabled)
+            console.log(timeString(this.start, true) + ' ' + this.id + ' ' + message);
     };
-    this.logElapsed = function(action) {
+    this.logElapsed = function (action) {
         this.log(action + ' took ' + this.elapsed(true));
     };
     this.start = new Date();
@@ -49,11 +50,11 @@ function Statistics(enabled) {
 var st = new Statistics();
 function Reporter() {
     var messageStore = [];
-    var maxStore     = 0;
-    
+    var maxStore = 0;
+
     function output(action, message, noTime) {
-        var timedMessage = isNull(noTime) || !noTime? timeString(null, true) + ' ' + message : message;
-        
+        var timedMessage = isNull(noTime) || !noTime ? timeString(null, true) + ' ' + message : message;
+
         switch (action) {
             case 'log':
                 console.log(timedMessage);
@@ -63,8 +64,9 @@ function Reporter() {
                 break;
             case 'store':
                 if (maxStore !== 0) {
-                    if (messageStore.length >= maxStore) messageStore.length = 0;  
-                    
+                    if (messageStore.length >= maxStore)
+                        messageStore.length = 0;
+
                     messageStore.push(timedMessage);
                 }
                 break;
@@ -75,38 +77,43 @@ function Reporter() {
                 throw new Error(message);
                 break;
             default:
-                console.log('Unknown action-' + action + ' on report of ' + message);                    
+                console.log('Unknown action-' + action + ' on report of ' + message);
         }
     }
     this.fatalAction = 'throw';
-    this.logEnabled  = getLocalStorage('browserlog');
-   
-    this.setFatalAction = function(action) {
+    this.logEnabled = getLocalStorage('browserlog');
+
+    this.setFatalAction = function (action) {
         this.fatalAction = action;
     };
-    this.fatalError = function(message) {
+    this.fatalError = function (message) {
         output(this.fatalAction, message);
     };
-    this.log = function(message, noTime) {
-        if (this.logEnabled) output('log', message, noTime);
+    this.log = function (message, noTime) {
+        if (this.logEnabled)
+            output('log', message, noTime);
     };
-    this.setMaxStore = function(size) {
+    this.setMaxStore = function (size) {
         maxStore = size;
     };
-    this.store = function(message, noTime) {
-        if (this.logEnabled) output('store', message, noTime);
-    };        
-    this.logThrow = function(exception, showAlert) {
-        if (showAlert) alert(exception.name + '-' + exception.message);
-        
+    this.store = function (message, noTime) {
+        if (this.logEnabled)
+            output('store', message, noTime);
+    };
+    this.logThrow = function (exception, showAlert) {
+        if (showAlert)
+            alert(exception.name + '-' + exception.message);
+
         console.error(exception);
     };
-    this.logStore = function(clear) {
-        for (var i = 0; i < messageStore.length; i++) this.log('Stored ' + messageStore[i], true);
-        
-        if (isNull(clear || clear)) messageStore.length = 0;
+    this.logStore = function (clear) {
+        for (var i = 0; i < messageStore.length; i++)
+            this.log('Stored ' + messageStore[i], true);
+
+        if (isNull(clear || clear))
+            messageStore.length = 0;
     };
-    this.clearStore = function() {
+    this.clearStore = function () {
         messageStore.length = 0;
     };
 }
@@ -120,53 +127,64 @@ var reporter = new Reporter();
  */
 class Tracker {
     static #sequence = 0;
-    
-    #store    = false;
+
+    #store = false;
     #created;
     #seqNo;
     #prefix = '';
     #stats;
-    
+
     #buildMessage(message) {
-        if (this.#prefix !== '') message = this.#prefix + ' ' + message;
-        
+        if (this.#prefix !== '')
+            message = this.#prefix + ' ' + message;
+
         message = 'Track seq' + lpad(this.#seqNo, 2, '0') + ' elapsed ' + this.#stats.elapsed(true) + message;
         return message;
-    };
-    setStore(on) {
+    }
+    ;
+            setStore(on) {
         this.#store = on;
-    };
-    constructor(message, store, prefix) {
-        this.#seqNo   = Tracker.#sequence += 1;
+    }
+    ;
+            constructor(message, store, prefix) {
+        this.#seqNo = Tracker.#sequence += 1;
         this.#created = new Date();
-        this.#prefix  = defaultNull(prefix, '');
-        this.#stats   = new Statistics();
-        
+        this.#prefix = defaultNull(prefix, '');
+        this.#stats = new Statistics();
+
         this.setStore(defaultNull(store));
-        
-        if (!isNull(message)) this.log(message);
-    };
-    setPrefix(prefix) {
+
+        if (!isNull(message))
+            this.log(message);
+    }
+    ;
+            setPrefix(prefix) {
         this.#prefix = prefix;
-    };
-    getSequence() {
+    }
+    ;
+            getSequence() {
         return this.#seqNo;
-    };
-    getCreated() {
+    }
+    ;
+            getCreated() {
         return this.#created;
-    };
-    log(message, noTime) { 
-        if (noTime !== undefined){
+    }
+    ;
+            log(message, noTime) {
+        if (noTime !== undefined) {
             reporter.fatalError("noTime not implemented");
         }
         message = this.#buildMessage(message);
         reporter.log(message);
 
-        if (this.#store) reporter.store(message);
-    };
-    store(message) { 
+        if (this.#store)
+            reporter.store(message);
+    }
+    ;
+            store(message) {
         reporter.store(this.#buildMessage(message));
-    };
+    }
+    ;
 }
 
 class elementMover {
@@ -179,27 +197,29 @@ class elementMover {
     #offsetY;
     #tag;
     #elm;
-    
+
     constructor(tag) {
-        this.#tag    = tag;
+        this.#tag = tag;
         this.#isDown = false;
-    }    
+    }
     mouseStart(event) {
-        this.#isDown  = true;
-        this.#stScrX  = event.screenY;
-        this.#stScrY  = event.screenY;
-        this.#crScrX  = event.screenX;
-        this.#crScrY  = event.screenY;
+        this.#isDown = true;
+        this.#stScrX = event.screenY;
+        this.#stScrY = event.screenY;
+        this.#crScrX = event.screenX;
+        this.#crScrY = event.screenY;
         this.#offsetX = this.#elm.offsetLeft - event.clientX;
-        this.#offsetY = this.#elm.offsetTop  - event.clientY;
-    };
-    mouseMove(event) {
-        if (!this.#isDown) return false;
-        
+        this.#offsetY = this.#elm.offsetTop - event.clientY;
+    }
+    ;
+            mouseMove(event) {
+        if (!this.#isDown)
+            return false;
+
         this.#elm.style.left = (event.clientX + this.#offsetX) + 'px';
-        this.#elm.style.top  = (event.clientY + this.#offsetY) + 'px';
-        this.#crScrX         = event.screenX;
-        this.#crScrY         = event.screenY;
+        this.#elm.style.top = (event.clientY + this.#offsetY) + 'px';
+        this.#crScrX = event.screenX;
+        this.#crScrY = event.screenY;
         return true;
     }
     mouseUp() {
@@ -210,10 +230,10 @@ class elementMover {
     }
     move(event) {
         var result = true;
-        
+
         event.preventDefault();
         this.#elm = event.currentTarget;
-        
+
         switch (event.type) {
             case 'mousedown':
                 trace(event, true);
@@ -221,9 +241,10 @@ class elementMover {
                 break;
             case 'mousemove':
                 result = this.mouseMove(event);
-                
-                if (result) traceAlertDiv(false);
-                
+
+                if (result)
+                    traceAlertDiv(false);
+
                 trace(event, false);
                 break;
             case 'mouseup':
@@ -249,9 +270,10 @@ function isNull(object) {
  * defValue Value to be returned if value is null. If it is undefined, null is returned.
  */
 function defaultNull(value, defValue) {
-    if (!isNull(value)) return value;
-    
-    return isNull(defValue)? null : defValue;
+    if (!isNull(value))
+        return value;
+
+    return isNull(defValue) ? null : defValue;
 }
 /*
  * selector  CSS selector identifying the required elements.
@@ -260,13 +282,14 @@ function defaultNull(value, defValue) {
  * @returns a map of the selected elements, with the key determined by nameAsKey and the element as the value.
  */
 function getElements(selector, nameAsKey) {
-    var map  = new Map();
+    var map = new Map();
     var elms = document.querySelectorAll(selector);
-    
-    if (isNull(nameAsKey)) nameAsKey = true;
-    
+
+    if (isNull(nameAsKey))
+        nameAsKey = true;
+
     for (var i = 0; i < elms.length; i++) {
-        map.set(nameAsKey? elms[i].name : elms[i].id, elms[i]);
+        map.set(nameAsKey ? elms[i].name : elms[i].id, elms[i]);
     }
     return map;
 }
@@ -283,7 +306,8 @@ function clearValues(elementMap, exclude) {
      * the larger key.
      */
     for (let [key, element] of elementMap) {
-        if (exclude.includes(key + ',')) continue;
+        if (exclude.includes(key + ','))
+            continue;
         /*
          * Probably need to allow other element types.
          */
@@ -296,26 +320,109 @@ function clearValues(elementMap, exclude) {
 function getParameters(id) {
     return getElements('#' + id + ' :is(select:not(.notparam), checkbox:not(.notparam), input:not(.notparam), textarea');
 }
-class screenFields {
+class ScreenFields {
     #fields;
     #id;
+    #ignoreSet = new Array();
+    #formatter = null;
     
-    constructor(elementid) {
-        this.#id     = elementid;
-        this.#fields = getParameters(elementid);
-        
-        if (isNull(this.#fields)) throw 'Element ' + elementid + ' passed to screenFields does not exist';
+    format(get, name, value) {
+        return this.#formatter === null? value : this.#formatter(get, name, value);
     }
-    set(field, value, mustExist) {
-        var elm = this.#fields.get(field);
+    /*
+     * elementid The element id of the element providing, see getParameters.
+     * formatter Function used to format the value passed to setValue and returned by getValue.
+     *           The function must have the following parameters:
+     *           - Get    True if getValue and false is setValue.
+     *           - Name   The field name being acted on.
+     *           - Value  The field value.
+     *           
+     *           The function must return the field value. If there is no format to be applied to value
+     *           it must return the passed in value.
+     *           
+     * @returns {ScreenFields}
+     */
+    constructor(elementid, formatter) {
+        this.#id        = elementid;
+        this.#fields    = getParameters(elementid);
+        this.#formatter = defaultNull(formatter, null);
+
+        if (isNull(this.#fields))
+            throw 'Element ' + elementid + ' passed to screenFields does not exist';
+    }
+    setIgnoreSet(names) {
+        this.#ignoreSet = names.split(',');
+    }
+    get(field, mustExist) {
+        let elm = this.#fields.get(field);
         
-        if (isNull(elm)) {
-            if (defaultNull(mustExist, true)) throw 'Field ' + field + ' is not present in screenFields ' + this.#id;
-            else return false;
-        } else
-            elm.value = value;       
+        if (defaultNull(mustExist, false) && elm === undefined)
+            throw 'Field ' + field + ' not found in screenFields ' + this.#id;
         
-        return true;
+        return elm;
+    }
+    getValue(field) {
+        let elm = this.get(field);
+        
+        if (elm !== undefined) return this.format(true, field, elm.value);
+        
+        elm = this.get(field + '~Date');
+        
+        if (elm !== undefined) return toDate(elm.value + ' ' + this.get(field + '~Time').value);
+        
+        return undefined;
+    }
+    setValue(field, value, mustExist) {
+        var found = false;
+
+        if (this.#ignoreSet.findIndex((element) => element === field) !== -1)
+            return;
+
+        function loadValue(obj, name, value) {
+            let elm = obj.#fields.get(name);
+
+            if (elm !== undefined) {
+                elm.value = obj.format(false, name, value);
+                found = true;
+            }
+        }
+        function loadTime(obj, date, time, value) {
+            let dVal = '';
+            let tVal = '';
+
+            var fields = value.split(" ");
+            
+            switch (fields.length) {
+                case 1:
+                    break;
+                case 2:
+                    dVal = fields[0];
+                    tVal = fields[1];
+                    break;
+                default:
+                    throw 'Timestamp is-' + value + '- but should have a date and hour. Loading ScreenFields ' + obj.#id + ' field ' + field;
+            }
+            obj.get(date, true).value = dVal;
+            obj.get(time, true).value = tVal;
+        }        
+        loadValue(this, field, value);
+
+        if (!found && field === 'Timestamp') loadTime(this, field + 'Date', field + 'Time', value);
+        if (!found && this.#fields.get(field + '~Date') !== undefined) loadTime(this, field + '~Date', field + '~Time', value);
+               
+        if (!found && defaultNull(mustExist, true))
+            throw 'Field ' + field + ' is not present in ScreenFields ' + this.#id;
+
+        return found;
+    }
+    getFields() {
+        return this.#fields;
+    }
+    clear(exclude) {
+        clearValues(this.#fields, exclude);
+    }
+    hasValue(name, required) {
+        return fieldHasValue(this.get(name), required);
     }
 }
 /*
@@ -332,21 +439,22 @@ class screenFields {
  */
 function getElement(object, withValue) {
     var elm = object;
-    
+
     if (isNull(object))
         elm = event.target;
-    else if (typeof object === 'string') { 
+    else if (typeof object === 'string') {
         if (trim(object) === '')
             elm = event.target;
         else
             elm = document.getElementById(object);
-    }    
-    var val = elm === null || elm.value === undefined? "" : trim(elm.value);
-    
-    if (withValue === undefined || !withValue) return elm;
-    
+    }
+    var val = elm === null || elm.value === undefined ? "" : trim(elm.value);
+
+    if (withValue === undefined || !withValue)
+        return elm;
+
     return {
-        elm:   elm,
+        elm: elm,
         value: val,
         empty: val.length === 0
     };
@@ -359,7 +467,7 @@ function getElement(object, withValue) {
 function copyElement(source, target) {
     target = getElement(target);
     source = getElement(source);
-    
+
     if (target.type === 'checkbox')
         target.checked = source.checked;
     else
@@ -371,9 +479,10 @@ function copyElement(source, target) {
 function isDisabled(element) {
     while (!isNull(element)) {
         var disabled = element.disabled;
-        
-        if (disabled !== undefined && disabled) return true;
-        
+
+        if (disabled !== undefined && disabled)
+            return true;
+
         element = element.parentNode;
     }
     return false;
@@ -388,26 +497,26 @@ function isDisabled(element) {
  * same location as the resourse folders.
  */
 function getFileRoot() {
-    var base    =  document.getElementsByTagName('base');
+    var base = document.getElementsByTagName('base');
     var baseURI;
-    
+
     if (base.length !== 0)
         baseURI = base[0].href;
     else {
-        var flds = window.location.href.split("/"); 
-        
-        delete flds[flds.length - 1]; 
+        var flds = window.location.href.split("/");
+
+        delete flds[flds.length - 1];
         baseURI = flds.join("/");
     }
     return baseURI;
 }
-function addStyleSheetToiFrame(iFrame, file) {    
-    iFrame   = getElement(iFrame);
-    
+function addStyleSheetToiFrame(iFrame, file) {
+    iFrame = getElement(iFrame);
+
     var frameDoc = (iFrame.contentWindow || iFrame.contentDocument).document;
-    var links    = frameDoc.getElementsByTagName('link');
+    var links = frameDoc.getElementsByTagName('link');
     var link;
-    
+
     file = getFileRoot() + file;
     /*
      * Check to see if link already present and return if it is.
@@ -415,14 +524,15 @@ function addStyleSheetToiFrame(iFrame, file) {
      * Note: Adding the link more than once does not seem to cause a problem.
      */
     for (var i = 0; i < links.length; i++) {
-        if (links[i].href === file) return;
+        if (links[i].href === file)
+            return;
     }
-      
-    link      = document.createElement("link");
+
+    link = document.createElement("link");
     link.href = file;
-    link.rel  = "stylesheet";
+    link.rel = "stylesheet";
     link.type = "text/css";
-    
+
     frameDoc.head.appendChild(link);
 }
 /*
@@ -430,7 +540,7 @@ function addStyleSheetToiFrame(iFrame, file) {
  */
 function getChildren(element, tagName) {
     var children = [];
-    
+
     for (var i = 0; i < element.childElementCount; i++) {
         if (tagName === undefined || element.children[i].tagName === tagName) {
             children.push(element.children[i]);
@@ -440,7 +550,7 @@ function getChildren(element, tagName) {
 }
 function removeChildren(element) {
     element = getElement(element);
-    
+
     while (element.lastElementChild) {
         element.removeChild(element.lastElementChild);
     }
@@ -453,7 +563,7 @@ function removeChildren(element) {
  */
 function getElementsByTag(name, exclude) {
     var elms = [...document.getElementsByTagName(name)];
-    
+
     if (exclude !== undefined && exclude !== null) {
         elms = elms.filter(function (elm) {
             return !(exclude === elm || exclude.contains(elm));
@@ -462,21 +572,21 @@ function getElementsByTag(name, exclude) {
     return elms;
 }
 function getParameter(value, defaultValue) {
-    return value === undefined? defaultValue : value;
+    return value === undefined ? defaultValue : value;
 }
 function ErrorObject(name, message) {
-    this.name    = name;
+    this.name = name;
     this.message = message;
-    
-    this.getName = function() {
+
+    this.getName = function () {
         return this.name;
     };
-    this.getMessage = function() {
+    this.getMessage = function () {
         return this.message;
     };
     if (message === undefined) {
         this.message = name;
-        this.name    = '';
+        this.name = '';
     }
 }
 function removeURLPath(url) {
@@ -484,23 +594,26 @@ function removeURLPath(url) {
 }
 function randomString(len) {
     var s = '';
-    
+
     var randomchar = function () {
         var n = Math.floor(Math.random() * 62);
-        
-        if (n < 10)  return n; //1-10
-        if (n < 36)  return String.fromCharCode(n + 55); //A-Z
+
+        if (n < 10)
+            return n; //1-10
+        if (n < 36)
+            return String.fromCharCode(n + 55); //A-Z
         return String.fromCharCode(n + 61); //a-z
     };
-    while (s.length < len)  s += randomchar();
+    while (s.length < len)
+        s += randomchar();
     return s;
 }
 /*
  * Returns the computed style property for element. If property is not given all properties are returned.
  */
 function readComputedStyle(element, property) {
-    const cs    = window.getComputedStyle(element, null);
-    var   style = '';
+    const cs = window.getComputedStyle(element, null);
+    var style = '';
     /*
      * According to Mozilla, getPropertyValue only works reliably with long hand property names such as font-style.
      * 
@@ -517,21 +630,23 @@ function readComputedStyle(element, property) {
         return cs;
     else {
         var props = [property];
-        
+
         if (property === 'font') {
             props[0] = 'font-style';
             props[1] = 'font-variant';
             props[2] = 'font-weight';
             props[3] = 'font-size';
-            props[4] = 'font-family';            
+            props[4] = 'font-family';
         }
         for (var i = 0; i < props.length; i++) {
             var prop = cs.getPropertyValue(props[i]);
-            
-            if (prop === 'normal') continue;
-            
-            if (style.length !== 0) style += ' ';   
-            
+
+            if (prop === 'normal')
+                continue;
+
+            if (style.length !== 0)
+                style += ' ';
+
             style += cs.getPropertyValue(props[i]);
         }
     }
@@ -552,16 +667,18 @@ function displayTextWidth(text, font, adjustText) {
      * Not entirely sure what following does, but I think it prevents a canvas element being
      * created each time the function is called.
      */
-    const canvas  = displayTextWidth.canvas || (displayTextWidth.canvas = document.createElement("canvas"));
+    const canvas = displayTextWidth.canvas || (displayTextWidth.canvas = document.createElement("canvas"));
     const context = canvas.getContext("2d");
 
-    if (!isNull(font))context.font = font;    
+    if (!isNull(font))
+        context.font = font;
     /*
      * The following is a workaround. Numbers containing a decimal point seem to return a measure that is too
      * small. So replace the . with 0.
-     */    
-    if (!isNull(adjustText) && adjustText) text = text.replace(/\.|\-/g, 'w');
-        
+     */
+    if (!isNull(adjustText) && adjustText)
+        text = text.replace(/\.|\-/g, 'w');
+
     const metrics = context.measureText(text);
     /*
      * https://developer.mozilla.org/en-US/docs/Web/API/TextMetrics suggest that using the following may
@@ -577,33 +694,36 @@ function displayTextWidth(text, font, adjustText) {
 function camelToWords(text) {
     var words = '';
     var ch;
-    
+
     for (let i = 0; i < text.length; i++) {
         ch = text.charAt(i);
-        
-        if (i > 0 && ch === ch.toUpperCase()) words += ' ';
-        
+
+        if (i > 0 && ch === ch.toUpperCase())
+            words += ' ';
+
         words += ch;
     }
     return words;
 }
 function lpad(text, length, pad) {
-    if (isNull(text)) text = '';
-    
+    if (isNull(text))
+        text = '';
+
     text = text.toString();
-    
+
     while (text.length < length)
-        text = (pad === undefined? ' ' : pad) + text;
+        text = (pad === undefined ? ' ' : pad) + text;
 
     return text;
 }
 function rpad(text, length, pad) {
-    if (isNull(text)) text = '';
-    
+    if (isNull(text))
+        text = '';
+
     text = text.toString();
-    
+
     while (text.length < length)
-        text = text + (pad === undefined? ' ' : pad);
+        text = text + (pad === undefined ? ' ' : pad);
 
     return text;
 }
@@ -626,18 +746,21 @@ function toNumber(text, low, high) {
  */
 function toTime(time) {
     time = time.split(":");
-    
+
     try {
-        if (time.length === 1) time[1] = '0'; // Note: this extends the array and sets minutes to 0.
-        if (time.length === 2) time[2] = '0';
-        if (time.length > 3) throw "Invalid time format - too many fields";
+        if (time.length === 1)
+            time[1] = '0'; // Note: this extends the array and sets minutes to 0.
+        if (time.length === 2)
+            time[2] = '0';
+        if (time.length > 3)
+            throw "Invalid time format - too many fields";
         /*
          * Validete and convert time fields to numberic.
          */
         for (let i = 0; i < time.length; ++i) {
             time[i] = time[i].trim() === "" ? 0 : toNumber(time[i], 0, i === 0 ? 23 : 59);
         }
-    } catch(err){
+    } catch (err) {
         throw new ErrorObject('Time', err);
     }
     return time;
@@ -671,40 +794,44 @@ function toTime(time) {
  * 'Date' otherwise. The message describes the validation failure.
  */
 function toDate(timestamp, notime) {
-    if (timestamp === undefined || timestamp === null || timestamp === '') return new Date();
-    if (timestamp instanceof Date) return timestamp;
-    
-    var months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-    var date    = timestamp.split(new RegExp("[/\-]"));
-    var time    = new Array(0, 0, 0);
+    if (timestamp === undefined || timestamp === null || timestamp === '')
+        return new Date();
+    if (timestamp instanceof Date)
+        return timestamp;
+
+    var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+    var date = timestamp.split(new RegExp("[/\-]"));
+    var time = new Array(0, 0, 0);
     var errName = "Date";
-    
-    try {        
-        if (date.length !== 3) throw "Invalid date format";
+
+    try {
+        if (date.length !== 3)
+            throw "Invalid date format";
         /*
          * Check to see if the date is followed by a time field. First remove any leading spaces from the final date field.
          */
         date[2] = trim(date[2]);
-        
+
         var i = date[2].indexOf(' ');
-        
+
         if (i !== -1) {
             /*
              * There is a time field.
              */
             errName = "Time";
-            
-            if (notime !== undefined && notime) throw "Time present in date only field";
-            
-            time    = toTime(date[2].substring(i + 1));
+
+            if (notime !== undefined && notime)
+                throw "Time present in date only field";
+
+            time = toTime(date[2].substring(i + 1));
             date[2] = date[2].substring(0, i);
-        }        
+        }
         errName = "Date";
 
         date[0] = toNumber(date[0]);
         date[1] = trim(date[1]);
         date[2] = toNumber(date[2]);
-        
+
         if (date[0] > 99) {
             /*
              * If first field is more than 2 digits, assume it is the year and swap with date[2]
@@ -714,8 +841,9 @@ function toDate(timestamp, notime) {
             date[0] = date[2];
             date[2] = y;
         }
-        if (date[2] < 100) date[2] += 2000;
-        
+        if (date[2] < 100)
+            date[2] += 2000;
+
         for (var i = 0; i < months.length; i++) {
             if (months[i].toLowerCase() === date[1].toLowerCase()) {
                 date[1] = i + 1;
@@ -740,51 +868,53 @@ function toDate(timestamp, notime) {
 
         datetime.setFullYear(date[2]);
         datetime.setMonth(date[1]);
-        datetime.setDate(date[0]);        
+        datetime.setDate(date[0]);
         datetime.setHours(time[0], time[1], time[2], 0);
         /*
          * The above set functions updates the next field if the value is out of range for the current one, e.g. 2022 08 33
          * results in 2022 09 2. Read back the fields to check the values have not changed. This is not necessary for the time
          * fields as they have already been checked to be in the correct range.
          */
-        if (datetime.getFullYear() !== date[2] || datetime.getMonth() !== date[1] || datetime.getDate() !== date[0]) throw "Invalid date format";
+        if (datetime.getFullYear() !== date[2] || datetime.getMonth() !== date[1] || datetime.getDate() !== date[0])
+            throw "Invalid date format";
 
         if (isNaN(datetime.getTime()))
             throw "Invalid datetime format";
 
         return datetime;
     } catch (err) {
-        if (err instanceof ErrorObject) throw err;
+        if (err instanceof ErrorObject)
+            throw err;
         /*
          * If the exception is not an ErrorObject convert it to one.
          */
         throw new ErrorObject(errName, err);
     }
 }
-function validateDateTimeOptions(pOptions) { 
+function validateDateTimeOptions(pOptions) {
     BaseOptions.call(this, false);
-    
+
     setObjectName(this, 'validateDateTime');
-    this.addSpec({name: 'required',  type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'normalise', type: 'boolean', default: true,  mandatory: false});
-    this.addSpec({name: 'notime',    type: 'boolean', default: false, mandatory: false});
-        
+    this.addSpec({name: 'required', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'normalise', type: 'boolean', default: true, mandatory: false});
+    this.addSpec({name: 'notime', type: 'boolean', default: false, mandatory: false});
+
     this.clear();
-    this.load(pOptions, false);    
+    this.load(pOptions, false);
 }
 function validateDateTime(did, tid, options) {
     var timestamp = '';
-    var tm        = null;    
-    var opts      = new validateDateTimeOptions(options);
-    var result    = {
+    var tm = null;
+    var opts = new validateDateTimeOptions(options);
+    var result = {
         valid: false,
         value: undefined,
         empty: true
     };
     var dt = getElement(did, true);
-    var tm = tid !== undefined && tid !== null ? getElement(tid, true) :  { elm: null, value: '', empty: true};
+    var tm = tid !== undefined && tid !== null ? getElement(tid, true) : {elm: null, value: '', empty: true};
     result.empty = dt.empty;
-    
+
     if (!tm.empty && dt.empty && tm.elm !== null) {
         displayAlert('Validation Error', 'Date must be given if time is', {focus: dt.elm});
         return result;
@@ -800,22 +930,22 @@ function validateDateTime(did, tid, options) {
         }
     }
     timestamp = trim(dt.value + ' ' + tm.value);
-    
+
     if (timestamp === '') {
         result.valid = true;
         return result;
     }
-    
+
     try {
         result.value = toDate(timestamp, opts.notime);
-        
+
         if (tm.elm === null && opts.notime) {
             /*
              * In this the date field should no have the time appended
              */
         }
         result.valid = true;
-        
+
         if (opts.normalise) {
             if (tm.elm !== null) {
                 /*
@@ -826,18 +956,39 @@ function validateDateTime(did, tid, options) {
             } else
                 dt.elm.value = opts.notime ? dateString(result.value) : dateTimeString(result.value);
         }
-    } catch(e) {
+    } catch (e) {
         var elm = e.getName() === 'Time' && tm.elm !== null ? tm.elm : dt.elm;
-        
+
         displayAlert('Field Error', e.message + " on " + getElementLabel(elm), {focus: elm});
     }
     return result;
 }
+function secondsToTime(seconds) {
+    var div = 24 * 60 * 60;
+    var flds = [0, 0, 0, 0];
+    var time = '';
+
+    seconds = Math.round(seconds);
+
+    for (let i = 0; i <= 3; i++) {
+        flds[i] = Math.floor(seconds / div);
+
+        if (time === '' & flds[i] !== 0)
+            time = '' + flds[i];
+        else if (time !== '')
+            time += ':' + lpad('' + flds[i], 2, '0');
+
+        seconds = seconds % div;
+        div = div / (i === 0 ? 24 : 60);
+    }
+    return time;
+}
 function dateDiff(from, to, units) {
     var scale;
-    
-    if (units === undefined) units = 'Seconds';
-    
+
+    if (units === undefined)
+        units = 'Seconds';
+
     switch (units.toLowerCase()) {
         case 'ms':
             scale = 1;
@@ -872,31 +1023,35 @@ function dateString(date) {
  */
 function timeString(source, milliseconds) {
     var time;
-    
-    if (source === null || source === undefined) source = new Date();
-    
-    if (typeof source === 'String') source = toDate(source);
-    
+
+    if (source === null || source === undefined)
+        source = new Date();
+
+    if (typeof source === 'String')
+        source = toDate(source);
+
     if (source instanceof Date)
         time = source.toString().split(" ")[4];
     else
         time = lpad(source[0], 2, '0') + ':' + lpad(source[1], 2, '0') + ':' + lpad(source[2], 2, '0');
-    
-    if (milliseconds !== undefined && milliseconds) time += '.' + lpad(source.getMilliseconds(), 3, '0');
-    
+
+    if (milliseconds !== undefined && milliseconds)
+        time += '.' + lpad(source.getMilliseconds(), 3, '0');
+
     return time;
-} 
-function dateTimeString(date) {    
+}
+function dateTimeString(date) {
     return dateString(date) + ' ' + timeString(date);
 }
 function getDateTime(date) {
-    if (date === null || date === undefined) date = new Date();
-    
+    if (date === null || date === undefined)
+        date = new Date();
+
     return dateTimeString(toDate(date));
 }
 function getDayText(date, long) {
     var value = 'Invalid';
-    
+
     switch (toDate(date).getDay()) {
         case 0:
             value = 'Sunday';
@@ -918,12 +1073,13 @@ function getDayText(date, long) {
             break;
         case 6:
             value = 'Saturday';
-            break;         
+            break;
         default:
             return value;
     }
-    if (long === undefined || !long) return value.substring(0, 3);
-    
+    if (long === undefined || !long)
+        return value.substring(0, 3);
+
     return value;
 }
 function displayFieldError(elm, message) {
@@ -946,8 +1102,8 @@ function displayFieldError(elm, message) {
  *  Only the first empty field is reported. 
  */
 function valuesAllOrNone(...args) {
-    let notEmpty  = null;
-    let empty     = null;
+    let notEmpty = null;
+    let empty = null;
     let firstName = null;
     /*
      * Examine arguments to see is they have values or not. On completion of the loop,
@@ -955,18 +1111,19 @@ function valuesAllOrNone(...args) {
      */
     for (let arg of args) {
         let argtst = getValue(arg) !== '';
-        
         if (argtst) {
-            if (firstName === null) firstName = getElementLabel(arg);
-            
+            if (firstName === null)
+                firstName = getElementLabel(arg);
+
             notEmpty = true;
         } else
-            empty    = true;
+            empty = true;
     }
     /*
      * Return true if all arguments have a value, or all arguments don't have a value.
      */
-    if (empty === null || notEmpty === null) return notEmpty === true;
+    if (empty === null || notEmpty === null)
+        return notEmpty === true;
     /*
      * Repeat loop and report error for all arguments that don't have a value
      */
@@ -984,7 +1141,7 @@ function checkDate(elm, required) {
 }
 function checkTime(elm, required) {
     var ok = false;
-    
+
     elm = getElement(elm);
 
     if (fieldHasValue(elm, required)) {
@@ -997,7 +1154,7 @@ function checkTime(elm, required) {
         }
     } else
         ok = true;
-    
+
     return ok;
 }
 function checkTimestamp(elm, required) {
@@ -1008,25 +1165,26 @@ function checkDateTime(did, tid, required) {
 }
 function triggerClick(element) {
     var event;
-    
+
     if (platform.name === 'IE') {
         event = document.createEvent("MouseEvents");
-        event.initMouseEvent("click", true, true, "window", 0, 0, 0, 0, 0, false, false, false, false, 0, null);  
-    } else {    
+        event.initMouseEvent("click", true, true, "window", 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+    } else {
         event = new MouseEvent('click', {
-        view:       window,
-        bubbles:    true});
+            view: window,
+            bubbles: true});
     }
     getElement(element).dispatchEvent(event);
 }
 function setAttribute(element, id, value) {
     var name = id;
-    
+
     if (typeof id !== 'string') {
-        name  = value;
+        name = value;
         value = id[name];
     }
-    if (value !== undefined) element.setAttribute(name, value);
+    if (value !== undefined)
+        element.setAttribute(name, value);
 }
 
 /*
@@ -1042,10 +1200,11 @@ function createElement(document, tagName, options) {
      * Changed from const name to work in IE11.
      */
     for (name in options) {
-        let value = options[name]; 
-        
-        if (value === undefined) continue;  //Ignore options with undefined values;
-        
+        let value = options[name];
+
+        if (value === undefined)
+            continue;  //Ignore options with undefined values;
+
         switch (name) {
             case 'append':
                 value.appendChild(elm);
@@ -1070,51 +1229,94 @@ function setLocalStorage(id, value) {
 }
 function getLocalStorage(id) {
     var val = localStorage.getItem(id);
-    
-    if (val === 'true')  return true;
-    if (val === 'false') return false;
-    
+
+    if (val === 'true')
+        return true;
+    if (val === 'false')
+        return false;
+
     return val;
 }
 function createUID(length, prefix) {
-    return (prefix === undefined? '' : prefix) + randomString(length);
+    return (prefix === undefined ? '' : prefix) + randomString(length);
 }
-function Timer(counter, previous) {
-    this.current  = counter;
+function OldTimer(counter, previous) {
+    this.current = counter;
     this.previous = previous;
     this.startTime;
-    this.upd      = setInterval(updateTimer, 1000, this);
-    
+    this.upd = setInterval(updateTimer, 1000, this);
+
     function updateTimer(obj) {
         if (obj.current !== undefined && obj.current.value !== '') {
             var count = parseInt(obj.current.value) + 1;
-            var gap   = dateDiff(obj.startTime, null);
-            
+            var gap = dateDiff(obj.startTime, null);
+
             if (gap - count > 3) {
-                reporter.log('Timer update slow count is ' + count + ' gap ' + gap);
+                reporter.log('Timer update slow count is ' + count + ' gap ' + gap + ' diff is ' + (gap - count));
                 count = gap;
             }
             obj.current.value = count;
         }
-    };
-    this.start = function() {
-        if (this.previous !== undefined) this.previous.value = this.current.value;
-        
+    }
+    ;
+    this.start = function () {
+        if (this.previous !== undefined)
+            this.previous.value = this.current.value;
+
         this.current.value = 0;
-        this.startTime     = new Date();
+        this.startTime = new Date();
     };
-    
+}
+class Timer {
+    #target;
+    #intId;
+    #startTime;
+    #format;
+
+    constructor(target, format) {
+        this.#target = target;
+        this.#format = defaultNull(format, false);
+    }
+    updateTimer(obj) {
+        if (obj.#target !== undefined && obj.#target.value !== '') {
+            var gap = Math.round(dateDiff(obj.#startTime, null));
+
+            if (gap === 0)
+                return;
+
+            obj.#target.value = obj.#format ? secondsToTime(gap) : gap;
+        }
+    }
+    ;
+            start() {
+        if (isNull(this.#intId))
+            this.#intId = setInterval(this.updateTimer, 1000, this);
+
+        this.#target.value = 0;
+        this.#startTime = new Date();
+    }
+    ;
+            stop() {
+        if (!isNull(this.#intId)) {
+            clearInterval(this.#intId);
+            this.#intId = null;
+        }
+        this.#target.value = '';
+        this.#startTime = new Date();
+    }
+    ;
 }
 /*
  * The following 2 function provide a workaround for the older versions of javascript that don't support the constuctor object element.
  */
 function getObjectName(obj) {
     var name = obj.constructor.name;
-    
-    return name === undefined? obj.fixedName : name;
+
+    return name === undefined ? obj.fixedName : name;
 }
 function setObjectName(obj, name) {
-    if (obj.constructor.name === undefined) obj['fixedName'] = name;
+    if (obj.constructor.name === undefined)
+        obj['fixedName'] = name;
 }
 /*
  * Provides the base methods and storage for Options objects. An options object has one or more name value pairs. Child classes use addSpec
@@ -1127,19 +1329,21 @@ function setObjectName(obj, name) {
  * @returns {BaseOptions}
  */
 function BaseOptions(pAccessByGet) {
-    this.optSpecs    = [];
+    this.optSpecs = [];
     this.accessByGet = pAccessByGet;
-    this.used        = false;
-    
+    this.used = false;
+
     function error(options, message) {
         reporter.fatalError(getObjectName(options) + ' ' + message);
     }
-    function getSpec(options, name, mustExist) {        
+    function getSpec(options, name, mustExist) {
         for (var i = 0; i < options.optSpecs.length; i++) {
-            if (options.optSpecs[i].name === name) return options.optSpecs[i];
+            if (options.optSpecs[i].name === name)
+                return options.optSpecs[i];
         }
-        if (!isNull(mustExist) && mustExist) error(options, 'Option "' + name + '" is not defined');
-        
+        if (!isNull(mustExist) && mustExist)
+            error(options, 'Option "' + name + '" is not defined');
+
         return null;
     }
     /*
@@ -1157,22 +1361,26 @@ function BaseOptions(pAccessByGet) {
      */
     function accessValue(options, name, read, value, loaded) {
         var spec = getSpec(options, name, true);
-        
-        if (spec === null) return;
-        
-        if (!isNull(loaded) && loaded) spec.loaded = true;
-        
+
+        if (spec === null)
+            return;
+
+        if (!isNull(loaded) && loaded)
+            spec.loaded = true;
+
         if (read) {
-            value = options.accessByGet? spec.value : options[name];
+            value = options.accessByGet ? spec.value : options[name];
         } else {
-            if (value === null && spec.mandatory) error(options, name + ' is mandatory and cannot be set to null');
+            if (value === null && spec.mandatory)
+                error(options, name + ' is mandatory and cannot be set to null');
             /*
              * Allow undefined, load check will validate that null values are errored, if not loaded with a value.
              */
-            if (value === undefined) value = null;
-            
+            if (value === undefined)
+                value = null;
+
             if (value !== null && spec.type !== null && typeof value !== spec.type)
-                 error(options, ' "' + name + '" type is ' + typeof value + ' but should be ' + spec.type);
+                error(options, ' "' + name + '" type is ' + typeof value + ' but should be ' + spec.type);
             else {
                 if (options.accessByGet)
                     spec.value = value;
@@ -1181,45 +1389,46 @@ function BaseOptions(pAccessByGet) {
             }
         }
         return value;
-    }   
-    function loadOption(options, name, value) {  
-        accessValue(options, name, false, value, true);    
-    } 
-    this.setValue = function(name, value) {
+    }
+    function loadOption(options, name, value) {
+        accessValue(options, name, false, value, true);
+    }
+    this.setValue = function (name, value) {
         accessValue(this, name, false, value);
     };
-    this.getValue = function(name) {
+    this.getValue = function (name) {
         return accessValue(this, name, true);
     };
-    this.isLoaded = function(name) {
+    this.isLoaded = function (name) {
         return getSpec(this, name, true).loaded;
     };
-    this.getUsed = function(name) {
-        return (isNull(name)? this.used : getSpec(this, name, true).used);
+    this.getUsed = function (name) {
+        return (isNull(name) ? this.used : getSpec(this, name, true).used);
     };
-    this.setUsed = function(name, used) {
+    this.setUsed = function (name, used) {
         if (typeof name === 'string')
             getSpec(this, name, true).used = used;
         else
             this.used = name;
     };
-    this.clear = function() {
+    this.clear = function () {
         for (var i = 0; i < this.optSpecs.length; i++) {
             var spec = this.optSpecs[i];
-            
+
             accessValue(this, spec.name, false, spec.default);
             spec.loaded = false;
-            spec.used   = false;
+            spec.used = false;
         }
     };
-    this.load = function(values, ignoreUndefined) {
+    this.load = function (values, ignoreUndefined) {
         if (values !== undefined) {
             for (name in values) {
                 if (ignoreUndefined !== undefined && ignoreUndefined) {
                     /*
                      * Check if parameter not defined and return if it is. This prevents loadOption failing.
                      */
-                    if (getSpec(this, name) === null)  continue;
+                    if (getSpec(this, name) === null)
+                        continue;
                 }
                 loadOption(this, name, values[name]);
             }
@@ -1229,41 +1438,45 @@ function BaseOptions(pAccessByGet) {
          */
         for (var i = 0; i < this.optSpecs.length; i++) {
             var spec = this.optSpecs[i];
-            
-            if ((this.accessByGet? spec.value : this[spec.name]) === null) {
+
+            if ((this.accessByGet ? spec.value : this[spec.name]) === null) {
                 if (spec.mandatory)
                     error(this, 'Option "' + spec.name + ' is mandatory but does not have a default');
                 else
-                    this.accessByGet? spec.value = null : this[spec.name] = null;
+                    this.accessByGet ? spec.value = null : this[spec.name] = null;
             }
         }
     };
-    this.allowedOptionName = function(name) {
-        if (this.accessByGet) return true;
-        
+    this.allowedOptionName = function (name) {
+        if (this.accessByGet)
+            return true;
+
         var test = eval('this.' + name);
-        
+
         return test === undefined;
     };
-    this.addSpec = function(option) {
+    this.addSpec = function (option) {
         var spec = {
-            loaded: false, 
-            used:   false};
-        
+            loaded: false,
+            used: false};
+
         spec.name = option.name;
-        
-        if (spec.name === undefined || spec.name === null)  error(this, 'Option must have a name property');
-        
-        if (!this.allowedOptionName(option.name)) error(this, 'Option name ' + option.name + ' is not allowed');
-        
+
+        if (spec.name === undefined || spec.name === null)
+            error(this, 'Option must have a name property');
+
+        if (!this.allowedOptionName(option.name))
+            error(this, 'Option name ' + option.name + ' is not allowed');
+
         for (name in option) {
             switch (name) {
-                case 'name':                    
-                    if (getSpec(this, spec.name) !== null)  error(this, 'Option "' + spec.name + '" is already defined');
-                    
+                case 'name':
+                    if (getSpec(this, spec.name) !== null)
+                        error(this, 'Option "' + spec.name + '" is already defined');
+
                     break;
                 case 'type':
-                    spec.type = option[name] === undefined? null : option[name];
+                    spec.type = option[name] === undefined ? null : option[name];
                     break;
                 case 'mandatory':
                     spec.mandatory = option[name];
@@ -1272,54 +1485,56 @@ function BaseOptions(pAccessByGet) {
                     spec.default = option[name];
                     break;
                 default:
-                     error(this, 'Option "' + spec.name + ' property-' + name + ' is already defined');
-            }            
+                    error(this, 'Option "' + spec.name + ' property-' + name + ' is already defined');
+            }
         }
-        if (spec.type      === undefined) spec.type      = spec.default === undefined? null : typeof spec.default;
-        if (spec.mandatory === undefined) spec.mandatory = true;
-        
+        if (spec.type === undefined)
+            spec.type = spec.default === undefined ? null : typeof spec.default;
+        if (spec.mandatory === undefined)
+            spec.mandatory = true;
+
         this.optSpecs.push(spec);
     };
-    this.error = function(msg) {
+    this.error = function (msg) {
         error(this, msg);
     };
-    this.log = function() {
+    this.log = function () {
         var spec;
-        
+
         console.log(getObjectName(this));
-        
+
         for (var i = 0; i < this.optSpecs.length; i++) {
             spec = this.optSpecs[i];
-            
+
             console.log(
-                    'Option '     + rpad(String(spec.name), 10)     + 
-                    ' type '      + rpad(String(spec.type),  8)     +  
+                    'Option ' + rpad(String(spec.name), 10) +
+                    ' type ' + rpad(String(spec.type), 8) +
                     ' mandatory ' + lpad(String(spec.mandatory), 6) +
-                    ' default '   + lpad(String(spec.default), 10)  + 
-                    ' value '     + String(this.getValue(spec.name)));
+                    ' default ' + lpad(String(spec.default), 10) +
+                    ' value ' + String(this.getValue(spec.name)));
         }
     };
 }
-function UnitConvert(pOptions) { 
+function UnitConvert(pOptions) {
     BaseOptions.call(this, false);
-    
+
     setObjectName(this, 'UnitConvert');
-    
-    this.addSpec({name: 'source',      type: 'string',  mandatory: true});
-    this.addSpec({name: 'target',      type: 'string',  mandatory: true});
-    this.addSpec({name: 'multiplier',  type: 'number',  mandatory: true});
-    this.addSpec({name: 'description', type: 'string',  mandatory: false});
-    this.addSpec({name: 'isVolume',    type: 'boolean', default: false, mandatory: false});
-        
+
+    this.addSpec({name: 'source', type: 'string', mandatory: true});
+    this.addSpec({name: 'target', type: 'string', mandatory: true});
+    this.addSpec({name: 'multiplier', type: 'number', mandatory: true});
+    this.addSpec({name: 'description', type: 'string', mandatory: false});
+    this.addSpec({name: 'isVolume', type: 'boolean', default: false, mandatory: false});
+
     this.clear();
-    this.load(pOptions);    
+    this.load(pOptions);
 }
 
 function ConvertUnitsO() {
     BaseOptions.call(this, false);
-    
+
     var base = undefined;
-    
+
     this.conversions = [];
     /*
      * Returns the entry in conversions for source and target. If one exists for target and source it is returned with the reciprocal multipler
@@ -1329,27 +1544,28 @@ function ConvertUnitsO() {
      */
     function get(conversions, source, target) {
         var conversion = null;
-        
+
         for (var i = 0; i < conversions.length; i++) {
             conversion = conversions[i];
-            
-            if (conversion.source === source && conversion.target === target) return conversion;
-            
-            if (conversion.target === source && conversion.source === target) 
+
+            if (conversion.source === source && conversion.target === target)
+                return conversion;
+
+            if (conversion.target === source && conversion.source === target)
                 return new UnitConvert(
-                    {source:      source, 
-                     target:      target, 
-                     isVolume:    conversion.isVolume, 
-                     multiplier:  1 / conversion.multiplier,
-                     description: source + ' to ' + target});
+                        {source: source,
+                            target: target,
+                            isVolume: conversion.isVolume,
+                            multiplier: 1 / conversion.multiplier,
+                            description: source + ' to ' + target});
         }
         return null;
     }
     function add(conversions, conversion) {
         var conv = get(conversions, conversion.source, conversion.target);
-        
+
         if (conv !== null) {
-            if (conv.isVolume !== conversion.isVolume && conv.multiplier !== conversion.multiplier && conv.description !== conversion.description) 
+            if (conv.isVolume !== conversion.isVolume && conv.multiplier !== conversion.multiplier && conv.description !== conversion.description)
                 throw ErrorObject('Adding conversion for source ' + conversion.source + ' to target ' + conversion.target + ' would change an existing conversion');
             else
                 return;
@@ -1360,27 +1576,30 @@ function ConvertUnitsO() {
         base = [];
         add(base, new UnitConvert({source: 'gm', target: 'ml', isVolume: false, multiplier: 1, description: 'gm to ms'}));
     }
-    this.addConversion = function(conversion) {
+    this.addConversion = function (conversion) {
         var conv = get(base, conversion.source, conversion);
-        
-        if (conv === null) add(this.conversions, new UnitConvert(conversion));
+
+        if (conv === null)
+            add(this.conversions, new UnitConvert(conversion));
     };
-    this.getConversion = function(source, target){
+    this.getConversion = function (source, target) {
         var cv = get(base, source, target);
-        
-        if (cv !== null) return cv;
-        
+
+        if (cv !== null)
+            return cv;
+
         return get(this.conversions, source, target);
     };
 }
 /*
  * This describes a columns for columns option of JSONArrayOptions. The options are:
  * 
- * - name  The column name which must be one present in the table.
+ * - name        The column database name which must be one present in the table.
+ * - columnTitle The column title if different to the default.
  * 
  * For the remaining fields see comment for JSONArrayOptions.
  */
-function JSONArrayColumnOptions(pOptions) {  
+function JSONArrayColumnOptions(pOptions) {
     /*
      * Set to retrieve by getValue.
      * 
@@ -1396,20 +1615,21 @@ function JSONArrayColumnOptions(pOptions) {
      * a test that getValue works.
      */
     BaseOptions.call(this, true);
-    
+
     setObjectName(this, 'JSONArrayColumnOptions');
-    
-    this.addSpec({name: 'name',         type: 'string',  mandatory: true});        
-    this.addSpec({name: 'optional',     type: 'boolean', default: false,  mandatory: false});
-    this.addSpec({name: 'forceWrap',    type: 'boolean', default: false,  mandatory: false});
-    this.addSpec({name: 'minSize',      type: 'number',  default: null,   mandatory: false});
-    this.addSpec({name: 'maxSize',      type: 'number',  default: null,   mandatory: false});
-    this.addSpec({name: 'splitName',    type: 'boolean', default: false,  mandatory: false});
-    this.addSpec({name: 'wrapHeader',   type: 'boolean', default: false,  mandatory: false});
-    this.addSpec({name: 'usePrecision', type: 'boolean', default: false,  mandatory: false});
-        
+
+    this.addSpec({name: 'name',         type: 'string',  mandatory: true});
+    this.addSpec({name: 'optional',     type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'forceWrap',    type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'minSize',      type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'maxSize',      type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'splitName',    type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'columnTitle',  type: 'string',  default: null,  mandatory: false});
+    this.addSpec({name: 'wrapHeader',   type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'usePrecision', type: 'boolean', default: false, mandatory: false});
+
     this.clear();
-    this.load(pOptions);    
+    this.load(pOptions);
 }
 /*
  * Defines the options parameter for loadJSONArray, which is used to create and populate HTML table with none
@@ -1442,20 +1662,21 @@ function JSONArrayColumnOptions(pOptions) {
  * - minSize       The minimum number of characters in a column field.
  * - maxSize       The maximum number of characters in a column field.
  * - splitName     If true, the column title is set to camel case database fields converted to words,
- *                 e.g. MilesAdded becomes Miles Added.
+ *                 e.g. MilesAdded becomes Miles Added. This will be ignore if the columns option columnTitle
+ *                 is set.
  * - wrapHeader    If true, the header size is determined by the largest field resulting from splitting on space,
  *                 e.g. if the column header is 'Multiple Field Heading', the size is determined by Multiple.
  * - usePrecision  If true, column size is set to the database precision, rather than size of the maximum sized.
  * - setTableName  If true, the table name attribute is set to Table name returned in the json data.
  */
-function JSONArrayOptions(pOptions) {    
+function JSONArrayOptions(pOptions) {
     BaseOptions.call(this, false);
-    
+
     setObjectName(this, 'JSONArrayOptions');
-    
+
     if (!isNull(pOptions.scroll) && pOptions.scroll !== 'table' && pOptions.scroll !== 'body')
         this.error('scroll option is ' + pOptions.scroll + ' and must be table or body');
-    
+
     this.addSpec({name: 'onClick',       type: 'string',  default: null,   mandatory: false});
     this.addSpec({name: 'nullToEmpty',   type: 'boolean', default: true,   mandatory: false});
     this.addSpec({name: 'useInnerCell',  type: 'boolean', default: false,  mandatory: false});
@@ -1472,7 +1693,7 @@ function JSONArrayOptions(pOptions) {
     this.addSpec({name: 'wrapHeader',    type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'usePrecision',  type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'setTableName',  type: 'boolean', default: false,  mandatory: false});
-        
+
     this.clear();
     this.load(pOptions);
     /*
@@ -1480,16 +1701,37 @@ function JSONArrayOptions(pOptions) {
      */
     if (this.columns !== null) {
         var cols = [];
-        
+
         for (var i = 0; i < this.columns.length; i++) {
             var col = new JSONArrayColumnOptions(this.columns[i]);
-            
-            cols.push(col);            
+
+            cols.push(col);
         }
         this.columns = cols;
     }
 }
-function loadOptionsJSONOptions(pOptions){
+/*
+ * Defines the options parameter for createParameter
+ * 
+ * The properties are:
+ *  - initialParams  Array of name value pairs to be added to the parameter after the parameter action.
+ *  - fields         Screen fields as returned by getElements.
+ *  - modifier       Function that can be used to modify the values of the above properties. It takes 2 parameters name
+ *                   and value. It returns the input value, if no modification is defined, or the modified value.
+ */
+function createParametersOptions(pOptions) {
+    BaseOptions.call(this, false);
+
+    setObjectName(this, 'createParametersOptions');
+
+    this.addSpec({name: 'initialParams', type: 'object',   default: null, mandatory: false});
+    this.addSpec({name: 'fields',        type: 'object',   default: null, mandatory: false});
+    this.addSpec({name: 'modifier',      type: 'function', default: null, mandatory: false});
+        
+    this.clear();
+    this.load(pOptions, true);
+}
+function loadOptionsJSONOptions(pOptions) {
     /*
      * Force access by getValue. 
      * 
@@ -1497,18 +1739,18 @@ function loadOptionsJSONOptions(pOptions){
      * However, it will cause an exception on an attempt to access to an undefined option.
      */
     BaseOptions.call(this, true);
-    
+
     setObjectName(this, 'loadOptionsJSONOptions');
-    this.addSpec({name: 'name',         type: null,      default: ''});   
-    this.addSpec({name: 'element',      type: 'object',  default: null, mandatory: false});   
-    this.addSpec({name: 'keepValue',    type: 'boolean', default: true});     
-    this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
-    this.addSpec({name: 'allowBlank',   type: 'boolean', default: false});
-    this.addSpec({name: 'table',        type: 'string',  default: ''});
-    this.addSpec({name: 'field',        type: 'string',  default: ''});
-    this.addSpec({name: 'filter',       type: 'string',  default: ''});
-    this.addSpec({name: 'async',        type: 'boolean', default: true});
-        
+    this.addSpec({name: 'name', type: null, default: ''});
+    this.addSpec({name: 'element', type: 'object', default: null, mandatory: false});
+    this.addSpec({name: 'keepValue', type: 'boolean', default: true});
+    this.addSpec({name: 'defaultValue', type: 'string', default: ''});
+    this.addSpec({name: 'allowBlank', type: 'boolean', default: false});
+    this.addSpec({name: 'table', type: 'string', default: ''});
+    this.addSpec({name: 'field', type: 'string', default: ''});
+    this.addSpec({name: 'filter', type: 'string', default: ''});
+    this.addSpec({name: 'async', type: 'boolean', default: true});
+
     this.clear();
     this.load(pOptions, true);
 }
@@ -1518,23 +1760,41 @@ loadOptionsJSONOptions.prototype = {
      * options.property will return undefined if not property not valid. Without getters the only way to get
      * property values is via getValue.
      */
-    get name()         {return this.getValue('name');},
-    get element()      {return this.getValue('element');},
-    get keepValue()    {return this.getValue('keepValue');},
-    get defaultValue() {return this.getValue('defaultValue');},
-    get table()        {return this.getValue('table');},
-    get field()        {return this.getValue('field');},
-    get filter()       {return this.getValue('filter');},
-    get async()        {return this.getValue('async');},
-    get allowBlank()   {return this.getValue('allowBlank');}};
+    get name() {
+        return this.getValue('name');
+    },
+    get element() {
+        return this.getValue('element');
+    },
+    get keepValue() {
+        return this.getValue('keepValue');
+    },
+    get defaultValue() {
+        return this.getValue('defaultValue');
+    },
+    get table() {
+        return this.getValue('table');
+    },
+    get field() {
+        return this.getValue('field');
+    },
+    get filter() {
+        return this.getValue('filter');
+    },
+    get async() {
+        return this.getValue('async');
+    },
+    get allowBlank() {
+        return this.getValue('allowBlank');
+    }};
 loadOptionsJSONOptions.prototype.constructor = loadOptionsJSONOptions;
 
 function resizeFrame(id) {
-    var elm    = getElement(id);
-    var width  = elm.contentWindow.document.body.scrollWidth;
+    var elm = getElement(id);
+    var width = elm.contentWindow.document.body.scrollWidth;
     var height = elm.contentWindow.document.body.scrollHeight;
 
-    elm.width  = width  + "px"; 
+    elm.width = width + "px";
     elm.height = height + "px";
 }
 function popUp() {
@@ -1544,42 +1804,42 @@ function popUp() {
     var appId;
     var frameId;
 
-    this.initialise         = initialise;
-    this.reset              = reset;
-    this.display            = display;
-    this.getElementById     = getElementById;
-    this.getValueById       = getValueById;
-    this.setValueById       = setValueById;
-    this.getAppId           = getAppId;
-    this.getContainerId     = getContainerId;
-    this.getFrameId         = getFrameId;
-    this.inDisplay          = inDisplay;
+    this.initialise = initialise;
+    this.reset = reset;
+    this.display = display;
+    this.getElementById = getElementById;
+    this.getValueById = getValueById;
+    this.setValueById = setValueById;
+    this.getAppId = getAppId;
+    this.getContainerId = getContainerId;
+    this.getFrameId = getFrameId;
+    this.inDisplay = inDisplay;
     this.setDocumentOnClick = setDocumentOnClick;
-    
+
     function setSize(element, width, height) {
         var style = element.style;
-        
-        style.width  = width  + 'px';
+
+        style.width = width + 'px';
         style.height = height + 'px';
     }
     function initialise(containerId, appId) {
         var home = document.getElementById(containerId);
         var body;
-        
+
         this.containerId = containerId;
-        this.popUpId     = containerId;
-        this.appId       = appId === undefined ? 'appframe' : appId;
-        
-        if (home.tagName === 'IFRAME') {             
-            this.popUpDoc    = document.getElementById(containerId).contentWindow.document;
-            body             = this.popUpDoc.body;
-            this.popUpId     = body.id !== ''? body.id : body.firstElementChild.id;
-            this.frameId     = containerId;
+        this.popUpId = containerId;
+        this.appId = appId === undefined ? 'appframe' : appId;
+
+        if (home.tagName === 'IFRAME') {
+            this.popUpDoc = document.getElementById(containerId).contentWindow.document;
+            body = this.popUpDoc.body;
+            this.popUpId = body.id !== '' ? body.id : body.firstElementChild.id;
+            this.frameId = containerId;
             this.containerId = home.parentElement.id;
         } else {
-            this.popUpId  = this.containerId;
+            this.popUpId = this.containerId;
             this.popUpDoc = document;
-            this.frameId  = '';
+            this.frameId = '';
         }
         document.getElementById(this.containerId).style.display = 'none';
     }
@@ -1592,10 +1852,10 @@ function popUp() {
      */
     function reset() {
         getElement(this.getContainerId()).style.left = "";
-        getElement(this.getContainerId()).style.top  = "";
-        
+        getElement(this.getContainerId()).style.top = "";
+
         if (this.getFrameId() === '') {
-            this.getElementById(this.popUpId).style.width  = "";
+            this.getElementById(this.popUpId).style.width = "";
             this.getElementById(this.popUpId).style.height = "";
         }
     }
@@ -1607,19 +1867,21 @@ function popUp() {
 
         if (switchApp)
             setHidden(this.appId, yes);
-        
+
         if (yes) {
             var pu = this.getElementById(this.popUpId);
             var wd = pu.offsetWidth;
             var ht = pu.offsetHeight;
-            
-            if (minWidth  !== null && wd < minWidth)  wd = minWidth;
-            if (minHeight !== null && ht < minHeight) ht = minHeight;
-            
-             if (this.frameId !== '')
-                 setSize(document.getElementById(this.frameId),     wd, ht);
-             else
-                 setSize(document.getElementById(this.containerId), wd, ht);
+
+            if (minWidth !== null && wd < minWidth)
+                wd = minWidth;
+            if (minHeight !== null && ht < minHeight)
+                ht = minHeight;
+
+            if (this.frameId !== '')
+                setSize(document.getElementById(this.frameId), wd, ht);
+            else
+                setSize(document.getElementById(this.containerId), wd, ht);
         }
     }
     function getElementById(id) {
@@ -1629,36 +1891,40 @@ function popUp() {
         return trim(this.getElementById(id).value);
     }
     function setValueById(id, value, ignoreIfNotFound) {
-        var el =this/getElementById(id);
-        
-        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound) return;
-        
+        var el = this / getElementById(id);
+
+        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound)
+            return;
+
         el.value = value;
     }
     function getFrameId() {
         return this.frameId;
     }
     function inDisplay(event) {
-        var target    = event;
+        var target = event;
         var container = document.getElementById(this.containerId);
-        var frame     = this.frameId !== ''? this.getElementById(this.popUpId) : undefined;
-        
+        var frame = this.frameId !== '' ? this.getElementById(this.popUpId) : undefined;
+
         while (target.parentNode) {
-            if (target === container || frame !== undefined && target === frame) return true;
-            
+            if (target === container || frame !== undefined && target === frame)
+                return true;
+
             target = target.parentNode;
         }
         return false;
     }
     function setDocumentOnClick(action) {
         document.onclick = action;
-        
-        if (this.frameId !== '') this.popUpDoc.onclick = action;
+
+        if (this.frameId !== '')
+            this.popUpDoc.onclick = action;
     }
 }
 function deleteRows(object) {
-    if (isNull(object)) return;
-    
+    if (isNull(object))
+        return;
+
     if (object.rows.length === 0) {
         //IE always returns 0, so clear innerHTML as a safeguard.
 
@@ -1752,8 +2018,8 @@ function getSelectedOption(id) {
  * @returns {.document@call;getElementsByName.value|String|.document@call;getElementById.checked}
  */
 function getValue(elememt) {
-    var input = (typeof elememt === 'string')? document.getElementById(elememt) : elememt;
-    var type  = input.type;
+    var input = (typeof elememt === 'string') ? document.getElementById(elememt) : elememt;
+    var type = input.type;
 
     if (type === "radio")
         return getRadioValue(input.name);
@@ -1806,10 +2072,11 @@ function addParameterById(parameters, name, alias) {
 }
 function normaliseValue(value, type, scale, nullToSpace) {
     if (value === null || value === 'null') {
-        if (nullToSpace !== 'undefined' && nullToSpace) value = '';
-        
+        if (nullToSpace !== 'undefined' && nullToSpace)
+            value = '';
+
         return value;
-    } 
+    }
     if (type === 'decimal' && scale !== 0 && value !== '') {
         try {
             value = value.toFixed(scale);
@@ -1822,27 +2089,30 @@ function normaliseValue(value, type, scale, nullToSpace) {
 class ClassProperties {
     #properties = new WeakMap();
     #className;
-    
+
     constructor() {
     }
     addKey(key, className) {
-        this.#className = isNull(className)? key.constructor.name : className;
+        this.#className = isNull(className) ? key.constructor.name : className;
         this.#properties.set(key, {});
     }
     hasProperty(key, name) {
         return (name in this.#properties.get(key));
-    };
-    setProperty(key, name, value, create) {
+    }
+    ;
+            setProperty(key, name, value, create) {
         if ((isNull(create) || !create) && !this.hasProperty(key, name))
             reporter.fatalError('Property ' + name + ' not in ' + this.#className + ' and creation not allowed');
         this.#properties.get(key)[name] = value;
-    };
-    getProperty(key, name) {
+    }
+    ;
+            getProperty(key, name) {
         if (!this.hasProperty(key, name))
-            reporter.fatalError('Property ' + name + ' not in ' + this.#className );
+            reporter.fatalError('Property ' + name + ' not in ' + this.#className);
 
         return this.#properties.get(key)[name];
-    };
+    }
+    ;
 }
 /*
  * This implements the Column class in a way that prevents direct access to the properties. Also user, due to the
@@ -1861,9 +2131,10 @@ class ClassProperties {
  * at the point it is declared, but why this is necessary I don't know. Without it, called methods fail with method
  * not defined, although the debugger shows the method to be present in the instance prototype.
  */
-const Column = function () {;
+const Column = function () {
+    ;
     const _props = new ClassProperties();
-   
+
     class Column {
         /*
          * The following is test private class variables.
@@ -1872,19 +2143,19 @@ const Column = function () {;
          * 
          * Javascript editor reporting spurious errors #6509
          */
-         #priv = 'Private';
-        pub   = 'Public';
-        
+        #priv = 'Private';
+        pub = 'Public';
+
         getPriv() {
             return this.#priv;
         }
-        
-        constructor(name, cell, no, type, precision, scale, optional, options) {
+
+        constructor(name, no, type, precision, scale, optional, options) {
             let key = this;  //For setProp. Function this is not the same as class this.
-            
+
             _props.addKey(key);
-            
-            const setProp = function(name, value) {
+
+            const setProp = function (name, value) {
                 _props.setProperty(key, name, value, true);
             };
             setProp('name',         name);
@@ -1896,6 +2167,7 @@ const Column = function () {;
             setProp('class',        '');
             setProp('size',         null);
             setProp('textWidth',    null);
+            setProp('columnTitle',  null);
             setProp('forceWrap',    false);
             setProp('adjustText',   options.adjustText);
             setProp('minSize',      options.minSize);
@@ -1903,11 +2175,11 @@ const Column = function () {;
             setProp('splitName',    options.splitName);
             setProp('wrapHeader',   options.wrapHeader);
             setProp('usePrecision', options.usePrecision);
-            
+
             if (!isNull(options.columns)) {
                 for (var i = 0; i < options.columns.length; i++) {
                     var colOpts = options.columns[i];
-                    
+
                     if (colOpts.getValue('name') === name || colOpts.getValue('name') === '*') {
                         colOpts.setUsed(true);
                         /*
@@ -1919,26 +2191,30 @@ const Column = function () {;
                          *       default value, will result in isLoaded returning true.
                          */
                         function copy(property, loadedRequired) {
-                            if (!loadedRequired || colOpts.isLoaded(property)) setProp(property, colOpts.getValue(property));                               
+                            if (!loadedRequired || colOpts.isLoaded(property))
+                                setProp(property, colOpts.getValue(property));
                         }
                         copy('minSize',      true);
                         copy('maxSize',      true);
                         copy('splitName',    true);
+                        copy('columnTitle',  true);
                         copy('wrapHeader',   true);
                         copy('usePrecision', true);
                         copy('forceWrap',    false);
-                        
-                        if (this.optional() !== null) copy('optional', false); // Override the server value if client value set.
-                    }                    
+
+                        if (this.optional() !== null)
+                            copy('optional', false); // Override the server value if client value set.
+                    }
                 }
             }
-            this.setSize(cell);
-            
             Object.seal(this);
-            
-            if (!isNull(no) && no > 0)                                   this.addClass('tbcol' + no);
-            if (!isNull(optional) && optional)                           this.addClass('optional');
-            if (!isNull(type) && (type === "int" || type === "decimal")) this.addClass('number');
+
+            if (!isNull(no) && no > 0)
+                this.addClass('tbcol' + no);
+            if (!isNull(optional) && optional)
+                this.addClass('optional');
+            if (!isNull(type) && (type === "int" || type === "decimal"))
+                this.addClass('number');
         }
         /*
          * In general it is probably better to not allow direct access to properties as specific property
@@ -1952,32 +2228,35 @@ const Column = function () {;
          */
         hasProperty(name) {
             return _props.hasProperty(this, name);
-        };
+        }
         setProperty(name, value, create) {
             _props.setProperty(this, name, value, create);
-        };
+        }
         getProperty(name) {
             return _props.getProperty(this, name);
-        };
+        }
         addClass(tag) {
             let cls = _props.getProperty(this, 'class');
-            
-            if (cls !== '') cls += ' ';
-            
+
+            if (cls !== '')
+                cls += ' ';
+
             _props.setProperty(this, 'class', cls + tag);
-        };
+        }
         setSize(element) {
             var value = element.innerHTML;
-            var font  = readComputedStyle(element, 'font');
-            let key   = this;
-            
-            const setMax = function(property, length) {                
+            var font = readComputedStyle(element, 'font');
+            let key = this;
+
+            const setMax = function (property, length) {
                 let current = _props.getProperty(key, property);
-                
-                if (current === null || current < length) _props.setProperty(key, property, length);                
+
+                if (current === null || current < length)
+                    _props.setProperty(key, property, length);
             };
-            if (typeof value === 'number') value = value.toString();
-            
+            if (typeof value === 'number')
+                value = value.toString();
+
             if (element.tagName.toLowerCase() === 'th' && _props.getProperty(key, 'wrapHeader')) {
                 /*
                  * Column headers are allowed to wrap on space character. So use the largest word in the header
@@ -1985,89 +2264,94 @@ const Column = function () {;
                  */
                 let flds = value.split(' ');
                 value = '';
-                
+
                 for (var i = 0; i < flds.length; i++) {
-                    if (flds[i].length > value.length) value = flds[i];
+                    if (flds[i].length > value.length)
+                        value = flds[i];
                 }
             }
             setMax('size', value.length);
-    
-            if (!isNull(font)) {                
+
+            if (!isNull(font)) {
                 let length1 = displayTextWidth(value, font, _props.getProperty(this, 'adjustText'));
                 setMax('textWidth', length1);
             }
-        };   
+        }
         getClass() {
             return _props.getProperty(this, 'class');
-        };
+        }
         loadColumnValue(cell, value, nullToSpace) {
             value = normaliseValue(value, _props.getProperty(this, 'type'), _props.getProperty(this, 'scale'), nullToSpace);
-            
-            if (typeof value === 'number') value = value.toString();
-            
+
+            if (typeof value === 'number')
+                value = value.toString();
+
             cell.innerHTML = value;
             this.setSize(cell);
-        };
+        }
         name() {
             return _props.getProperty(this, 'name');
-        };
+        }
         size() {
             return _props.getProperty(this, 'size');
-        };
+        }
         precision() {
             return _props.getProperty(this, 'precision');
-        };
+        }
         minSize() {
             return _props.getProperty(this, 'minSize');
-        };
+        }
         maxSize() {
             return _props.getProperty(this, 'maxSize');
-        };
+        }
         forceWrap() {
             return _props.getProperty(this, 'forceWrap');
-        };
+        }
         textWidth() {
             return _props.getProperty(this, 'textWidth');
-        };
+        }
         optional() {
             return _props.getProperty(this, 'optional');
-        };
+        }
     }
     Object.seal(Column);
-    
+
     return Column;
 }();
 
 const TableSizer = function () {
     const _props = new ClassProperties();
-    
+
     class TableSizer {
         constructor(table, baseId, options) {
             let key = this;  //For setProp. Function this is not the same as class this.
-            
+
             _props.addKey(key);
-            
-            const setProp = function(name, value) {
+
+            const setProp = function (name, value) {
                 _props.setProperty(key, name, value, true);
             };
-            setProp('baseId',  isNull(baseId)? table.id : baseId);
-            setProp('table',   getElement(table));
-            setProp('font',    readComputedStyle(table, 'font'));
+            setProp('baseId', isNull(baseId) ? table.id : baseId);
+            setProp('table', getElement(table));
+            setProp('font', readComputedStyle(table, 'font'));
             setProp('options', options);
             setProp('columns', []);
             Object.seal(this);
-        };
+        }
         table() {
             return _props.getProperty(this, 'table');
-        };
+        }
         identifier() {
             let name = getCaption(this.table());
+
+            return name === '' ? _props.getProperty(this, 'baseId') : name;
+        }
+        addColumn(name, no, type, precision, scale, optional, options) {
+            let col = new Column(name, no, type, precision, scale, optional, options); 
             
-            return name === ''? _props.getProperty(this, 'baseId') : name;
-        };
-        addColumn(name, cell, no, type, precision, scale, optional, options) { 
-            this.columns().push(new Column(name, cell, no, type, precision, scale, optional, options));
-        };
+            this.columns().push(col);
+            return col;
+        }
         columns() {
             return  _props.getProperty(this, 'columns');
         }
@@ -2088,62 +2372,68 @@ const TableSizer = function () {
          * to conform to columns min max size if specified, or if not, the table min and max field sizes.
          */
         constrainedSize(index) {
-            var col   = this.column(index);
-            var size  = this.minSize(index);
+            var col = this.column(index);
+            var size = this.minSize(index);
             var cSize = col.size();
-            var opts  = _props.getProperty(this, 'options');
-            
-            if (opts.usePrecision && col.precision() > cSize) cSize = col.precision();
-            
-            if (!isNull(size) && cSize < size) return size;
-            
+            var opts = _props.getProperty(this, 'options');
+
+            if (opts.usePrecision && col.precision() > cSize)
+                cSize = col.precision();
+
+            if (!isNull(size) && cSize < size)
+                return size;
+
             size = this.maxSize(index);
-            
-            if (!isNull(size) && cSize > size) return size;
-            
+
+            if (!isNull(size) && cSize > size)
+                return size;
+
             return cSize;
         }
         constrainedTextWidth(index) {
-            var col  = this.column(index);
+            var col = this.column(index);
             var size = this.constrainedSize(index);
-             
+
             return Math.ceil(col.textWidth() * size / col.size());
         }
         checkColumnOptions(options) {
-            if (isNull(options)) return;
-        
+            if (isNull(options))
+                return;
+
             for (var i = 0; i < options.length; i++) {
-                var ocol  = options[i];
+                var ocol = options[i];
                 var found = false;
-                 
-                if (!ocol.getUsed()) reporter.fatalError('There is no column "' + ocol.getValue('name') + '" in table ' + this.table().id);
+
+                if (!ocol.getUsed())
+                    reporter.fatalError('There is no column "' + ocol.getValue('name') + '" in table ' + this.table().id);
             }
         }
         log() {
             var opts = _props.getProperty(this, 'options');
-            
+
             reporter.log(
-                "Sizer details for table " + this.identifier()     + 
-                    ' Min '                + lpad(opts.minSize, 4) + 
-                    ' Max '                + lpad(opts.maxSize, 4) + 
-                    ' Use TextWidth '      + opts.useTextWidth     + 
-                    ' Adjust Text '        + opts.adjustText);
+                    "Sizer details for table " + this.identifier() +
+                    ' Min ' + lpad(opts.minSize, 4) +
+                    ' Max ' + lpad(opts.maxSize, 4) +
+                    ' Use TextWidth ' + opts.useTextWidth +
+                    ' Adjust Text ' + opts.adjustText);
             for (var j = 0; j < this.columns().length; j++) {
                 var col = this.column(j);
-                
+
                 reporter.log(
-                    rpad(col.name(), 15) + 
-                    ' size '                   + lpad(col.size(), 3)              +
-                    ' min '                    + lpad(this.minSize(j), 3)         + 
-                    ' max '                    + lpad(this.maxSize(j), 3)         +
-                    ' constrained '            + lpad(this.constrainedSize(j), 3) + 
-                    ' text width '             + lpad(col.textWidth(), 4)         + 
-                    ' constrained text width ' + lpad(this.constrainedTextWidth(j), 4));
+                        rpad(col.name(), 15) +
+                        ' size ' + lpad(col.size(), 3) +
+                        ' min ' + lpad(this.minSize(j), 3) +
+                        ' max ' + lpad(this.maxSize(j), 3) +
+                        ' constrained ' + lpad(this.constrainedSize(j), 3) +
+                        ' text width ' + lpad(col.textWidth(), 4) +
+                        ' constrained text width ' + lpad(this.constrainedTextWidth(j), 4));
+            }
         }
-    };
-}
-Object.seal(TableSizer);
-return TableSizer;
+        ;
+    }
+    Object.seal(TableSizer);
+    return TableSizer;
 }();
 /*
  * Returns the caption for element. If this is null it establishes a value in the following order:
@@ -2153,65 +2443,72 @@ return TableSizer;
  */
 function getCaption(element) {
     element = getElement(element);
-    
+
     var children;
-    
-    if (!isNull(element.caption)) return element.caption.textContent;
-    
+
+    if (!isNull(element.caption))
+        return element.caption.textContent;
+
     if (element.tagName === 'FIELDSET') {
         children = getChildren(element, 'LEGEND');
-        
-        if (children.length > 0) return children[0].innerHTML;
+
+        if (children.length > 0)
+            return children[0].innerHTML;
     }
     return element.id;
 }
 function rowReader(row, throwError) {
-    this.row        = row;
-    this.index      = -1;
-    this.header     = getElement(this.row.parentNode.parentNode).rows[0];
-    this.table      = this.header.parentNode.parentNode;
+    this.row = row;
+    this.index = -1;
+    this.header = getElement(this.row.parentNode.parentNode).rows[0];
+    this.table = this.header.parentNode.parentNode;
     /* 
      * This stopped working, need to investigate why. The ne version is a workaround.
-    this.caption    = this.table.caption.innerHTML;
+     this.caption    = this.table.caption.innerHTML;
      */
-    
-    this.caption    = getCaption(this.table);
+
+    this.caption = getCaption(this.table);
     this.throwError = throwError === undefined ? false : throwError;
 
     function reportError(obj, message) {
-        if (obj.throwError) 
+        if (obj.throwError)
             throw Error(message);
         else
-            alert(message);        
+            alert(message);
     }
-    this.check = function() {
-        if (this.index >= this.header.cells.length) 
-            reportError(this, "Attempt to read beyond last column. There are " + this.header.cells.length + " columns");    
+    this.check = function () {
+        if (this.index >= this.header.cells.length)
+            reportError(this, "Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
     };
-    this.selectColumn = function(name) {
+    this.selectColumn = function (name) {
         for (this.index = 0; this.index < this.header.cells.length; this.index++) {
-            if (this.header.cells[this.index].innerHTML === name) return true;
+            if (this.header.cells[this.index].innerHTML === name)
+                return true;
         }
         reportError(this, "Column " + name + " is not in table " + this.caption);
         return false;
     };
-    this.reset = function() {
+    this.reset = function () {
         this.index = -1;
     };
-    this.nextColumn = function() {
+    this.nextColumn = function () {
         this.check();
         this.index += 1;
 
         return this.index < this.header.cells.length;
     };
-    this.columnName = function() {
+    this.columnTitle = function () {
         this.check();
         return this.header.cells[this.index].innerHTML;
     };
-    this.valueAttribute = function(name) {
+    this.columnName = function () {
+        this.check();
+        return this.row.cells[this.index].getAttribute('name');
+    };
+    this.valueAttribute = function (name) {
         return this.row.cells[this.index].getAttribute(name);
     };
-    this.columnValue = function() {
+    this.columnValue = function () {
         this.check();
         /*
          * Needed to go via ta to ensure that escapable characters such as & are not returned in their escaped form i.e. &amp;
@@ -2222,8 +2519,9 @@ function rowReader(row, throwError) {
         ta.innerHTML = trim(this.row.cells[this.index].innerHTML);
         return ta.value;
     };
-    this.getColumnValue = function(name) {
-        if (this.selectColumn(name)) return this.columnValue();
+    this.getColumnValue = function (name) {
+        if (this.selectColumn(name))
+            return this.columnValue();
     };
 }
 /*
@@ -2259,7 +2557,7 @@ function getWidth(noOfChars, unit) {
 }
 function setElementValue(field, value, type, scale) {
     value = normaliseValue(value, type, scale, true);
-    
+
     if (type === 'varchar' || type === 'char') {
         if (field.type === "checkbox")
             field.checked =
@@ -2269,54 +2567,55 @@ function setElementValue(field, value, type, scale) {
                     value.toLowerCase() === 'true';
         else
             field.value = value;
-    } else 
+    } else
         field.value = value;
 }
 function arrayToJSONTable(name) {
     this.columns = [];
-    this.name   = name;
-    
-    this.addColumn = function(name, dataName, type, optional) {
+    this.name = name;
+
+    this.addColumn = function (name, dataName, type, optional) {
         var column = {};
-        
-        column.Name     = name;
+
+        column.Name = name;
         column.DataName = dataName;
-        column.Type     = type;
-        
+        column.Type = type;
+
         for (name in optional) {
             column[name] = optional[name];
         }
         this.columns.push(column);
     };
-    this.getJSON = function(data) {
-        var i      = 0;
+    this.getJSON = function (data) {
+        var i = 0;
         var result = new JSON();
-        var arr    = new JSON('array');
+        var arr = new JSON('array');
         var row;
         var col;
-        
+
         result.addMember('Table', name);
         result.addMember('Header', arr);
-        
+
         for (i = 0; i < this.columns.length; i++) {
             col = this.columns[i];
             row = new JSON('object');
             arr.addElement(row);
-            
+
             for (name in col) {
-                if (col.name !== 'DataName') row.addMember(name, col[name]);
+                if (col.name !== 'DataName')
+                    row.addMember(name, col[name]);
             }
         }
         arr = new JSON('array');
         result.addMember('Data', arr);
-        
+
         for (i = 0; i < data.length; i++) {
             var dr = data[i];
             var cl;
             var jcols = new JSON('array');
-            
+
             arr.addElement(jcols);
-            
+
             for (cl = 0; cl < this.columns.length; cl++) {
                 jcols.addElement(dr[this.columns[cl].DataName]);
             }
@@ -2336,18 +2635,19 @@ function loadJSONFields(jsonData, exact) {
         var scale;
         var value;
 
-        if (typeof jsonData === 'string') json = (new JSONReader(jsonData)).getJSON();
-        
+        if (typeof jsonData === 'string')
+            json = (new JSONReader(jsonData)).getJSON();
+
         json.setFirst();
 
         while (json.isNext()) {
             jfld = json.next().value;
-            
+
             jfld.setFirst();
-            
+
             while (jfld.isNext()) {
                 jattr = jfld.next();
-                
+
                 switch (jattr.name) {
                     case "Name":
                         id = jattr.value;
@@ -2372,14 +2672,14 @@ function loadJSONFields(jsonData, exact) {
 
             if (field !== null)
                 setElementValue(field, value, type, scale);
-            else if (exact === undefined || exact === true) 
+            else if (exact === undefined || exact === true)
                 reporter.fatalError("There is no element for field " + id);
-            
-            id        = "";
-            type      = "";
+
+            id = "";
+            type = "";
             precision = "";
-            scale     = "";
-            value     = "";
+            scale = "";
+            value = "";
         }
     } catch (e) {
         reporter.logThrow(e, true);
@@ -2397,20 +2697,32 @@ function jsonAddHeader(json, table, baseId, options) {
     var row    = header.insertRow(0);
     var colNo  = 0;
     var jcol;
+    var col;
     var cell;
-        
-    if (options.scroll === 'table') header.classList.add('scroll');
-    
+
+    if (options.scroll === 'table')
+        header.classList.add('scroll');
+
     /*
      * Iterate the array of column specifier objects.
      */
     json.setFirst();
-    
+
     while (json.isNext()) {
-        jcol  = json.next().value;
-        name  = jcol.getMember('Name', true).value;
-        cName = options.splitName? camelToWords(name) : name;
+        jcol = json.next().value;
+        name = jcol.getMember('Name', true).value;
+        col  = tableSizer.addColumn(
+                name,
+                options.addColNoClass ? colNo + 1 : -1,
+                jcol.getMember('Type').value,
+                jcol.getMember('Precision', false).value,
+                jcol.getMember('Scale', false).value,
+                jcol.getMember('Optional', false).value,
+                tableSizer.options());
+        cName = col.getProperty('columnTitle');
         
+        if (cName === null) cName = col.getProperty('splitName')? camelToWords(name) : name;
+
         if (options.useInnerCell) {
             cell = document.createElement('th');
             cell.innerHTML = cName;
@@ -2419,22 +2731,14 @@ function jsonAddHeader(json, table, baseId, options) {
             row.innerHTML += "<th>" + cName + "</th>";
             cell = row.cells[colNo];
         }
-        tableSizer.addColumn (
-                name,
-                cell,
-                options.addColNoClass? colNo + 1 : -1,
-                jcol.getMember('Type').value,
-                jcol.getMember('Precision',  false).value,
-                jcol.getMember('Scale',      false).value,
-                jcol.getMember('Optional',   false).value,
-                tableSizer.options());
+        col.setSize(cell);
         colNo++;
     }
     /*
      * Check for any unused column options.
      */
     tableSizer.checkColumnOptions(options.columns);
-    
+
     return tableSizer;
 }
 /*
@@ -2445,31 +2749,33 @@ function jsonAddData(json, tableSizer, options) {
     var rowNo = 0;
     var dcol;
     var row;
-    
+
     body.classList.remove('scroll');
-    
-    if (options.scroll === 'body') body.classList.add('scroll');
-    
-    json.setFirst();    
+
+    if (options.scroll === 'body')
+        body.classList.add('scroll');
+
+    json.setFirst();
     /*
      * Iterate the data rows.
      */
     while (json.isNext()) {
         var colNo = 0;
-        var drow  = json.next().value;
+        var drow = json.next().value;
         var cell;
-        
+
         row = body.insertRow(rowNo++);
 
-        if (options.onClick !== null) row.setAttribute("onclick", options.onClick);
+        if (options.onClick !== null)
+            row.setAttribute("onclick", options.onClick);
         /*
          * Iterate the data columns.
          */
         drow.setFirst();
-        
+
         while (drow.isNext()) {
             dcol = drow.next();
-            cell = row.insertCell();            
+            cell = row.insertCell();
             tableSizer.column(colNo).loadColumnValue(cell, dcol.value, options.nullToEmpty);
             colNo++;
         }
@@ -2479,8 +2785,9 @@ function cellReplace(cell, from, to) {
     cell.innerHTML = cell.innerHTML.split(from).join(to);
 }
 function stringToJSON(jsonData) {
-    if (typeof jsonData === 'string') jsonData = (new JSONReader(jsonData)).getJSON();
-    
+    if (typeof jsonData === 'string')
+        jsonData = (new JSONReader(jsonData)).getJSON();
+
     return jsonData;
 }
 /*
@@ -2491,43 +2798,44 @@ function stringToJSON(jsonData) {
  * 
  * The JSON table string format, the jsonArray parameter, is
  * 
-   {"Table"  : "Name",
-    "Header" : [{column object},.....]
-    "Data"   : [[columndata,...],...]}
-  
-  Currently only the Header and Data elements are used. 
-  
-  The array of column objects contain an object for each table column. The JSON elements of the column object are:
-      "Name" : name string
-      "Type" : type string  -- These are defined by JDBCType. The driver return the lower case value, although the JDBCType ENUM values are
-                            -- upper case.
-      "Precision" : precision integer -- The size of the database field.
-      "Scale"     : scale     integer -- The number of places after decimal point, e.g. DECIMAL(10, 5) would have Precision 10 and Scale 5.
-      "Optional"  : optional  boolean -- True if column can be omitted when displayed on small screens. Defaults to false is absent.
-  
-  Currently Type, Precision and Scale have no effect, apart from Type = Decimal, where scale is used to add trailing 0 when displayed, e.g.
-  if value is 12.1 and Scale is 3, the displayed value is 12.100.
-  
-  The array of data rows contains an array of data values for each row formatted as JSON values.
-  Example
-      {"Table"  : "Test",
-       "Header" : [{"Type":"varchar","Precision":10,"Name":"Item"},
-                   {"Type":"boolean","Name":"Available"},
-                   {"Type":"decimal","Precision":12,"Scale":2,"Name":"Price"}],
-        "Data"   : [["Spanner",null,12.1],["Hammer",true,20],["Wrench",false,25.39]]}
-  
+ {"Table"  : "Name",
+ "Header" : [{column object},.....]
+ "Data"   : [[columndata,...],...]}
+ 
+ Currently only the Header and Data elements are used. 
+ 
+ The array of column objects contain an object for each table column. The JSON elements of the column object are:
+ "Name" : name string
+ "Type" : type string  -- These are defined by JDBCType. The driver return the lower case value, although the JDBCType ENUM values are
+ -- upper case.
+ "Precision" : precision integer -- The size of the database field.
+ "Scale"     : scale     integer -- The number of places after decimal point, e.g. DECIMAL(10, 5) would have Precision 10 and Scale 5.
+ "Optional"  : optional  boolean -- True if column can be omitted when displayed on small screens. Defaults to false is absent.
+ 
+ Currently Type, Precision and Scale have no effect, apart from Type = Decimal, where scale is used to add trailing 0 when displayed, e.g.
+ if value is 12.1 and Scale is 3, the displayed value is 12.100.
+ 
+ The array of data rows contains an array of data values for each row formatted as JSON values.
+ Example
+ {"Table"  : "Test",
+ "Header" : [{"Type":"varchar","Precision":10,"Name":"Item"},
+ {"Type":"boolean","Name":"Available"},
+ {"Type":"decimal","Precision":12,"Scale":2,"Name":"Price"}],
+ "Data"   : [["Spanner",null,12.1],["Hammer",true,20],["Wrench",false,25.39]]}
+ 
  */
-function loadJSONArray(jsonArray, id, options) {    
-    if (options === undefined || getObjectName(options) !== 'JSONArrayOptions') options = new JSONArrayOptions(options);
-    
+function loadJSONArray(jsonArray, id, options) {
+    if (options === undefined || getObjectName(options) !== 'JSONArrayOptions')
+        options = new JSONArrayOptions(options);
+
     try {
-        var table      = document.getElementById(id);
+        var table = document.getElementById(id);
         var maxRowSize = 0;
-        var json       = stringToJSON(jsonArray);
+        var json = stringToJSON(jsonArray);
         var tableSizer;
         var jval;
         var row;
-        var svrName    = json.getMember('Table').value;
+        var svrName = json.getMember('Table').value;
         /*
          * If the element is not a table, search for the first child that is a table. If there is no
          * child table, create one and make table the parent.
@@ -2536,27 +2844,30 @@ function loadJSONArray(jsonArray, id, options) {
          */
         if (table.tagName !== 'TABLE') {
             let tabs = getChildren(table, 'TABLE');
-            
+
             if (tabs.length === 0) {
                 table = createElement(document, 'TABLE', {append: table});
             } else
                 table = tabs[0];
         }
-        if (options.setTableName) table.setAttribute('Name', svrName);
-        if (isNull(table.tBodies[0])) table.createTBody();
-        
+        if (options.setTableName)
+            table.setAttribute('Name', svrName);
+        if (isNull(table.tBodies[0]))
+            table.createTBody();
+
         clearTable(table);
-                
+
         st.log("Loading table " + id);
         st.setStart();
-        
+
         table.classList.remove('scroll');
-        
-        if (options.scroll === 'table') table.classList.add('scroll');
-        
-        jval       = json.getMember('Header', true);
+
+        if (options.scroll === 'table')
+            table.classList.add('scroll');
+
+        jval = json.getMember('Header', true);
         tableSizer = jsonAddHeader(jval.value, table, id, options);
-        jval       = json.getMember('Data', true);
+        jval = json.getMember('Data', true);
         jsonAddData(jval.value, tableSizer, options);
 
         st.logElapsed("Loading rows");
@@ -2566,50 +2877,57 @@ function loadJSONArray(jsonArray, id, options) {
          */
         for (var j = 0; j < table.rows.length; j++) {
             var rowSize = 0;
-            
+
             row = table.rows[j];
 
             for (var i = 0; i < row.cells.length; i++) {
-                var col        = tableSizer.column(i);
-                var cell       = row.cells[i];
-                var size       = tableSizer.constrainedSize(i);
+                var col = tableSizer.column(i);
+                var cell = row.cells[i];
+                var size = tableSizer.constrainedSize(i);
                 var forceWidth = false;
-                var value      = cell.innerHTML;
-                var style      = null;
-                
+                var value = cell.innerHTML;
+                var style = null;
+
                 rowSize += size;
-                
-                if (options.useTextWidth) {                    
+
+                if (options.useTextWidth) {
                     style = 'width:' + tableSizer.constrainedTextWidth(i) + 'px';
                 } else
                     style = 'width:' + getWidth(size, 'px');
-                
+
                 if (value.length > size) {
                     forceWidth = true;
-                    
-                    if (col.forceWrap() || value.indexOf(' ') === -1) style += ';word-break: break-all';
+
+                    if (col.forceWrap() || value.indexOf(' ') === -1)
+                        style += ';word-break: break-all';
                 }
-                if (j <= 1 || options.widthAllRows || forceWidth) cell.setAttribute("style", style);
-                
-                if (col.getClass() !== '') cell.setAttribute('class', col.getClass());
-                if (options.addName)       cell.setAttribute('name',  col.name());
+                if (j <= 1 || options.widthAllRows || forceWidth)
+                    cell.setAttribute("style", style);
+
+                if (col.getClass() !== '')
+                    cell.setAttribute('class', col.getClass());
+                if (options.addName)
+                    cell.setAttribute('name', col.name());
                 /*
                  * Calculate total width. Only accessed in debugging.
                  */
-                if (rowSize > maxRowSize) maxRowSize = rowSize;
+                if (rowSize > maxRowSize)
+                    maxRowSize = rowSize;
             }
         }
         tableSizer.log();
         st.log('Table ' + id + ' has ' + table.rows.length + ' rows max rows ' + maxRowSize);
         st.logElapsed("Set table sizes");
     } catch (e) {
-        reporter.logThrow(e, true);;
+        reporter.logThrow(e, true);
+        ;
     }
 }
 function addOption(select, value, ignoreBlank) {
     value = trim(value);
-    
-    if (defaultNull(ignoreBlank, false) && value === '') return;
+
+    if (defaultNull(ignoreBlank, false) && value === '')
+        return;
     /*
      * For Datalist options, setting a new Option has no effect.
      */
@@ -2619,33 +2937,36 @@ function addOption(select, value, ignoreBlank) {
         select.options[select.options.length] = new Option(value, value);
 }
 function loadOptionsJSON(jsonOptions, loadOptions) {
-    try {        
+    try {
         var options = new loadOptionsJSONOptions(loadOptions);
-        
-        if (options.element === null && options.name === '') return; // No list element to load values.
-        
-        var json    = jsonOptions;
-        var select  = getElement(options.element === null? options.name : options.element);
+
+        if (options.element === null && options.name === '')
+            return; // No list element to load values.
+
+        var json = jsonOptions;
+        var select = getElement(options.element === null ? options.name : options.element);
         var initial = options.keepValue ? select.value : options.defaultValue !== null ? options.defaultValue : "";
         /*
          * For the Datalist options setting select.options = 0 has no effe
          */
         select.innerHTML = "";
 
-        if (options.allowBlank) addOption(select, '');
-        
+        if (options.allowBlank)
+            addOption(select, '');
+
         if (Array.isArray(json)) {
-            for (var i = 0; i < json.length; i++) addOption(select, json[i], true);
-        }
-        else if (typeof json === 'string' && json.charAt(0) !== '{') {
+            for (var i = 0; i < json.length; i++)
+                addOption(select, json[i], true);
+        } else if (typeof json === 'string' && json.charAt(0) !== '{') {
             json.split(',').forEach(function (option) {
                 addOption(select, option, true);
             });
         } else {
-            if (typeof json === 'string') json = (new JSONReader(jsonOptions)).getJSON();
-            
+            if (typeof json === 'string')
+                json = (new JSONReader(jsonOptions)).getJSON();
+
             var jopt = json.getMember('Data', true).value;
-            
+
             /*
              * Iterate over rows.                
              */
@@ -2655,7 +2976,7 @@ function loadOptionsJSON(jsonOptions, loadOptions) {
                  * Each row should only contain one column.
                  */
                 jrow.setFirst();
-                
+
                 addOption(select, jrow.next().value, true);
             }
         }
@@ -2667,17 +2988,20 @@ function loadOptionsJSON(jsonOptions, loadOptions) {
 function currentDate(date) {
     var mthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    if (date === undefined) date = new Date();
+    if (date === undefined)
+        date = new Date();
 
     return lpad(date.getDate(), 2, '0') + '-' + mthNames[date.getMonth()] + '-' + lpad(date.getFullYear(), 2, '0');
 }
 function currentTime(date) {
-    if (date === undefined) date = new Date();
+    if (date === undefined)
+        date = new Date();
 
     return lpad(date.getHours(), 2, '0') + ':' + lpad(date.getMinutes(), 2, '0') + ':' + lpad(date.getSeconds(), 2, '0');
 }
 function currentDateTime(date) {
-    if (date === undefined) date = new Date();
+    if (date === undefined)
+        date = new Date();
 
     return currentDate(date) + ' ' + currentTime(date);
 }
@@ -2772,18 +3096,19 @@ function checkIntegerField(id, low, high) {
  */
 function getElementLabel(elm) {
     var prelm;
-    
-    elm   = getElement(elm);    
+
+    elm = getElement(elm);
     prelm = elm.previousElementSibling;
-    
-    if (prelm.tagName === "LABEL" && prelm.htmlFor === elm.id) return prelm.innerHTML;
-    
+
+    if (prelm.tagName === "LABEL" && prelm.htmlFor === elm.id)
+        return prelm.innerHTML;
+
     return elm.name;
 }
-function getFloatValue(elm, defaultValue) {  
+function getFloatValue(elm, defaultValue) {
     var value = parseFloat(getElement(elm).value);
-    
-    return isNaN(value) && !isNull(defaultValue)? defaultValue : value;
+
+    return isNaN(value) && !isNull(defaultValue) ? defaultValue : value;
 }
 /*
  * Returns the value of the elm, unless required is true or undefined and the value is empty, 
@@ -2791,7 +3116,7 @@ function getFloatValue(elm, defaultValue) {
  */
 function getFieldValue(elm, required) {
     elm = getElement(elm);
-    
+
     var value = trim(elm.value);
 
     if (value === "" && (required === undefined || required)) {
@@ -2806,21 +3131,21 @@ function getFieldValue(elm, required) {
  */
 function fieldHasValue(elm, required) {
     /*
-    elm = getElement(elm);
-    
-    var value = trim(elm.value);
+     elm = getElement(elm);
+     
+     var value = trim(elm.value);
+     
+     if (value === "") {
+     if (required === undefined || required) {
+     displayAlert('Field Validation', "Enter a value for " + getElementLabel(elm), {focus: elm});
+     }
+     return false;
+     }
+     return true;
+     */
+    var value = getFieldValue(elm, required);
 
-    if (value === "") {
-        if (required === undefined || required) {
-            displayAlert('Field Validation', "Enter a value for " + getElementLabel(elm), {focus: elm});
-        }
-        return false;
-    }
-    return true;
-    */
-   var value = getFieldValue(elm, required);
-   
-   return value !== undefined;
+    return value !== undefined;
 }
 /*
  * Executes a none blocking AJAX call.
@@ -2831,15 +3156,17 @@ function fieldHasValue(elm, required) {
  * If the AJAX call fails, an alert is generated giving the reason for failure.
  */
 function parametersSummary(parameters) {
-    var ps  = parameters.split('&');
+    var ps = parameters.split('&');
     var smy = '';
-    
+
     for (var i = 0; i < ps.length; i++) {
-        if (i > 3) break;
-        
-        if (/^mysql/.test(ps[i])) continue;
-        
-        smy += (smy === ''? '' : ',') + decodeURIComponent(ps[i]);
+        if (i > 3)
+            break;
+
+        if (/^mysql/.test(ps[i]))
+            continue;
+
+        smy += (smy === '' ? '' : ',') + decodeURIComponent(ps[i]);
     }
     return smy;
 }
@@ -2852,14 +3179,14 @@ function parametersSummary(parameters) {
  */
 function reportReminder(params) {
     params = params.split(',');
-    
+
     if (params.length !== 3)
         reporter.fatalError('Invalid reminder options-' + options);
     else {
         var interval = getLocalStorage('remInterval');
-        var last     = getLocalStorage('remLast');
+        var last = getLocalStorage('remLast');
         var earliest = null;
-        var lastDt   = null;
+        var lastDt = null;
         var due;
         var state;
         var days;
@@ -2874,13 +3201,13 @@ function reportReminder(params) {
             setLocalStorage('remInterval', interval);
         } else {
             lastDt = new Date(last);  // Don't use toDate in this case 
-            reporter.log('Reminder received-Last report time ' +  lastDt.toTimeString());            
+            reporter.log('Reminder received-Last report time ' + lastDt.toTimeString());
         }
         earliest = toDate(params[2]);
-        hours    = dateDiff(new Date(), earliest, 'Hours');
-        state    = params[0] === '!ReminderImmediate'? 'URGENT' : 'current';
-        days     = Math.floor(hours / 24);
-        hours    = Math.floor(hours - 24 * days);
+        hours = dateDiff(new Date(), earliest, 'Hours');
+        state = params[0] === '!ReminderImmediate' ? 'URGENT' : 'current';
+        days = Math.floor(hours / 24);
+        hours = Math.floor(hours - 24 * days);
 
         if (days === 0)
             due = hours + ' hours';
@@ -2892,7 +3219,7 @@ function reportReminder(params) {
         displayAlert('Warning', 'There are ' + state + ' reminders. Next due ' + due);
         reporter.log('Alert displayed. Earliest ' + getDateTime(earliest) + ' days ' + days + ' hours ' + hours);
         setLocalStorage('remLast', (new Date()).toString());
-    }    
+    }
 }
 /* server       The server for the ajaxCall making the call. It makes no significant difference which server the
  *              is used as the request is handled by AplicationServer common code. It is useful as the comment
@@ -2904,18 +3231,21 @@ function reportReminder(params) {
  * This function exits if requestReminders is false, or remInterval minutes have not elapsed since the
  * last reminders were requested from the server.
  */
-function getReminderAlerts(server, callerParams) {    
+function getReminderAlerts(server, callerParams) {
     var parameters = createParameters('checkRemindersDue');
-    var last       = getLocalStorage('remLast');
-    
-    if (!getLocalStorage('requestReminders')) return;
-    if (defaultNull(callerParams, '').startsWith(parameters)) return;
- 
+    var last = getLocalStorage('remLast');
+
+    if (!getLocalStorage('requestReminders'))
+        return;
+    if (defaultNull(callerParams, '').startsWith(parameters))
+        return;
+
     if (last !== null) {
         /*
          * Check if minutes since last report exceed interval.
          */
-        if (dateDiff(new Date(last), new Date(), 'Minutes') < getLocalStorage('remInterval')) return;
+        if (dateDiff(new Date(last), new Date(), 'Minutes') < getLocalStorage('remInterval'))
+            return;
     }
     function processResponse(response) {
         setLocalStorage('remLast', (new Date()).toString());
@@ -2925,18 +3255,18 @@ function getReminderAlerts(server, callerParams) {
 }
 function ajaxCall(destination, parameters, processResponse, async) {
     async = defaultNull(async, true);
-    
-    var stm            = new Statistics(st.isEnabled());
+
+    var stm = new Statistics(st.isEnabled());
     var xmlHttpRequest = getXMLHttpRequest();
-    var params         = parametersSummary(parameters);
-    var tracker        = new Tracker("Entered ajaxCall", true, async? 'Asyn' : 'Sync');
+    var params = parametersSummary(parameters);
+    var tracker = new Tracker("Entered ajaxCall", true, async ? 'Asyn' : 'Sync');
 
     const process = function (request, comment, tracker) {
         var response = request.responseText;
-        
+
         stm.logElapsed("Post");
         tracker.log("Process comment " + comment);
-        
+
         if (response.indexOf('!Reminder') === 0) {
             var i = response.indexOf(';');
 
@@ -2955,7 +3285,7 @@ function ajaxCall(destination, parameters, processResponse, async) {
                  * 
                  * If there is no processResponse and response has data log it. Perhaps should display an alert.
                  */
-                if (processResponse !== undefined) 
+                if (processResponse !== undefined)
                     processResponse(response);
                 else
                     console.log('No processResponse defined, but response has the following data-' + response);
@@ -2981,28 +3311,31 @@ function ajaxCall(destination, parameters, processResponse, async) {
         params = parameters;
 
 
-    if (params === undefined) return;
-    
+    if (params === undefined)
+        return;
+
     getReminderAlerts(destination, params);
     stm = new Statistics(st.isEnabled());
     stm.log("Post to " + destination + ' parameters ' + parametersSummary(parameters));
     stm.setStart();
     xmlHttpRequest.open("POST", destination + "?" + params, async);
     xmlHttpRequest.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    
+
     if (async) {
-        xmlHttpRequest.onreadystatechange = function () {            
+        xmlHttpRequest.onreadystatechange = function () {
             tracker.log("State changed to " + xmlHttpRequest.readyState);
 
-            if (xmlHttpRequest.readyState === 4) process(xmlHttpRequest, "asynchronous path", tracker);            
+            if (xmlHttpRequest.readyState === 4)
+                process(xmlHttpRequest, "asynchronous path", tracker);
         };
     }
     tracker.log("Before send");
     xmlHttpRequest.send(null);
     tracker.log("After send");
-    
-    if (!async) process(xmlHttpRequest, "synchronous path", tracker);
-    
+
+    if (!async)
+        process(xmlHttpRequest, "synchronous path", tracker);
+
     tracker.log("Exit ajaxCall");
 }
 function setCookie(name, value, exdays) {
@@ -3041,7 +3374,7 @@ function setHidden(name, yes) {
 }
 function setReadOnly(name, yes) {
     var element = getElement(name);
-    
+
     element.readOnly = yes;
 }
 
@@ -3055,31 +3388,28 @@ function trim(str) {
 
 function setDate(did) {
     var date = new Date();
-    
-    if (did === undefined) did = 'date';
-    
-    if (trim(document.getElementById(did).value) === "") {
-        document.getElementById(did).value = currentDate(date);
-    }
+
+    did = getElement(isNull(did)? 'date' : did);
+
+    if (trim(did.value) === "") did.value = currentDate(date);
 }
 function setTime(tid) {
     var date = new Date();
-    
-    if (tid === undefined) tid = 'time';
-    
-    if (trim(document.getElementById(tid).value) === "") {
-        document.getElementById(tid).value = currentTime(date);
-    }
+
+    tid = getElement(isNull(tid)? 'time' : tid);
+
+    if (trim(tid.value) === "") tid.value = currentTime(date);
 }
 function setDateTime(did, tid) {
     setDate(did);
     setTime(tid);
 }
 function loadDateTime(fields, date, time) {
-    if (typeof fields === 'string') fields = fields.split(' ');
-    
-    document.getElementById(date === undefined? "date" : date).value = fields.length > 0? fields[0] : "";
-    document.getElementById(time === undefined? "time" : time).value = fields.length > 1? fields[1] : "";
+    if (typeof fields === 'string')
+        fields = fields.split(' ');
+
+    document.getElementById(date === undefined ? "date" : date).value = fields.length > 0 ? fields[0] : "";
+    document.getElementById(time === undefined ? "time" : time).value = fields.length > 1 ? fields[1] : "";
 }
 function tidyNumber(number, zeroToNull, maxPlaces) {
     if (zeroToNull && toNumber(number) <= 0)
@@ -3098,61 +3428,95 @@ function enableMySql(server) {
         ajaxLoggedInCall(server, processResponse, addParameter('', 'action', 'enablemysql'), false);
     }
 }
+function getPairedParameter(pairs, name, value) {
+    let flds = name.split('~');
+
+    switch (flds.length) {
+        case 1:
+            return false;
+        case 2:
+            let pair = pairs.get(flds[0]);
+
+            if (pair === undefined) {
+                pairs.set(flds[0], {name1: flds[1], elm1: value});
+            } else {
+                pair.name2 = flds[1];
+                pair.elm2 = value;
+            }
+            return true;
+        default:
+            throw 'Paired field name ' + name + ' incorrectly formatted';
+    }
+}
 /*
  * action  The action to which the parameters apply.
  * flds    A map the paremeters. The key is the parameter name and value is the input element.
  * 
  * Returns a string containing the parameters.
  */
-function createParameters(action, flds, initialParams) {
+function createParameters(action, options) {
+    var options    = new createParametersOptions(options);
     var parameters = addParameter('', 'action', action);
-    
+    var pairs      = new Map();
+
+    function addValue(name, value, mod) {
+        value = mod === null ? value : mod(name, value);
+
+        parameters = addParameter(parameters, name, value);
+    }
     parameters = addParameter(parameters, 'mysql', getMYSQL());
-    
-    if (!isNull(initialParams)) {
-        for (var p of initialParams) {
-            parameters = addParameter(parameters, p.name, p.value);
+
+    if (options.initialParams !== null) {
+        for (var p of options.initialParams) {
+            addValue(p.name, p.value, options.modifier);
         }
     }
-    if (!isNull(flds)) {
-        for (let [name, element] of flds) {
-            if (isNull(element)) continue
-            
-            parameters = addParameter(parameters, name, getValue(element));  
+    if (options.fields !== null) {
+        for (let [name, element] of options.fields) {
+            if (!getPairedParameter(pairs, name, element))
+                addValue(name, getValue(element), options.modifier);
         }
+    }
+    for (let [name, values] of pairs) {
+        if (!values.name1 === 'Date' || !values.name2 === 'Time')
+            throw 'Paired field name ' + name + ' not implemented for fields ' + values.name1 + ' and ' + values.name2;
+        addValue(name, (trim(getValue(values.elm1) + ' ' + getValue(values.elm2))), options.modifier);
     }
     return parameters;
 }
 function addDBFilterField(filter, element, name, qualifier) {
-    if (name === undefined) return filter;
-    
-    var value  = typeof element === 'object'? element.value : element;
+    if (name === undefined)
+        return filter;
+
+    var value = typeof element === 'object' ? element.value : element;
     var fields = value.split(',');
     var i;
-    
-    if (filter === undefined) filter = '';
-    if (value  === '') return filter;
-    
+
+    if (filter === undefined)
+        filter = '';
+    if (value === '')
+        return filter;
+
     for (i = 0; i < fields.length; i++) {
         if (i === 0) {
-            if (filter !== '') filter += ',';
-            
+            if (filter !== '')
+                filter += ',';
+
             filter += name + '=';
-        }
-        else
+        } else
             filter += '|';
-        
+
         switch (qualifier) {
             case undefined:
             case 'quoted':
                 fields[i] = "'" + fields[i] + "'";
                 break;
-            case 'like':                
+            case 'like':
                 fields[i] = "'%" + fields[i] + "%'";
                 break;
             case 'numeric':
                 break;
-        }        
+        }
         filter += fields[i];
     }
     return filter;
@@ -3160,16 +3524,17 @@ function addDBFilterField(filter, element, name, qualifier) {
 function addDBFilterTodayField(filter, name) {
     return addDBFilterField(filter, getDayText(), name);
 }
-function loadListResponse(response, options) {  
+function loadListResponse(response, options) {
     loadOptionsJSON(response, options);
 }
 function getList(server, options, returnResponse) {
     var parameters = createParameters('getList');
     var save;
 
-    if (options.async === undefined) options.async = false;
-    
-    options    = new loadOptionsJSONOptions(options);
+    if (options.async === undefined)
+        options.async = false;
+
+    options = new loadOptionsJSONOptions(options);
     parameters = addParameter(parameters, 'field', options.field === undefined ? options.name : options.field);
 
     if (options.table !== undefined)
@@ -3180,8 +3545,9 @@ function getList(server, options, returnResponse) {
 
     function processResponse(response) {
         loadListResponse(response, options);
-        
-        if (returnResponse !== undefined && returnResponse) save = response;
+
+        if (returnResponse !== undefined && returnResponse)
+            save = response;
     }
     ajaxLoggedInCall(server, processResponse, parameters, options.async);
     return save;

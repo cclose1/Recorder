@@ -1,3 +1,141 @@
+function test() {
+    var table;
+    var body;
+    var type      = 'number';
+    var testval;
+    var elms      = document.querySelectorAll("#detailfields > input");
+    var precision = 20;
+    var scale     = 2;
+    var rowNo     = 0;
+    var cell;
+    var col;
+    var row;
+    var style;
+    var test = {a: 1, b:2};
+    var first = true;
+    var testval;
+    var font;
+    
+    function testCall(command) {
+        try {
+            eval(command);
+        } catch(err) {
+            console.log(command + ' failed with ' + err.message);
+        }
+    }
+    function testlocal(tableid, value, adjustText) {
+        var options = new JSONArrayOptions(
+                {columns: [
+                        {name: 'Location', minSize: 3, maxSize: null},
+                        {name: 'Tariff', minSize: 3}]});
+
+        table = getElement(tableid);
+        body  = table.tBodies[0];
+        style = options.getUsed();
+        options.setUsed(true);
+        style = options.getUsed();
+        style = options.getUsed('minSize');
+        options.setUsed('minSize', true);
+        style = options.getUsed('minSize');
+        style = ('a' in test);
+        style = ('x' in test);
+
+        test.a = undefined;
+
+        style = ('a' in test);
+        row = body.insertRow(rowNo++);
+        cell = document.createElement('tr');
+        cell.innerHTML = value;
+        row.appendChild(cell);
+        col = new Column(
+                value,
+                cell,
+                -1,
+                type,
+                precision,
+                scale,
+                false,
+                options);
+        style = col.textWidth;
+        style = col.pub;
+        testCall("col.#priv");
+        style = col.getPriv();
+        cell.setAttribute("style", style);
+        style = readComputedStyle(cell, 'width');
+
+        var wd = parseFloat(style.substring(0, style.length - 2)).toFixed(2);
+        reporter.log(
+                "Value " + rpad(value, 15) +
+                ' size ' + rpad(col.size(), 4) +
+                ' min ' + rpad(col.minSize(), 4) +
+                ' max ' + rpad(col.maxSize(), 4) +
+                ' size ' + rpad(col.size(), 4) +
+                ' textWidth ' + rpad(col.textWidth(), 4) +
+                ' styleWidth ' + rpad(wd, 4) +
+                ' per char ' + rpad((col.textWidth() / col.size()).toFixed(2), 4) +
+                ' adjusted ' + (!isNull(adjustText) && adjustText));
+        return col;
+    }
+    testval = testlocal('chargerstable', 'Josh-Alex B', false);
+    testval = testlocal('chargerstable', 'Josh-Alex B', false, true);
+    testval = testlocal('chargerstable', 'Josh-Alex B', true);
+    testval = testlocal('chargerstable', 'Josh-Alex Bt');    
+    testval = testlocal('chargerstable', 'Josh-AlexaBt');   
+    testval = testlocal('chargerstable', 'Josh-AlexABt');
+    testval = testlocal('chargerstable', 'JoshaAlexaBt');
+    testval = testlocal('chargerstable', '1114-01');
+    testval = testlocal('chargerstable', '1114-01', true);
+    testval = testlocal('chargerstable', 'HomePodPoint');
+    testval = testlocal('chargerstable', 'HomePodPoint', true);
+    testval = testlocal('chargerstable', 'HomePodPoint');
+    
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-style');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-variant');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-weight');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-size');
+    font = readComputedStyle(getElement('sessionlogtable'), 'font-family');    
+    font = readComputedStyle(getElement('sessionlogtable'), 'font');
+
+    
+    testval = displayTextWidth("A");
+    testval = displayTextWidth("a");
+    
+    testval = displayTextWidth("18446744073709552000");
+    testval = displayTextWidth("MilesAdded", font);
+    testval = displayTextWidth("Miles Added", font);
+    testval = displayTextWidth("eo70 ecc");
+    
+    var testFilter = getFilter('testKey', document.getElementById('filter'), requestChargeSessions, {
+        allowAutoSelect: true,
+        autoSelect: true,
+        title: 'Test Filter',
+        forceGap: '4px',
+        initialDisplay: false});
+    testFilter.addFilter('CarReg', {name: 'CarReg', values: ''});
+    testFilter.addFilter('ChargerLab', {name: 'Charger', values: 'a,b'});
+    testFilter.addFilter('Field1', {name: 'Field1'});
+    testFilter.addFilter('Field2Lab', {name: 'Field2'});
+    var filterField = getFilterField(testFilter, 'CarReg');
+    filterField = getFilterField(testFilter, 'Charger');
+    filterField = getFilterField(testFilter, 'Field1');
+    filterField = getFilterField(testFilter, 'Field2');
+    testCall("filterField = getFilterField(testFilter, 'Type1')");
+    col.setProperty('xxx', 'Crap', true);
+    testCall("col.setProperty('zzz', 'Crap', false)");
+    testCall("col.setProperty('zzz', 'Crap')");
+    testCall("col.getProperty('abc')");
+    testCall("Column.abc = 'Test'");
+    style = col.getProperty('name');
+    style = col.getProperty('minSize');
+    style = col.hasProperty('abc');
+    style = col.hasProperty('maxSize');
+
+    style = col.xxx;
+    style = 'width:' + col.textWidth() + 'px';
+    testCall("col.yyy = 'MoreCrap'");
+    testCall("col.size = 'Crap'");
+    style = col.yyy;    
+}
 
 function OldColumn(cell, no, type, precision, scale, optional, adjustText) {
     this.name       = cell.innerHTML;

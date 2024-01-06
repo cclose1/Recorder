@@ -73,7 +73,7 @@ function actionTariff(action, fields) {
                 displayAlert('Validation Error', 'Must set values for at least one of Gas or Electric');
                 return;
             }
-            parameters = createParameters('CreateTariff', flds);
+            parameters = createParameters('CreateTariff', {fields: flds});
             setHidden('modifytariff', true);
             break;
         case "Cancel":
@@ -83,14 +83,12 @@ function actionTariff(action, fields) {
         case "Modify":
             parameters = createParameters(
                 'updateTableRow',
-                flds, 
-                [{name: 'table', value: 'Tariff'}]);
+                {fields: flds, initialParams: [{name: 'table', value: 'Tariff'}]});
             break;
         case "Delete":
             parameters = createParameters(
                 'deleteTableRow',
-                flds, 
-                [{name: 'table', value: 'Tariff'}]);
+                {fields: flds, initialParams: [{name: 'table', value: 'Tariff'}]});
             break;
         case "CancelModify":
             clearValues(flds);
@@ -115,7 +113,7 @@ function send(action) {
     switch (action) {
         case "Create":
             flds = getParameters('detailfields');
-            parameters = createParameters(action, flds);
+            parameters = createParameters(action, {fields: flds});
 
             if (!fieldHasValue(flds.get('Date')))
                 return;
@@ -123,7 +121,7 @@ function send(action) {
             break;
         case "Delete":
             flds = getParameters('deletefields');
-            parameters = createParameters(action, flds);
+            parameters = createParameters(action, {fields: flds});
 
             if (!fieldHasValue(flds.get('Date')))
                 return;
@@ -215,37 +213,10 @@ function menuClick(option) {
 }
 function tariffsRowClick(row) {
     var rdr  = new rowReader(row);
-    let flds = new screenFields('modifytariff');
+    let flds = new ScreenFields('modifytariff');
 
     while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
-
-        switch (rdr.columnName()) {
-            case 'Start':
-                flds.set('Start', value);
-                break;
-            case 'End':
-                flds.set('End', value);
-                break;
-            case 'Type':
-                flds.set('Type', value);
-                break;
-            case 'Tariff':
-                flds.set('Code', value);
-                break;
-            case 'UnitRate':
-                flds.set('UnitRate', value);
-                break;
-            case 'StandingCharge':
-                flds.set('StandingCharge', value);
-                break;
-            case 'CalorificValue':
-                flds.set('CalorificValue', value);
-                break;
-            case 'Comment':
-                flds.setComment('Type', value);
-                break;
-        }
+        flds.setValue(rdr.columnName(), rdr.columnValue());
     }
     setHidden('modifytariff', false);
 }
@@ -275,7 +246,9 @@ function requestTariffs() {
     var parameters = createParameters('tariffs');
 
     function processResponse(response) {
-        loadJSONArray(response, "tariffs", {maxSize: 19, onClick: "tariffsRowClick(this)"});
+        loadJSONArray(response, "tariffs", 
+            {maxSize: 19, onClick: "tariffsRowClick(this)",
+             columns: [{name: 'Code', wrapHeader: false, columnTitle: 'Tariff'}]});
     }
     parameters = tariffsFilter.addFilterParameter(parameters);
 

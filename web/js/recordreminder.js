@@ -18,15 +18,8 @@ function setTime() {
         document.getElementById("time").value = currentTime(date);
     }
 }
-function reset() {
-    document.getElementById("date").value        = "";
-    document.getElementById("time").value        = "";
-    document.getElementById("type").value        = "";
-    document.getElementById("warndays").value    = "";
-    document.getElementById("frequency").value   = "";
-    document.getElementById("suspended").value   = "";
-    document.getElementById("description").value = "";
-    document.getElementById("comment").value     = "";
+function reset() {    
+    clearValues(getParameters('detailfields'));
     document.getElementById("save").value        = "Create";
     document.getElementById("type").focus();
     setHidden("clone", true);
@@ -52,39 +45,36 @@ function checkRefId() {
     return valid;
 }
 function send() {
-    var parameters;
-    
+    var action = getElement().value;
+    var parameters; 
+
+    let flds       = getParameters('detailfields');   
     if (!fieldHasValue("date"))   return;
     
-    if (document.getElementById("save").value === 'Create') {
-        if (document.getElementById("refid").value === '') {
-            document.getElementById("refid").value = createUID(4, 'AG');
-            displayAlert('Warning', 'Ref Id auto generated. Resubmit to continue');
-            return;
-        } 
-        if (!checkRefId()) return;
-        
-        parameters = createParameters('createreminder');
-    } else
-        parameters = createParameters('savereminder');
-
-    parameters = addParameterById(parameters, 'refid');
-    parameters = addParameterById(parameters, 'date');
-    parameters = addParameterById(parameters, 'time');
-    parameters = addParameterById(parameters, 'type');
-    parameters = addParameterById(parameters, 'frequency');
-    parameters = addParameterById(parameters, 'warndays');
-    parameters = addParameterById(parameters, 'suspended');
-    parameters = addParameterById(parameters, 'description');
-    parameters = addParameterById(parameters, 'comment');
-
-    ajaxLoggedInCall('Reminder', reset, parameters);
-}
-function deleteData() {
-    var parameters = createParameters('deletereminder');
-
-    parameters = addParameterById(parameters, 'refid');
-parameters.
+    switch (action) {
+        case 'Create':
+            if (getElement('refid').value === '') {
+                getElement('refid').value = createUID(4, 'AG');
+                displayAlert('Warning', 'Ref Id auto generated. Resubmit to continue');
+            }
+            if (!checkRefId()) return;
+            
+            action = 'createTableRow';
+            break;
+        case 'Update':
+            action = 'updateTableRow';
+            break;
+        case 'Delete':
+            action = 'deleteTableRow';
+            break; 
+        default:
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');       
+    }    
+    parameters = createParameters(
+                action,
+                {
+                    fields: flds,
+                    initialParams: [{name: 'table', value: 'Reminder'}]}); 
     ajaxLoggedInCall('Reminder', reset, parameters);
 }
 function requestReminders(filter) {
@@ -101,42 +91,14 @@ function requestReminders(filter) {
     ajaxLoggedInCall('Reminder', processResponse, parameters);
 }
 function rowClick(row) {
-    var rdr = new rowReader(row);
+    var rdr  = new rowReader(row);
+    let flds = new ScreenFields('detailfields');
+    
+    flds.setIgnoreSet('Weekday');
     
     while (rdr.nextColumn()) {
-        var value   = rdr.columnValue();
-        
-        switch (rdr.columnName()) {
-            case 'RefId':
-                document.getElementById("refid").value = value;
-                break;            
-            case 'Timestamp':
-                var fields = value.split(" ");
-
-                if (fields.length === 2) {
-                    document.getElementById("date").value = fields[0];
-                    document.getElementById("time").value = fields[1];
-                }
-                break;
-            case 'Type':
-                document.getElementById("type").value = value;
-                break;
-            case 'Frequency':
-                document.getElementById("frequency").value = value;
-                break;
-            case 'WarnDays':
-                document.getElementById("warndays").value = value;
-                break;
-            case 'Suspended':
-                document.getElementById("suspended").value = value;
-                break;
-            case 'Description':
-                document.getElementById("description").value = value;
-                break;
-            case 'Comment':
-                document.getElementById("comment").value = value;
-                break;
-        }
+        console.log('Att name ' + rdr.valueAttribute('name') + ' col name ' + rdr.columnName());
+        flds.setValue(rdr.columnName(), rdr.columnValue());
     }
     document.getElementById("save").value = "Update";
     setHidden("clone",  false);
@@ -144,7 +106,9 @@ function rowClick(row) {
 }
 function initialize(loggedIn) {
     if (!loggedIn) return;
-    
+    let test = ['name1', 'name2', 'name3'];
+    let found = test.findIndex((element) => element === 'name2');
+    found = test.findIndex((element) => element === 'xx');
     var types = 
             'Anniversary,' +
             'Birthday,'    +

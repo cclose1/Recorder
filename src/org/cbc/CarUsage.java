@@ -23,9 +23,7 @@ import org.cbc.utils.data.DatabaseSession;
  * @author chris
  */
 public class CarUsage extends ApplicationServer {
-    enum SeqCompare {NEXT, PREV, PREVEQ}
-                
-    private final TableUpdater session = new TableUpdater("ChargeSession");
+    enum SeqCompare {NEXT, PREV, PREVEQ}                
     /*
      * Used to find the ChargeSession nearest to a particular time.
      */
@@ -42,7 +40,7 @@ public class CarUsage extends ApplicationServer {
          *   PREVEQ  One with the latest timestamp that is before or equal to start.
          */                
         public SessionSequence(Context ctx, String carReg, Date start, SeqCompare compare) throws SQLException {
-            SQLSelectBuilder sql = new SQLSelectBuilder("ChargeSession", ctx.getAppDb().getProtocol());
+            SQLSelectBuilder sql  = new SQLSelectBuilder("ChargeSession", ctx.getAppDb().getProtocol());
             ResultSet        rs;
             boolean          desc = true;
             String           test = "";
@@ -67,8 +65,8 @@ public class CarUsage extends ApplicationServer {
             sql.addField("Start");
             sql.addField("Mileage");
             sql.addField("End");
-            sql.addAnd("CarReg", "=", carReg);
-            sql.addAnd("Start", test, start);
+            sql.addAnd("CarReg", "=",  carReg);
+            sql.addAnd("Start",  test, start);
             sql.addOrderByField("Start", desc);
             rs = executeQuery(ctx, sql);
             
@@ -84,21 +82,21 @@ public class CarUsage extends ApplicationServer {
 
         if (!ctx.getParameter("logupdates").equalsIgnoreCase("true")) return;
             
-        sql.addField("CarReg",   ctx.getParameter("carreg"));
-        sql.addField("Session",  ctx.getTimestamp("sdatetime"));
+        sql.addField("CarReg",   ctx.getParameter("CarReg"));
+        sql.addField("Session",  ctx.getTimestamp("Start"));
         
         switch (action) {
             case "deletesession":
                 return;
             case "createsession":
-                sql.addField("Timestamp", ctx.getTimestamp("sdatetime"));
-                sql.addField("Miles",     ctx.getParameter("smiles"));
-                sql.addField("PerCent",   ctx.getParameter("schargepc"));
+                sql.addField("Timestamp", ctx.getTimestamp("Start"));
+                sql.addField("Miles",     ctx.getParameter("StartMiles"));
+                sql.addField("PerCent",   ctx.getParameter("StartPerCent"));
                 break;
             case "updatesession":
-                sql.addField("Timestamp", ctx.getTimestamp("edatetime"));
-                sql.addField("Miles",     ctx.getParameter("emiles"));
-                sql.addField("PerCent",   ctx.getParameter("echargepc"));
+                sql.addField("Timestamp", ctx.getTimestamp("End"));
+                sql.addField("Miles",     ctx.getParameter("EndMiles"));
+                sql.addField("PerCent",   ctx.getParameter("EndPerCent"));
                 break;
             default:
                 return;
@@ -125,10 +123,10 @@ public class CarUsage extends ApplicationServer {
         json = table.toJson();
     }
     private void changeSession(Context ctx,  String action) throws ParseException, SQLException {
-        Date            start   = ctx.getTimestamp("sdatetime");
-        Date            end     = ctx.getTimestamp("edatetime");
+        Date            start   = ctx.getTimestamp("Start");
+        Date            end     = ctx.getTimestamp("End");
         Date            keyTime = ctx.getTimestamp("keytimestamp");
-        int             mileage = ctx.getInt("mileage", -1);
+        int             mileage = ctx.getInt("Mileage", -1);
         SeqCompare      compare = SeqCompare.PREV;
         SessionSequence next    = new SessionSequence(ctx, ctx.getParameter("carreg"), start, SeqCompare.NEXT);
         /*
@@ -138,8 +136,8 @@ public class CarUsage extends ApplicationServer {
          */
         switch (action) {
             case "deletesession":
-                checkExit(next.start != null, "Can only delete the most recent session");                
-                session.deleteRow();  
+                checkExit(next.start != null, "Can only delete the most recent session");
+                changeTableRow(ctx, "chargesession", "deleteTableRow");
                 break;                         
             case "createsession":
                 compare = SeqCompare.PREVEQ;
@@ -148,7 +146,7 @@ public class CarUsage extends ApplicationServer {
                 // Note: Absense of break is intentional.
                 
             case "updatesession":
-                SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("carreg"), start, compare);
+                SessionSequence prev = new SessionSequence(ctx, ctx.getParameter("CarReg"), start, compare);
                 
                 if (prev.start != null) {
                     checkExit(mileage < prev.mileage, "Mileage must be greater or equal to previous");
@@ -165,10 +163,10 @@ public class CarUsage extends ApplicationServer {
                     checkExit( 
                             prev.start != null && prev.start.compareTo(start) == 0, 
                             "New session must be after the latest");
-                    session.createRow();
+                    changeTableRow(ctx, "chargesession", "createTableRow");
                 }
                 else
-                    session.updateRow(keyTime.equals(start)? "" : "Start-keytimestamp");
+                    changeTableRow(ctx, "chargesession", "updateTableRow");
                 break;
         }
     }    
@@ -216,8 +214,6 @@ public class CarUsage extends ApplicationServer {
         String schema  = ctx.getAppDb().getProtocol().equals("sqlserver")? "dbo" : "BloodPressure";
         String endName = ctx.getAppDb().delimitName("End");
         
-        session.setContext(ctx);
-        
         switch (action) {
             case "createsession":                
             case "updatesession":               
@@ -238,21 +234,22 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Start");
                     sql.addField("End");  
                     sql.addField("Weekday", sql.setExpressionSource(schema + ".WeekDayName(Start)"));
-                    sql.addField("Start Duration", "EstDuration");
+                    sql.addField("EstDuration", "EstDuration");
                     sql.addField("Charger");
                     sql.addField("Unit");
                     sql.addField("Mileage");
                     sql.addField("Rate",     sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 "), rateCast);
                     sql.addField("Duration", sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 * (100 - EndPercent)"), rateCast);       
-                    sql.addField("Start Miles", "StartMiles");
-                    sql.addField("Start %",     "StartPerCent");
-                    sql.addField("End Miles",   "EndMiles");
-                    sql.addField("End %",       "EndPerCent");
+                    sql.addField("StartMiles", "StartMiles");
+                    sql.addField("StartPerCent",     "StartPerCent");
+                    sql.addField("EndMiles",   "EndMiles");
+                    sql.addField("EndPerCent",       "EndPerCent");
                     sql.addField("Charge");
                     sql.addField("Cost");
                     sql.addField("Comment");
-                    session.addFilter(sql);
-                    session.addOrderBy(sql, true);
+                    sql.addAnd(ctx.getParameter("filter"));
+                    sql.addOrderByField("CarReg", true);
+                    sql.addOrderByField("Start", true);
                     rs = executeQuery(ctx, sql);
                     data.add("ChargeSessions", rs);
                     data.append(ctx.getReplyBuffer(), "");
@@ -302,21 +299,6 @@ public class CarUsage extends ApplicationServer {
     }
     @Override
     public void init(ServletConfig config) throws ServletException{
-        super.init(config);
-                
-        session.addField("CarReg",       true,  "carreg");
-        session.addField("Start",        true,  "sdatetime",   false, true);
-        session.addField("Charger",      false, "chargesource");
-        session.addField("Unit",         false, "chargeunit");
-        session.addField("Comment",      false, "sessioncomment");
-        session.addField("Mileage",      false, "mileage",     true);
-        session.addField("EstDuration",  false, "estduration", true);
-        session.addField("StartPercent", false, "schargepc",   true);
-        session.addField("StartMiles",   false, "smiles",      true);
-        session.addField("End",          false, "edatetime",   false, true);
-        session.addField("EndPercent",   false, "echargepc",   true);
-        session.addField("EndMiles",     false, "emiles",      true);
-        session.addField("Charge",       false, "charge",      true);
-        session.addField("Cost",         false, "cost",        true);        
+        super.init(config);        
     }
 }

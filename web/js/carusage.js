@@ -7,6 +7,8 @@ var logFilter;
 var prcur  = null;
 var prlast = null;
 var prgap  = 5;
+var timer  = null;
+var snFlds = null;
 
 class TableChangeAlerter {
     tableChange(table, action, listenerKey) {
@@ -25,12 +27,12 @@ var ts = new TableChangeAlerter();
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
     
-    document.getElementById("carreg").disable     = yes;
-    document.getElementById("sdate").readOnly     = yes;
-    document.getElementById("stime").readOnly     = yes;
-    document.getElementById("mileage").readOnly   = yes;
-    document.getElementById("schargepc").readOnly = yes;
-    document.getElementById("smiles").readOnly    = yes;
+    snFlds.get('CarReg').disabled       = yes;
+    snFlds.get('Start~Date').readOnly   = yes;
+    snFlds.get('Start~Time').readOnly   = yes;
+    snFlds.get('Mileage').readOnly      = yes;
+    snFlds.get('StartPerCent').readOnly = yes;
+    snFlds.get('StartMiles').readOnly   = yes;
 }
 /* 
  * To change this license header, choose License Headers in Project Properties.
@@ -57,17 +59,17 @@ function setSave(action) {
             remove = false;
             copy   = false;
             
-            elm = getElement("etime", true);
+            elm = getElement(snFlds.get('End~Time'), true);
             
             if (elm.empty) {
-                document.getElementById("edate").value   = document.getElementById("sdate").value;
-                document.getElementById("etime").value   = document.getElementById("stime").value;
+                snFlds.get('End~Date').value = snFlds.get('Start~Date').value;
+                snFlds.get('End~Time').value = snFlds.get('Start~Time').value;
             }
-            document.getElementById("keytimestamp").value = document.getElementById("sdate").value + ' ' + document.getElementById("stime").value;
+            document.getElementById("keytimestamp").value = snFlds.get('Start~Date').value + ' ' + snFlds.get('Start~Time').value;
             break;
         default:
             reporter.fatalError('carreg.js setSave action ' + action + ' is invalid');
-    }
+    }    
     setHidden("clear",            clear);
     setHidden("remove",           remove);
     setHidden("copy",             copy);
@@ -103,7 +105,7 @@ function getDurationFields(value) {
 /*
  * A duration is stored in the database as a decimal hour.
  * 
- * It can be displayed as decimals or as as tring of the form hh:mm:ss.
+ * It can be displayed as decimals or as as String of the form hh:mm:ss.
  * 
  * @param {type} val
  * @returns {undefined}
@@ -145,13 +147,13 @@ function convertDuration(val, toString) {
     }
     return v;
 }
-function checkGreaterOrEqual(first, last) {
-    var fval = trim(getElement(first).value);
-    var lval = trim(getElement(last).value);
+function checkGreaterOrEqual(flds, first, last) {
+    var fval = trim(flds.getValue(first));
+    var lval = trim(flds.getValue(last));
     
     if (fval !== "" && lval !== "") {
         if (Number(lval) < Number(fval)) {
-            displayAlert('Validation Error', 'Value must be greater or equal to ' + fval, {focus: getElement(last)});
+            displayAlert('Validation Error', 'Value must be greater or equal to ' + fval, {focus: flds.get(last)});
             return false;
         }
     }
@@ -177,9 +179,11 @@ function requestChargeSessions(filter) {
         loadJSONArray(response, 'chargesessionstable', 
             {scroll:  'table',
              onClick: 'btChargeSessionsRowClick(this)',
-             columns: [{name: 'Start Miles',    wrapHeader: true},
-                       {name: 'End Miles',      wrapHeader: true},
-                       {name: 'Start Duration', wrapHeader: true}]});
+             columns: [{name: 'StartMiles',   wrapHeader: true,  splitName:   true},
+                       {name: 'EndMiles',     wrapHeader: true,  splitName:   true},
+                       {name: 'EstDuration',  wrapHeader: true,  splitName:   true},
+                       {name: 'StartPerCent', wrapHeader: false, columnTitle: 'Start %'},
+                       {name: 'EndPerCent',   wrapHeader: false, columnTitle: 'End %'}]});
         document.getElementById('chargesessionstable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = sessionFilter.getWhere();
@@ -223,27 +227,17 @@ function requestSessionLog(filter) {
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function clearElement(id) {
-    document.getElementById(id).value = "";    
+    getElement(id).value = "";    
 }
-function reset() {
+function reset() {    
+    snFlds.clear('CarReg,Charger,Unit');
     clearElement("keytimestamp");
     clearElement("sessioncomment");
-    clearElement("mileage");
-    clearElement("estduration");
-    clearElement("sdate");
-    clearElement("stime");
-    clearElement("smiles");
-    clearElement("schargepc");
-    clearElement("edate");
-    clearElement("etime");
-    clearElement("emiles");
-    clearElement("echargepc");
-    clearElement("charge");
-    clearElement("cost");
     updateProgress(true);
     requestChargeSessions();
     requestChargers();
     requestSessionLog();
+    timer.stop();
     setSave('New');
 }
 /*
@@ -267,58 +261,39 @@ function setSessionLog(on) {
     setHidden('updatelog',  true);
     requestSessionLog();
 }
-function setNew(copy) {
+function setNew(copy) {        
     if (copy) {
-        /*
-         * Save comment and restore after clearData.
-         */
-        var comment = getElement('sessioncomment').value;
-        
-        clearData();
+        clearData();  
         setSessionLog(true);
-        getElement('sessioncomment').value = comment;
+        
         getElement("currenttime").checked  = true;
     } else {
-        var sessions = document.getElementById('chargesessionstable');
+        var sessions = document.getElementById('chargesessionstable').children[1].tBodies[0];
 
-        if (sessions.tBodies[0].rows.length > 0) {
+        if (sessions.rows.length > 0) {
             /*
              * Set carreg and charge source from the first table row.
              */
-            var row = sessions.tBodies[0].rows[0];
+            var row   = sessions.rows[0];
             var cells = row.cells;
 
             for (var c = 0; c < cells.length; c++) {
-                var cell = cells[c];
+                var cell  = cells[c];
                 var value = cell.innerHTML;
 
                 switch (cell.attributes.name.value) {
                     case 'Source':
-                        document.getElementById('chargesource').value = value;
+                        snFlds.setValue('Source', value);
                         break;
                     case 'CarReg':
-                        document.getElementById('carreg').value = value;
+                        snFlds.setValue('CarReg', value);
                         break;
                 }
             }
         }
     }
-    setDateTime('sdate', 'stime');
+    setDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'));
     setSave('Create');
-}
-function getDateTime(prefix) {
-    return getElement(prefix + 'date', true).value + ' ' + getElement(prefix + 'time', true).value;
-}
-/*
- * Returns the Date object for the element ids date and time. If time is undefined, the date element
- * contains date and time, otherwise date contains just the date and time the time string. 
- */
-function getDate(date, time) {
-    var datetime = getElement(date).value;
-    
-    if (time !== undefined) datetime += ' ' + getElement(time).value;
-    
-    return datetime.trim() === '' ? null : toDate(datetime);
 }
 function exitTable() {
     setHidden('selecttable', false);
@@ -351,7 +326,7 @@ function stateBefore(statea, stateb) {
     
     return statea.time.getTime() < stateb.time.getTime();
 }
-function updateProgress(reset) {
+function updateProgress(reset) {    
     if (reset) {
         prcur  = null;
         prlast = null;
@@ -364,8 +339,9 @@ function updateProgress(reset) {
         document.getElementById("currenttime").checked = false;
         return;
     }
-    var start    = {time: getDate('sdate', 'stime'), perc: getElement('schargepc').value};
-    var end      = {time: getDate('edate', 'etime'), perc: getElement('echargepc').value};
+    var start = {time: snFlds.getValue('Start'), perc: snFlds.getValue('StartPerCent')};
+    var end   = {time: snFlds.getValue('End'),   perc: snFlds.getValue('EndPerCent')};
+    
     var rateData;
     /*
      * The end time may have been set earlier, so ajdust prcur and prlast if necessary.
@@ -409,8 +385,8 @@ function tableSelected() {
     }
 }
 function setCurrentTime(action) {
-    var did = action === 'Create' ? 'sdate' : 'edate';
-    var tid = action === 'Create' ? 'stime' : 'etime';
+    var did = snFlds.get(action === 'Create' ? 'Start~Date' : 'End~Date');
+    var tid = snFlds.get(action === 'Create' ? 'Start~Time' : 'End~Time');
     
     if (!getElement('currenttime').checked) return;
     
@@ -449,142 +425,111 @@ function updateLog(action) {
     if (action !== '') {
         parameters = createParameters(
                 action,
-                flds, 
-                [{name: 'table', value: 'ChargeSessionLog'}]);
+                {
+                    fields:        flds,
+                    initialParams: [{name: 'table', value: 'ChargeSessionLog'}]
+                });
         ajaxLoggedInCall("CarUsage", processResponse, parameters, false);
     }    
     clearValues(flds);
     setHidden('updatelog', true);
 }
+function modifyScreenField(get, name, value) {
+    if (name !== 'EstDuration') return value;
+    
+    return convertDuration(value, !get, value);
+}
+function modifyParameter(name, value) {
+    return name === 'EstDuration'? convertDuration(value, false) : value;
+}
 function send(action) {
+    let valStart = true;
+    let valEnd   = false;
+    
     if (action === undefined) action = event.target.value;
     
     console.log("Action " + action);
-
-    var parameters = createParameters(action.toLowerCase() + 'session');
-    
-    if (action === 'New') {
-        setNew(false);
-        return;
+          
+    switch (action) {
+        case 'New':
+            setNew(false);
+            return;
+        case 'Copy':
+            setNew(true);
+            return;
+        case 'Create':
+            break;
+        case 'Update':
+            setCurrentTime(action);
+            valEnd = true;
+            break;
+        case 'Delete':
+            valStart = false;
+            break;
+        default:
+            reporter.fatalError('carreg.js send action ' + action + ' is invalid');
     }
-    if (action === 'Copy') {
-        setNew(true);
-        return;
-    }
-    setCurrentTime(action);
-    
-    var dt = validateDateTime("sdate", "stime", {required: true});
+    let pars = createParameters(
+            action.toLowerCase() + 'session', {
+        fields:        snFlds.getFields(),
+        modifier:      modifyParameter});                 
+    pars = addParameterById(pars, 'keytimestamp');
+    pars = addParameterById(pars, 'logupdates');  
+    /*
+     * The start date time must be present for all actions that update the database.
+     */
+    var dt = validateDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'), {required: true});
     
     if (!dt.valid) return;
+    
+    if (valStart) {        
+        if (!snFlds.hasValue("Mileage"))               return;
+        if (!snFlds.hasValue("StartPerCent"))          return;
+        if (!snFlds.hasValue("StartMiles"))            return;
+        if (!checkDuration(snFlds.get("EstDuration"))) return;
+    }
+    if (valEnd) {             
+        var tm = validateDateTime(snFlds.get('End~Date'), snFlds.get('End~Time'), {required: true});
         
-    if (action !== 'Delete') {        
-        var tm = validateDateTime("edate", "etime");
         if (!tm.valid) return;
-
-        if (!fieldHasValue("mileage"))     return;
-        if (!fieldHasValue("schargepc"))   return;
-        if (!fieldHasValue("smiles"))      return;
-        if (!checkDuration("estduration")) return;
-
-        if (!checkGreaterOrEqual("smiles", "emiles"))       return;
-        if (!checkGreaterOrEqual("schargepc", "echargepc")) return;
+        
+        if (!snFlds.hasValue("EndPerCent"))                             return;
+        if (!snFlds.hasValue("EndMiles"))                               return;
+        if (!checkGreaterOrEqual(snFlds, 'StartMiles',   'EndMiles'))   return;
+        if (!checkGreaterOrEqual(snFlds, 'StartPerCent', 'EndPerCent')) return;
 
         if (!dt.empty && !tm.empty && tm.value < dt.value) {
-            displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: getElement("etime")});
+            displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: snFlds.get('EndTime')});
             return;
         }
-    }
-    parameters = addParameter(parameters, 'sdatetime', getDateTime('s'));
-    parameters = addParameter(parameters, 'edatetime', getDateTime('e'));
-    parameters = addParameterById(parameters, 'logupdates');
-    parameters = addParameterById(parameters, 'keytimestamp');
-    parameters = addParameterById(parameters, 'carreg');
-    parameters = addParameterById(parameters, 'chargesource'); 
-    parameters = addParameterById(parameters, 'chargeunit');    
-    parameters = addParameterById(parameters, 'sessioncomment');
-    parameters = addParameterById(parameters, 'mileage');
-    parameters = addParameterById(parameters, 'sdate');
-    parameters = addParameterById(parameters, 'stime');
-    parameters = addParameterById(parameters, 'smiles');
-    parameters = addParameterById(parameters, 'schargepc');
-    parameters = addParameterById(parameters, 'edate');
-    parameters = addParameterById(parameters, 'etime');
-    parameters = addParameterById(parameters, 'emiles');
-    parameters = addParameterById(parameters, 'echargepc');
-    parameters = addParameterById(parameters, 'charge');
-    parameters = addParameterById(parameters, 'cost');
-    parameters = addParameter(parameters, 'estduration', convertDuration(document.getElementById('estduration').value, false));
-    
-    function processResponse(response) {
+        if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key~Start', getElement('keytimestamp').value);
+    } 
+    function processResponse() {
         requestChargeSessions();
         requestSessionLog();
         
         if (action === 'Update') {            
             updateProgress();
             
-            if (getElement('echargepc').value >= 99) getElement('emiles').value = parseInt(getElement('emiles').value) + 1;
-        }
-        
+            if (snFlds.getValue('EndPerCent') >= 99) snFlds.setValue('EndMiles', parseInt(snFlds.getValue('EndMiles')) + 1);
+        }        
         if (action === 'Delete')
             clearData();
-        else
+        else {
+            timer.start();
             setSave('Update');
+        }
     }
-    ajaxLoggedInCall("CarUsage", processResponse, parameters);
+    ajaxLoggedInCall("CarUsage", processResponse, pars);
     return true;
 }
-function btChargeSessionsRowClick(row) {
+function btChargeSessionsRowClick(row) {    
     if (isDisabled(row)) return;
     
     var rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
-
-        switch (rdr.columnName()) {
-            case 'CarReg':
-                document.getElementById('carreg').value  = value;
-                break;
-            case 'Charger':
-                document.getElementById('chargesource').value  = value;
-                break;
-            case 'Unit':
-                document.getElementById('chargeunit').value  = value;
-                break;
-            case 'Comment':
-                document.getElementById('sessioncomment').value  = value;
-                break;
-            case 'Start':
-                loadDateTime(value, "sdate", "stime");
-                break;
-            case 'Start Duration':
-                document.getElementById('estduration').value  = convertDuration(value, true);
-                break;
-            case 'Mileage':
-                document.getElementById('mileage').value  = value;
-                break;
-            case 'Start Miles':
-                document.getElementById('smiles').value  = value;
-                break;
-            case 'Start %':
-                document.getElementById('schargepc').value  = value;
-                break;
-            case 'End':
-                loadDateTime(value, "edate", "etime");
-                break;
-            case 'End Miles':
-                document.getElementById('emiles').value  = value;
-                break;
-            case 'End %':
-                document.getElementById('echargepc').value  = value;
-                break;
-            case 'Charge':
-                document.getElementById('charge').value  = value;
-                break;
-            case 'Cost':
-                document.getElementById('cost').value  = value;
-                break;
-        }
+        snFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
     }
     setSessionLog(false);
     setLogFilter();
@@ -594,31 +539,14 @@ function btChargeSessionsRowClick(row) {
     setSave('Update');
 }
 function btSessionLogRowClick(row) {
+    var flds = new ScreenFields('updatelog');
+    
     if (isDisabled(row)) return;
     
     var rdr  = new rowReader(row);
-    var flds = getParameters('updatelog');
     
     while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
-        
-        switch (rdr.valueAttribute('name')) {
-            case 'CarReg':
-                flds.get('CarReg').value = value;
-                break;
-            case 'Session':
-                flds.get('Session').value = value;
-                break;
-            case 'Timestamp':
-                flds.get('Timestamp').value = value;
-                break;
-            case 'Percent':
-                flds.get('Percent').value = value;
-                break;
-            case 'Miles':
-                flds.get('Miles').value = value;
-                break;
-        }
+        flds.setValue(rdr.columnName(), rdr.columnValue(), false);        
     }
     setHidden('updatelog', false);
 }
@@ -644,162 +572,24 @@ function btChargersRowClick(row) {
  * Set the log filter for the device on display.
  */
 function setLogFilter() {
-    var device = getElement('chargeunit').value;
+    let device = snFlds.getValue('Unit');
     
-    if (device === '') device = getElement('chargesource').value;
+    if (device === '') device = snFlds.getValue('Source');
     
-    logFilter.setValue('CarReg',  getElement('carreg').value);
+    logFilter.setValue('CarReg',  snFlds.getValue('CarReg'));
     logFilter.setValue('Device',  device);
     logFilter.setValue('Percent', '');
 }
 /*
  * Ad Hoc tests
  */
-function test() {
-    var table;
-    var body;
-    var type      = 'number';
-    var testval;
-    var elms      = document.querySelectorAll("#detailfields > input");
-    var precision = 20;
-    var scale     = 2;
-    var rowNo     = 0;
-    var cell;
-    var col;
-    var row;
-    var style;
-    var test = {a: 1, b:2};
-    var first = true;
-    var testval;
-    var font;
-    
-    function testCall(command) {
-        try {
-            eval(command);
-        } catch(err) {
-            console.log(command + ' failed with ' + err.message);
-        }
-    }
-    function testlocal(tableid, value, adjustText) {
-        var options = new JSONArrayOptions(
-                {columns: [
-                        {name: 'Location', minSize: 3, maxSize: null},
-                        {name: 'Tariff', minSize: 3}]});
-
-        table = getElement(tableid);
-        body  = table.tBodies[0];
-        style = options.getUsed();
-        options.setUsed(true);
-        style = options.getUsed();
-        style = options.getUsed('minSize');
-        options.setUsed('minSize', true);
-        style = options.getUsed('minSize');
-        style = ('a' in test);
-        style = ('x' in test);
-
-        test.a = undefined;
-
-        style = ('a' in test);
-        row = body.insertRow(rowNo++);
-        cell = document.createElement('tr');
-        cell.innerHTML = value;
-        row.appendChild(cell);
-        col = new Column(
-                value,
-                cell,
-                -1,
-                type,
-                precision,
-                scale,
-                false,
-                options);
-        style = col.textWidth;
-        style = col.pub;
-        testCall("col.#priv");
-        style = col.getPriv();
-        cell.setAttribute("style", style);
-        style = readComputedStyle(cell, 'width');
-
-        var wd = parseFloat(style.substring(0, style.length - 2)).toFixed(2);
-        reporter.log(
-                "Value " + rpad(value, 15) +
-                ' size ' + rpad(col.size(), 4) +
-                ' min ' + rpad(col.minSize(), 4) +
-                ' max ' + rpad(col.maxSize(), 4) +
-                ' size ' + rpad(col.size(), 4) +
-                ' textWidth ' + rpad(col.textWidth(), 4) +
-                ' styleWidth ' + rpad(wd, 4) +
-                ' per char ' + rpad((col.textWidth() / col.size()).toFixed(2), 4) +
-                ' adjusted ' + (!isNull(adjustText) && adjustText));
-        return col;
-    }
-    testval = testlocal('chargerstable', 'Josh-Alex B', false);
-    testval = testlocal('chargerstable', 'Josh-Alex B', false, true);
-    testval = testlocal('chargerstable', 'Josh-Alex B', true);
-    testval = testlocal('chargerstable', 'Josh-Alex Bt');    
-    testval = testlocal('chargerstable', 'Josh-AlexaBt');   
-    testval = testlocal('chargerstable', 'Josh-AlexABt');
-    testval = testlocal('chargerstable', 'JoshaAlexaBt');
-    testval = testlocal('chargerstable', '1114-01');
-    testval = testlocal('chargerstable', '1114-01', true);
-    testval = testlocal('chargerstable', 'HomePodPoint');
-    testval = testlocal('chargerstable', 'HomePodPoint', true);
-    testval = testlocal('chargerstable', 'HomePodPoint');
-    
-    font = readComputedStyle(getElement('sessionlogtable'), 'font-style');
-    font = readComputedStyle(getElement('sessionlogtable'), 'font-variant');
-    font = readComputedStyle(getElement('sessionlogtable'), 'font-weight');
-    font = readComputedStyle(getElement('sessionlogtable'), 'font-size');
-    font = readComputedStyle(getElement('sessionlogtable'), 'font-family');    
-    font = readComputedStyle(getElement('sessionlogtable'), 'font');
-
-    
-    testval = displayTextWidth("A");
-    testval = displayTextWidth("a");
-    
-    testval = displayTextWidth("18446744073709552000");
-    testval = displayTextWidth("MilesAdded", font);
-    testval = displayTextWidth("Miles Added", font);
-    testval = displayTextWidth("eo70 ecc");
-    
-    var testFilter = getFilter('testKey', document.getElementById('filter'), requestChargeSessions, {
-        allowAutoSelect: true,
-        autoSelect: true,
-        title: 'Test Filter',
-        forceGap: '4px',
-        initialDisplay: false});
-    testFilter.addFilter('CarReg', {name: 'CarReg', values: ''});
-    testFilter.addFilter('ChargerLab', {name: 'Charger', values: 'a,b'});
-    testFilter.addFilter('Field1', {name: 'Field1'});
-    testFilter.addFilter('Field2Lab', {name: 'Field2'});
-    var filterField = getFilterField(testFilter, 'CarReg');
-    filterField = getFilterField(testFilter, 'Charger');
-    filterField = getFilterField(testFilter, 'Field1');
-    filterField = getFilterField(testFilter, 'Field2');
-    testCall("filterField = getFilterField(testFilter, 'Type1')");
-    col.setProperty('xxx', 'Crap', true);
-    testCall("col.setProperty('zzz', 'Crap', false)");
-    testCall("col.setProperty('zzz', 'Crap')");
-    testCall("col.getProperty('abc')");
-    testCall("Column.abc = 'Test'");
-    style = col.getProperty('name');
-    style = col.getProperty('minSize');
-    style = col.hasProperty('abc');
-    style = col.hasProperty('maxSize');
-
-    style = col.xxx;
-    style = 'width:' + col.textWidth() + 'px';
-    testCall("col.yyy = 'MoreCrap'");
-    testCall("col.size = 'Crap'");
-    style = col.yyy;    
-}
 function initialize(loggedIn) {
     if (!loggedIn) return;
     
     reporter.setFatalAction('throw'); 
-    test();
-    let rems = getLocalStorage('requestReminders');
-    let rfrq = getLocalStorage('remFrequency');
+    snFlds = new ScreenFields('chargesessionform', modifyScreenField);
+    timer  = new Timer(document.getElementById("gap"), true);
+    
     getReminderAlerts();
     getList('CarUsage', {
         name: "carreg",    
