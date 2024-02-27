@@ -9,6 +9,23 @@ var alertOnDisplay  = false;
 var alertMover      = new elementMover();
 var al;
 
+class ConfirmAction {
+    #action;
+    #perform;
+    
+    constructor(perform) { 
+        this.#perform = perform;
+    }
+    actionCancel() {
+    }
+    actionClick() {
+        this.#perform(this.action);
+    }    
+    check(action) {
+        this.action = action === undefined? event.target.value : action; 
+        displayAlert('Confirm', 'Action ' + this.action, {confirm: this,minWidth:200});
+    }
+}
 /*
  * Defines the options for AlertDisplay.
  */

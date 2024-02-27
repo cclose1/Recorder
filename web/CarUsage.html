@@ -114,7 +114,7 @@
                                 </div>
                                 <div class="centre">
                                     <input id="save"   name="save"   type="button" value="Create"        onclick="send();">
-                                    <input id="remove" name="remove" type="button" hidden value="Delete" onclick="send();">
+                                    <input id="remove" name="remove" type="button" hidden value="Delete" onclick="confirmSend.check();">
                                     <input id="copy"   name="copy"   type="button" hidden value="Copy"   onclick="send();">
                                     <input id="clear"  name="clear"  type="button" value="Clear"         onclick="clearData();">
                                 </div>
@@ -229,7 +229,8 @@
                                 <option value='Test'>Test</option>
                                 <option value='Test2'>Test2</option>
                                 <option value='Test3'>Test3</option>
-                                <option value='ChargerNetwork'>Charger Network</option>
+                                <option value='Account'>Account</option>
+                                <option value='Company'>Company</option>
                                 <option value='ChargerLocation'>Charger Location</option>
                                 <option value='ChargerUnit'>Charger Unit</option>
                                 <option value='ChargeSession'>Charge Session</option>

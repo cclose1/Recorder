@@ -1,4 +1,4 @@
-/* global reporter, getElement, getElementById, Column */
+/* global reporter, getElement, getElementById, Column, confirmSend */
 
 'use strict';
 
@@ -22,7 +22,8 @@ class TableChangeAlerter {
         console.log('Action ' + action + 'for Table ' + table + ' key ' + listenerKey);
     };
 };
-var ts = new TableChangeAlerter();
+var ts          = new TableChangeAlerter();
+var confirmSend = new ConfirmAction(send);
 
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
@@ -426,7 +427,7 @@ function updateLog(action) {
         parameters = createParameters(
                 action,
                 {
-                    fields:        flds,
+                    fields: flds,
                     initialParams: [{name: 'table', value: 'ChargeSessionLog'}]
                 });
         ajaxLoggedInCall("CarUsage", processResponse, parameters, false);
@@ -441,7 +442,7 @@ function modifyScreenField(get, name, value) {
 }
 function modifyParameter(name, value) {
     return name === 'EstDuration'? convertDuration(value, false) : value;
-}
+}      
 function send(action) {
     let valStart = true;
     let valEnd   = false;
@@ -458,6 +459,7 @@ function send(action) {
             setNew(true);
             return;
         case 'Create':
+            setCurrentTime(action);
             break;
         case 'Update':
             setCurrentTime(action);
@@ -470,9 +472,11 @@ function send(action) {
             reporter.fatalError('carreg.js send action ' + action + ' is invalid');
     }
     let pars = createParameters(
-            action.toLowerCase() + 'session', {
-        fields:        snFlds.getFields(),
-        modifier:      modifyParameter});                 
+            action.toLowerCase() + 'TableRow',
+            {
+                fields:        snFlds.getFields(),
+                initialParams: [{name: 'table', value: 'ChargeSession'}],
+                modifier:      modifyParameter});                 
     pars = addParameterById(pars, 'keytimestamp');
     pars = addParameterById(pars, 'logupdates');  
     /*

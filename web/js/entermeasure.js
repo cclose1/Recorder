@@ -68,7 +68,7 @@ function send(ev) {
         document.getElementById("orientation").value = "";
         document.getElementById("comment").value = "";
         document.getElementById("try").value = parseInt(document.getElementById("try").value) + 1;
-        timer.start();
+        
         requestHistory();
     }
     ajaxLoggedInCall("Record", processResponse, parameters);

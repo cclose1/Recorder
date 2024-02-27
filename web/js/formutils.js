@@ -141,12 +141,10 @@ class Tracker {
         message = 'Track seq' + lpad(this.#seqNo, 2, '0') + ' elapsed ' + this.#stats.elapsed(true) + message;
         return message;
     }
-    ;
-            setStore(on) {
+    setStore(on) {
         this.#store = on;
     }
-    ;
-            constructor(message, store, prefix) {
+    constructor(message, store, prefix) {
         this.#seqNo = Tracker.#sequence += 1;
         this.#created = new Date();
         this.#prefix = defaultNull(prefix, '');
@@ -157,20 +155,16 @@ class Tracker {
         if (!isNull(message))
             this.log(message);
     }
-    ;
-            setPrefix(prefix) {
+    setPrefix(prefix) {
         this.#prefix = prefix;
     }
-    ;
-            getSequence() {
+    getSequence() {
         return this.#seqNo;
     }
-    ;
-            getCreated() {
+    getCreated() {
         return this.#created;
     }
-    ;
-            log(message, noTime) {
+    log(message, noTime) {
         if (noTime !== undefined) {
             reporter.fatalError("noTime not implemented");
         }
@@ -180,11 +174,9 @@ class Tracker {
         if (this.#store)
             reporter.store(message);
     }
-    ;
-            store(message) {
+    store(message) {
         reporter.store(this.#buildMessage(message));
     }
-    ;
 }
 
 class elementMover {
@@ -402,8 +394,12 @@ class ScreenFields {
                 default:
                     throw 'Timestamp is-' + value + '- but should have a date and hour. Loading ScreenFields ' + obj.#id + ' field ' + field;
             }
-            obj.get(date, true).value = dVal;
-            obj.get(time, true).value = tVal;
+            loadValue(obj, date, dVal);
+            
+            if (found) {
+                found = false;
+                loadValue(obj, time, tVal);
+            }
         }        
         loadValue(this, field, value);
 

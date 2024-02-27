@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -175,13 +177,12 @@ public abstract class ApplicationServer extends HttpServlet {
 
         getList(ctx, table, field);
     }
-
     protected void changeTableRow(Context ctx, String tableName, String action) throws SQLException, ParseException {
         SQLBuilder sql;
 
-        boolean delete = true;
-        boolean keyRequired = true;
-        DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition(tableName);
+        boolean delete                            = true;
+        boolean keyRequired                       = true;
+        DatabaseSession.TableDefinition table     = ctx.getAppDb().new TableDefinition(tableName);
         ArrayList<DatabaseSession.Column> columns = table.getColumns();
 
         switch (action) {
@@ -211,7 +212,6 @@ public abstract class ApplicationServer extends HttpServlet {
                 } else if (!ctx.existsParameter(keyParam)) {
                     throw new ErrorExit("Key column " + keyParam + " is not a parameter", Severity.ApplicationError);
                 }
-
                 sql.addAnd(col.getName(), "=", ctx.getParameter(keyParam), col.getTypeName());
             }
             if (!delete) {
@@ -220,9 +220,26 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         executeUpdate(ctx, sql.build());
     }
-
+    /*
+     * Called to perform any application specific actions, typically validation checks, before the table update.
+     * The application class overrides this if it needs to perform specific actions. If it encounters a problem, it
+     * should call errorExit to rollback any database transaction and provide a user error report.
+     */
+    protected void preChangeTableRow(Context ctx, String tableName, String action) throws SQLException, ParseException {        
+    }
+    /*
+     * Similar to the above except it called following the table row change and it would typically be called
+     * to perform and additional database updates.
+    */
+    protected void postChangeTableRow(Context ctx, String tableName, String action) throws SQLException, ParseException {        
+    }
     protected void changeTableRow(Context ctx) throws SQLException, ParseException {
-        changeTableRow(ctx, ctx.getParameter("table"), ctx.getParameter("action"));
+        String tableName = ctx.getParameter("table");
+        String action    = ctx.getParameter("action");
+        
+        preChangeTableRow(ctx,  tableName, action);
+        changeTableRow(ctx,     tableName, action);
+        postChangeTableRow(ctx, tableName, action);
     }
 
     protected void updateTableDefinition(Context ctx, DatabaseSession.TableDefinition table) throws SQLException {
@@ -247,7 +264,6 @@ public abstract class ApplicationServer extends HttpServlet {
     }
 
     protected class Configuration implements SecurityConfiguration {
-
         Properties properties = new Properties();
         Environment props = new Environment(properties);
         Environment envs = new Environment();
@@ -342,18 +358,18 @@ public abstract class ApplicationServer extends HttpServlet {
         public void load(ServletConfig config) throws IOException {
             properties.load(getServletContext().getResourceAsStream("/WEB-INF/record.properties"));
 
-            dbServer = envs.getValue("DATABASE_SERVER", "127.0.0.1");
-            mysqlUseSSL = envs.getValue("DATABASE_USE_SSL", "");
-            logRequest = envs.getBooleanValue("LOG_HTML_REQUEST");
-            logReply = envs.getBooleanValue("LOG_HTML_REPLY");
-            longStatementTime = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
-            measureSQL = envs.getBooleanValue("MEASURE_SQL_QUERY");
+            dbServer           = envs.getValue("DATABASE_SERVER", "127.0.0.1");
+            mysqlUseSSL        = envs.getValue("DATABASE_USE_SSL", "");
+            logRequest         = envs.getBooleanValue("LOG_HTML_REQUEST");
+            logReply           = envs.getBooleanValue("LOG_HTML_REPLY");
+            longStatementTime  = envs.getDoubleValue("LONG_STATEMENT_TIME", 0);
+            measureSQL         = envs.getBooleanValue("MEASURE_SQL_QUERY");
             sqlServerAvailable = envs.getBooleanValue("SQLSERVER_AVAILABLE");
-            sshRequired = envs.getBooleanValue("SSH_REQUIRED");
-            appName = config.getServletName();
-            deadlockRetries = props.getValue("deadlockretries");
-            hashAlgorithm = props.getValue("hashalgorithm", "SHA");
-            loginRequired = props.getValue("loginrequired", "no").equalsIgnoreCase("yes");
+            sshRequired        = envs.getBooleanValue("SSH_REQUIRED");
+            appName            = config.getServletName();
+            deadlockRetries    = props.getValue("deadlockretries");
+            hashAlgorithm      = props.getValue("hashalgorithm", "SHA");
+            loginRequired      = props.getValue("loginrequired", "no").equalsIgnoreCase("yes");
 
             if (envs.getValue("DATABASE_PORT") != null) {
                 dbServer += ":" + envs.getValue("DATABASE_PORT");
@@ -411,15 +427,14 @@ public abstract class ApplicationServer extends HttpServlet {
     protected Configuration config = new Configuration();
 
     protected class Context {
-
-        private DatabaseSession appDb = null;
-        private DatabaseSession secDb = null;
-        private DatabaseSession remDb = null;
-        private HTTPRequestHandler handler;
+        private DatabaseSession     appDb = null;
+        private DatabaseSession     secDb = null;
+        private DatabaseSession     remDb = null;
+        private HTTPRequestHandler  handler;
         private HttpServletResponse response;
-        private StringBuilder replyBuffer;
-        private Trace trace;
-        private boolean resolveTimestamp = true;
+        private StringBuilder       replyBuffer;
+        private Trace               trace;
+        private boolean             resolveTimestamp = true;
 
         public void setTrace(Trace trace) {
             this.trace = trace;
@@ -463,9 +478,9 @@ public abstract class ApplicationServer extends HttpServlet {
             return date == null ? null : new java.sql.Date(date.getTime());
         }
 
-        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
+        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql, boolean startTransaction) throws SQLException {
             Trace t = new Trace("openDatabase");
-            DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), login.name);
+            DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), login.name, startTransaction);
 
             if (login.name != null) {
                 t.report('C', "Database " + login.name);
@@ -480,7 +495,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 t.report('C', "Connection string " + session.getConnectionString());
             }
             session.SetLongStatementTime(config.getLongStatementTime());
-
+            
             if (!useMySql) {
                 session.close();
             }
@@ -489,6 +504,10 @@ public abstract class ApplicationServer extends HttpServlet {
 
             return session;
         }
+
+        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
+            return openDatabase(login, useMySql, false);
+        }            
 
         public DatabaseSession getAppDb() {
             return appDb;
@@ -631,8 +650,8 @@ public abstract class ApplicationServer extends HttpServlet {
             handler.dumpRequest(reason);
         }
 
-        public void openDatabases(boolean useMySql) throws SQLException {
-            appDb = openDatabase(config.databases.application, useMySql);
+        public void openDatabases(boolean useMySql, boolean startTransaction) throws SQLException {
+            appDb = openDatabase(config.databases.application, useMySql, startTransaction);
 
             if (!config.databases.application.equals(config.databases.security)) {
                 secDb = openDatabase(config.databases.security, useMySql);
@@ -645,6 +664,10 @@ public abstract class ApplicationServer extends HttpServlet {
             } else {
                 remDb = appDb;
             }
+        }
+        
+        public void openDatabases(boolean useMySql) throws SQLException {
+            openDatabases(useMySql, false);
         }
 
         public SQLSelectBuilder getSelectBuilder(String table) {
@@ -1555,7 +1578,7 @@ public abstract class ApplicationServer extends HttpServlet {
 
             t.report('C', "action " + action + " server " + config.getDbServer() + " database " + config.databases.application.name + " user " + config.databases.application.user);
 
-            ctx.openDatabases(useMySql || !config.isSqlServerAvailable());
+            ctx.openDatabases(useMySql || !config.isSqlServerAvailable(), true);
 
             Security security = new Security(ctx.getSecDb(), ctx.handler, config);
 
@@ -1592,10 +1615,15 @@ public abstract class ApplicationServer extends HttpServlet {
             }
 
             reply(ctx, ex, ex.getStatus());
-        } catch (IOException | ServletException ex) {
+        } catch (IOException | ServletException | ParseException | NoSuchAlgorithmException | JSONException ex) {
             reply(ctx, ex, 400);
-        } catch (ParseException | NoSuchAlgorithmException | JSONException ex) {
-            reply(ctx, ex, 400);
+        } finally {
+            try {
+                ctx.getAppDb().commit();
+            } catch (SQLException ex) {
+                Logger.getLogger(ApplicationServer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
         }
         if (repeat != 0) {
             t.report('C', "Deadlock count " + repeat);
