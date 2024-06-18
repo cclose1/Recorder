@@ -46,6 +46,20 @@ function resetDelete(cancel) {
     clearValues(dflds);
     setHidden('deletefields', true);
 }
+function errorIfValue(id, message) {
+    if (trim(getElement(id).value) !== '') {
+        displayFieldError(id, message);
+        return true;
+    }
+    return false;
+}
+function checkOffPeak(prefix) {
+    if (trim(getElement(prefix + 'rate').value) === '') {
+        return !errorIfValue(prefix + 'start', 'must empty if no off peak rate') && !errorIfValue(prefix + 'end', 'must empty if no off peak rate');
+    } else {
+        return getFieldValue(prefix + 'start') !== undefined && getFieldValue(prefix + 'end') !== undefined;
+    }
+}
 function actionTariff(action, fields) {
     action = defaultNull(action, event.target.value);
     
@@ -58,6 +72,9 @@ function actionTariff(action, fields) {
         case "Create":
             if (!fieldHasValue(flds.get('Date')))
                 return;
+            
+            if (!checkOffPeak('tgop')) return;
+            if (!checkOffPeak('teop')) return;
 
             hasValues = valuesAllOrNone(flds.get('Gas UnitRate'), flds.get('Gas StandingCharge'), flds.get('CalorificValue'));
 

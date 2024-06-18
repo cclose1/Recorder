@@ -151,6 +151,8 @@ public class Reminder {
         sql.addField("WarnDays");
         sql.addField("Suspended");
         sql.addField("Description");
+        sql.addField("Contact");
+        sql.addField("Location");
         sql.addField("Phone");
         sql.addField("Web");
         sql.addField("Comment");

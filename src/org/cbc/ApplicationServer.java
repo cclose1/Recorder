@@ -119,6 +119,22 @@ public abstract class ApplicationServer extends HttpServlet {
             throw new ErrorExit(message);
         }
     }
+    /*
+     * Moved to here as it is called by RecordEnergy and CarUsage.
+     */
+    protected String getMeter(Context ctx, Date timestamp, String type) throws SQLException, ParseException {
+        SQLSelectBuilder sel = ctx.getSelectBuilder("Meter");
+        String           ts  = ctx.getDbTimestamp(timestamp);
+        ResultSet        rs;
+       
+        sel.addField("Identifier");
+        sel.addAnd("Type", "=", type);
+        sel.addAnd("Installed", "<=", ts);
+        sel.setWhere("AND ('" + ts + "' <= Removed OR Removed IS NULL)");
+        rs = executeQuery(ctx, sel);
+        
+        return rs.next()? rs.getString("Identifier") : "";
+    }
     protected Reminder reminder = null;
 
     /*
@@ -477,7 +493,6 @@ public abstract class ApplicationServer extends HttpServlet {
         public java.sql.Date getSQLDate(Date date) {
             return date == null ? null : new java.sql.Date(date.getTime());
         }
-
         private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql, boolean startTransaction) throws SQLException {
             Trace t = new Trace("openDatabase");
             DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), login.name, startTransaction);
@@ -605,7 +620,40 @@ public abstract class ApplicationServer extends HttpServlet {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
             }
         }
-
+        /*
+         * Time is of the hh[:mm:[ss]].
+         */
+        public int toSeconds(String time) {            
+            String fields[] = time.split(":");
+            int    seconds  = 0;
+            int    mult     = 60 * 60;
+            
+            for (String field : fields) {
+                int d = Integer.parseInt(field);
+                
+                seconds += mult * d;
+                mult     = mult / 60;
+            }
+            return seconds;
+        }
+        public void incrementDate(Date date, int seconds) {
+            date.setTime(date.getTime() + 1000 * seconds);
+        }
+        public void incrementDate(Date date, String time) {
+            incrementDate(date, toSeconds(time));
+        }
+        public Date toDate(String date, String time) throws ParseException {
+            return DateFormatter.parseDate(date + ' ' + time);
+        }
+        /*
+         * Jdbc does not provide a getDateTime returning a Java Date.
+         *
+         * This provides it, but it may not be the best way of
+         */
+        public Date getDateTime(ResultSet rs, String column) throws SQLException, ParseException {
+            return new Date(rs.getTimestamp(column).getTime());
+            // return toDate(rs.getDate(column).toString(), rs.getTime(column).toString());
+        }
         public Date getTimestamp(String date, String time) throws ParseException {
             String dt = getParameter(date).trim();
             String tm = getParameter(time).trim();

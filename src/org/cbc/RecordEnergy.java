@@ -26,19 +26,6 @@ import org.cbc.utils.system.Calendar;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public class RecordEnergy extends ApplicationServer {
-    private String getMeter(Context ctx, Date timestamp, String type) throws SQLException, ParseException {
-        SQLSelectBuilder sel = ctx.getSelectBuilder("Meter");
-        String           ts  = ctx.getDbTimestamp(timestamp);
-        ResultSet        rs;
-       
-        sel.addField("Identifier");
-        sel.addAnd("Type", "=", type);
-        sel.addAnd("Installed", "<=", ts);
-        sel.setWhere("AND ('" + ts + "' <= Removed OR Removed IS NULL)");
-        rs = executeQuery(ctx, sel);
-        
-        return rs.next()? rs.getString("Identifier") : "";
-    }
     private SQLSelectBuilder getReadingsSQL(Context ctx, String readings) throws SQLException {
         SQLSelectBuilder sel;
 
@@ -50,6 +37,7 @@ public class RecordEnergy extends ApplicationServer {
             sel.addField("Reading");
             sel.addField("Meter");
             sel.addField("Type");
+            sel.addField("OffPeakKwh");
             sel.addField("Estimated",  sel.setValue(""));
             sel.addField("Comment",    sel.setFieldSource("MR.Comment"), sel.setValue(""));
             sel.setFrom("MeterReading AS MR LEFT JOIN Meter AS MT ON Meter = Identifier");
@@ -81,6 +69,9 @@ public class RecordEnergy extends ApplicationServer {
         sel.addField("End");
         sel.addField("Type");
         sel.addField("UnitRate");
+        sel.addField("OffPeakRate");
+        sel.addField("OffPeakStart");
+        sel.addField("OffPeakEnd");
         sel.addField("StandingCharge");
         sel.addField("CalorificValue");
         sel.addField("Comment");
@@ -129,6 +120,7 @@ public class RecordEnergy extends ApplicationServer {
         Date             start    = ctx.getTimestamp("Date");
         double           rate     = ctx.getDouble(type + " UnitRate",       -1);
         double           standing = ctx.getDouble(type + " StandingCharge", -1);
+        double           offpeak  = ctx.getDouble(type + " OffPeakRate",    -1);
         ResultSet upper;
         ResultSet lower;
 
@@ -154,8 +146,19 @@ public class RecordEnergy extends ApplicationServer {
         sql.addField("Start",          start);
         sql.addField("Type",           type);        
         sql.addField("Code",           ctx.getParameter("Code"));
-        sql.addField("UnitRate",       rate);
         sql.addField("StandingCharge", standing);
+        sql.addField("UnitRate",       rate);
+        
+        if (offpeak < 0 ) {
+            sql.addField("OffPeakRate");
+            sql.addField("OffPeakStart");
+            sql.addField("OffPeakEnd");
+        }
+        else {
+            sql.addField("OffPeakRate",  offpeak);
+            sql.addField("OffPeakStart", ctx.getParameter(type + " " + "OffPeakStart"));
+            sql.addField("OffPeakEnd",   ctx.getParameter(type + " " + "OffPeakEnd"));
+        }        
         sql.addField("Comment",        ctx.getParameter("Comment"));
         
         if (type.equalsIgnoreCase("gas")) sql.addField("CalorificValue", ctx.getParameter("CalorificValue"));
@@ -169,7 +172,7 @@ public class RecordEnergy extends ApplicationServer {
         Date             timestamp = ctx.getTimestamp("Date", "Time");
         String           meter     = getMeter(ctx, timestamp, type);
         double           reading   = ctx.getDouble(type,       -2);
-        String           estimated = ctx.getParameter("Etimated").equalsIgnoreCase("true") ? "Y" : "";
+        String           estimated = ctx.getParameter("Estimated").equalsIgnoreCase("true") ? "Y" : "";
         ResultSet        upper;
         ResultSet        lower;
         double           minReading = -1;
@@ -250,7 +253,7 @@ public class RecordEnergy extends ApplicationServer {
                 break;
             case "readingshistory":
                 readings = ctx.getParameter("readings");
-                sel      = getReadingsSQL(ctx, readings);;
+                sel      = getReadingsSQL(ctx, readings);
                 rs       = executeQuery(ctx, sel);
                 data.add(readings, rs);
                 data.append(ctx.getReplyBuffer());

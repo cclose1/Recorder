@@ -198,7 +198,8 @@ function initialize(loggedIn) {
         popup:           true});
     
     hstFilter.addFilter('Categories',  {name: 'Category',  values: loadOption('category', 'Category', 'Discretionary')});
-    hstFilter.addFilter('Types',       {name: 'Type',      values: loadOption('type', 'Type', 'Food')});
+    hstFilter.addFilter('Types',       {name: 'Type',      values: loadOption('type',     'Type',     'Food')});
+    hstFilter.addFilter('Payments',    {name: 'Payment',   values: loadOption('payment',  'Payment',  'Cash')});
     hstFilter.addFilter('Weekdays',    {name: 'Weekday',   values: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'});
     hstFilter.addFilter('Description', {name: 'Description'});
     hstFilter.addFilter('Location',    {name: 'Location', type: 'text'});

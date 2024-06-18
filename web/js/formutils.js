@@ -1079,6 +1079,7 @@ function getDayText(date, long) {
     return value;
 }
 function displayFieldError(elm, message) {
+    elm = getElement(elm);
     displayAlert('Field Validation', 'Field ' + getElementLabel(elm) + ' ' + message, {focus: elm});
 }
 /*

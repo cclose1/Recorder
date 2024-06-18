@@ -13,16 +13,191 @@ import java.util.Date;
 import java.util.Iterator;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
+import org.cbc.application.reporting.Report;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLBuilder;
+import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.sql.SQLUpdateBuilder;
 import org.cbc.utils.data.DatabaseSession;
 /**
  *
  * @author chris
  */
+
 public class CarUsage extends ApplicationServer {
+    public class OffPeakUsage {
+        private Date    opStart        = null;
+        private Date    opEnd          = null;
+        private Date    ssStart        = null;
+        private Date    ssEnd          = null;
+        private String  provider       = null;
+        private String  meter          = null;
+        private Date    mtStart        = null;
+        private double  opKwh          = -1;
+        private double  ssKwh          = -1;
+        private double  credit         = -1;
+        private boolean supportsCredit = false;
+        private Context ctx;
+        private boolean closed         = false;
+        
+        public Date getOffPeakStart() {
+            return opStart;
+        }
+        public Date getOffPeakEnd() {
+            return opEnd;
+        }
+        public Date getSessionStart() {
+            return ssStart;
+        }
+        public Date getSessionEnd() {
+            return ssEnd;
+        }
+        public double getOffPeakKwh() {
+            return opKwh;
+        }
+        public double getSessionKwh() {
+            return ssKwh;
+        }
+        public boolean supportsCredit() {
+            return supportsCredit;
+        }
+        public void updateCredit() throws SQLException {
+            SQLUpdateBuilder sql  = ctx.getUpdateBuilder("Company");
+            double           cost = ctx.getDouble("Cost", -1);
+        
+            if (!supportsCredit() || cost < 0) return;
+            
+            sql.addIncrementField("Credit", -cost);
+            sql.addAnd("Id", "=", provider);
+            executeUpdate(ctx, sql);
+        }
+        private void logUpdate() throws SQLException {            
+            SQLInsertBuilder sql  = ctx.getInsertBuilder("TempTrace");
+            
+            sql.addField("SessionStart", ssStart);
+            sql.addField("Kwh",          ssKwh);
+            sql.addField("OpKwh",        opKwh);
+            
+            if (mtStart != null) sql.addField("MeterStart",   mtStart);
+            
+            executeUpdate(ctx, sql);
+        }
+        public void updateOffPeak() throws SQLException {
+            SQLUpdateBuilder sql  = ctx.getUpdateBuilder("MeterReading");
+            
+            logUpdate();
+            
+            if (opKwh == -1) return;
+            
+            sql.addIncrementField("OffPeakKwh", opKwh);
+            sql.addAnd("Meter",     "=", meter);
+            sql.addAnd("Timestamp", "=", mtStart);
+            executeUpdate(ctx, sql);
+        }
+        public void close() throws SQLException {
+            SQLUpdateBuilder sql  = ctx.getUpdateBuilder("ChargeSession");
+            
+            sql.addField("Closed", "Y");
+            sql.addAnd("CarReg", "=", ctx.getParameter("CarReg"));
+            sql.addAnd("Start",  "=", ssStart);
+            executeUpdate(ctx, sql);
+        }
+        public OffPeakUsage(Context ctx) throws SQLException, ParseException {            
+            SQLSelectBuilder sql        = ctx.getSelectBuilder("ChargerLocation"); 
+            EnclosingRecords er         = new EnclosingRecords(ctx, "MeterReading");
+            String           start[]    = ctx.getParameter("Start").split(" ");
+            String           opstime;
+            String           opetime;
+            String           chDuration;
+            ResultSet        rs;
+            double           opRate;
+            Date             ovStart = null;
+            Date             ovEnd   = null;
+            
+            this.ctx     = ctx;
+            this.ssStart = ctx.getTimestamp("Start");
+            sql.addField("Provider");
+            sql.addAnd("Name", "=", ctx.getParameter("Charger"));
+            
+            rs       = executeQuery(ctx, sql);
+            rs.next();
+            provider = rs.getString("Provider");
+            
+            if (provider == null) return;
+            
+            if (!provider.equals("Home")) {
+                /*
+                 * Company providing get credit if any.
+                 */
+                sql = ctx.getSelectBuilder("Company");
+                sql.addField("*");
+                sql.addAnd("Id", "=", provider);
+                rs = executeQuery(ctx, sql);
+                rs.next();
+                
+                credit         = rs.getDouble("Credit");
+                supportsCredit = !rs.wasNull();
+                return;
+            }            
+            sql = ctx.getSelectBuilder("Tariff");
+            
+            chDuration = ctx.getParameter("ChargeDuration");
+            ssKwh      = ctx.getDouble("Charge", -1);
+            
+            if (chDuration.length() == 0)
+                ssEnd = ctx.getTimestamp("End");
+            else {
+                ssEnd = new Date(ssStart.getTime());
+                ctx.incrementDate(ssEnd, chDuration);
+            }
+            sql.addField("*");
+            sql.addAndStart(ssStart);
+            sql.addAnd("Type", "=", "Electric");
+            sql.addAnd("Code", "NOT LIKE", "%Test%"); // Not a good way of doing this.
+            rs = executeQuery(ctx, sql);
+           
+            if (!rs.next()) errorExit("Tariff not found for " + start[0] + ' ' + start[1]);
+            
+            opRate = rs.getDouble("OffPeakRate");
+            
+            if (opRate <= 0) return;  // Tariff does not have off peak
+            
+            opstime = rs.getString("OffPeakStart");
+            opetime = rs.getString("OffPeakEnd");
+            
+            opStart = ctx.toDate(start[0], opstime);
+            opEnd   = ctx.toDate(start[0], opetime);
+            
+            if (opEnd.before(ssStart)) {
+                /*
+                 * Off peak starts in the day following the session.
+                 */
+                ctx.incrementDate(opStart, "24");
+                ctx.incrementDate(opEnd,   "24");
+            }
+            if (ctx.toSeconds(opetime) < ctx.toSeconds(opstime)) 
+                /*
+                 * The end time is in the following day. Add 1 day to session day .
+                 */
+                ctx.incrementDate(opEnd, "24");
+            
+            if (ssEnd.before(opStart) || ssStart.after(opEnd)) return; // Session does not overlap off peak.
+            
+            ovStart = ssStart.before(opStart)? opStart : ssStart;
+            ovEnd   = ssEnd.after(opEnd)? opEnd : ssEnd;
+            /*
+             * Calculate the Kwh for the overlapping part of the session.
+             */
+            opKwh = Utils.round(ssKwh * (ovEnd.getTime() - ovStart.getTime()) / (ssEnd.getTime() - ssStart.getTime()), 2);
+            meter = getMeter(ctx, ssStart, "Electric");
+            er.addField("Meter",     meter,   true);
+            er.addField("Timestamp", ovStart, false);
+            
+            if (er.getBefore() != null) mtStart = ctx.getDateTime(er.getBefore(), "Timestamp");
+        }
+    }
     private void log(Context ctx, String action) throws SQLException, ParseException {
         SQLBuilder sql = ctx.getInsertBuilder("ChargeSessionLog");
 
@@ -193,6 +368,18 @@ public class CarUsage extends ApplicationServer {
                 super.config.getProperty("btpassword"));
     }
     @Override
+    public void completeAction(Context ctx, boolean start) throws SQLException, ParseException {
+        if (ctx.getParameter("action").equals("updateTableRow") && !start) {
+            OffPeakUsage upc = new OffPeakUsage(ctx);
+            
+            if (ctx.getParameter("close").equals("true")) {
+                upc.updateCredit();
+                upc.updateOffPeak();
+                upc.close();
+            }
+        }
+    }
+    @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         String schema  = ctx.getAppDb().getProtocol().equals("sqlserver")? "dbo" : "BloodPressure";
         String endName = ctx.getAppDb().delimitName("End");
@@ -211,18 +398,20 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Start");
                     sql.addField("End");  
                     sql.addField("Weekday", sql.setExpressionSource(schema + ".WeekDayName(Start)"));
-                    sql.addField("EstDuration", "EstDuration");
+                    sql.addField("EstDuration");
                     sql.addField("Charger");
                     sql.addField("Unit");
                     sql.addField("Mileage");
                     sql.addField("Rate",     sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 "), rateCast);
                     sql.addField("Duration", sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 * (100 - EndPercent)"), rateCast);       
-                    sql.addField("StartMiles", "StartMiles");
-                    sql.addField("StartPerCent",     "StartPerCent");
-                    sql.addField("EndMiles",   "EndMiles");
-                    sql.addField("EndPerCent",       "EndPerCent");
+                    sql.addField("StartMiles");
+                    sql.addField("EndMiles");
+                    sql.addField("StartPerCent");
+                    sql.addField("EndPerCent");
+                    sql.addField("ChargeDuration");
                     sql.addField("Charge");
                     sql.addField("Cost");
+                    sql.addField("Closed");
                     sql.addField("Comment");
                     sql.addAnd(ctx.getParameter("filter"));
                     sql.addOrderByField("CarReg", true);
@@ -244,7 +433,6 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Unit");
                     sql.addField("Active");
                     sql.addField("Rate");
-                    sql.addField("Tariff");
                     sql.addField("Location");
                     sql.addField("Comment");
                     rs = executeQuery(ctx, sql);

@@ -157,6 +157,7 @@
                     <fieldset id="tariff" class='centreminwidth form'>
                         <legend>Tariff</legend>
                         <div>
+                            <fieldset style='border: none'>
                             <div>
                                 <label for="tdate">Date</label>
                                 <input type="text" name="Date" id="tdate" class='date' maxlength="11" onchange="checkDate()"  tabindex="-1">                             
@@ -168,23 +169,46 @@
                                 </select>
                             </div>
                             <div>
-                                <label for="tgrate">Gas Rate</label>
-                                <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="tgstanding" class="nogap">Standing</label>
-                                <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="tgcalval" class="nogap">Cal Value</label>
-                                <input type="text" name="CalorificValue" id="tgcalval" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                            </div>
-                            <div>
-                                <label for="terate">Electric Rate</label>
-                                <input type="text" name="Electric UnitRate" id="terate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
-                                <label for="testanding" class="nogap">Standing</label>
-                                <input type="text" name="Electric StandingCharge" id="testanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
-                            </div>
-                            <div>
                                 <label for="tcomment">Comment</label>
                                 <textarea id='tcomment' name="Comment" rows='2'></textarea>
                             </div>
+                        </fieldset>
+                            <fieldset>
+                                <legend>Gas</legend>
+                                <div>
+                                <label for="tgstanding">Standing</label>
+                                <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <label for="tgrate" class="nogap">Rate</label>
+                                <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <label for="tgcalval" class="nogap">Cal Value</label>
+                                <input type="text" name="CalorificValue" id="tgcalval" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">                            
+                                </div>
+                                <div>
+                                <label for="tgoprate">Off Peak</label>
+                                <input type= "text" name="Gas OffPeakRate" id="tgoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <label for="tgopstart" class="nogap">Start</label>
+                                <input type= "text" name="Gas OffPeakStart" id="tgopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                <label for="tgopend" class="nogap">End</label>
+                                <input type= "text" name="Gas OffPeakEnd" id="tgopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                </div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>Electric</legend>
+                                <div>
+                                <label for="testanding">Standing</label>
+                                <input type="text" name="Electric StandingCharge" id="testanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
+                                <label for="terate" class="nogap">Rate</label>
+                                <input type="text" name="Electric UnitRate" id="terate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
+                                </div>
+                                <div>
+                                <label for="teoprate">Off Peak</label>
+                                <input type= "text" name="Electric OffPeakRate" id="teoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <label for="teopstart" class="nogap">Start</label>
+                                <input type= "text" name="Electric OffPeakStart" id="teopstart" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <label for="teopend" class="nogap">End</label>
+                                <input type= "text" name="Electric OffPeakEnd" id="teopend" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                               </div>
+                            </fieldset>
                             <div>
                                 <label for="tsave"></label>
                                 <input id="tsave"   class="notparam" name="save"   type="button" value="Create" onclick="actionTariff();">
@@ -221,6 +245,18 @@
                             <div>
                                 <label for="mtrate" class="largelab">Unit Rate</label>
                                 <input type="text" name="UnitRate" id="mtrate" size='2' onkeypress="allowedInNumberField();" >
+                             </div>                    
+                            <div>
+                                <label for="mtoprate" class="largelab">Off Peak Rate</label>
+                                <input type="text" name="OffPeakRate" id="mtoprate" size='2' onkeypress="allowedInNumberField();" >
+                             </div>                   
+                            <div>
+                                <label for="mtopstart" class="largelab">Off Peak Start</label>
+                                <input type="text" name="OffPeakStart" id="mtopstart" size='4' onchange="checkTime()">
+                             </div>                   
+                            <div>
+                                <label for="mtopend" class="largelab">Off Peak End</label>
+                                <input type="text" name="OffPeakEnd" id="mtopend" size='4' onchange="checkTime()">
                              </div>                    
                             <div>
                                 <label for="mtstchrg" class="largelab">Standing Charge</label>

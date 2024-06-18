@@ -75,7 +75,7 @@
                                         </div>
                                         <div>
                                             <label for="schargepc">Charge %</label>
-                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();" onchange="startPercentChange();">
                                         </div>
                                         <div>
                                             <label for="smiles">Miles</label>
@@ -99,6 +99,10 @@
                                             <input type="text" name="EndPerCent" size ="7" id="echargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
                                         </div>
                                         <div>
+                                            <label for="echargedur">Charge Duration</label>
+                                            <input type="text" name="ChargeDuration" size ="7" id="echargedur" tabindex="0" class='time' onchange="checkTime();">                            
+                                        </div>
+                                        <div>
                                             <label for="emiles">Miles</label>
                                             <input type="text" name="EndMiles" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
                                         </div>
@@ -109,6 +113,10 @@
                                         <div>
                                             <label for="cost">Cost</label>
                                             <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                        </div>
+                                        <div>
+                                            <label for="close" class="largelab">Close</label>
+                                            <input id="close" name="close" type="checkbox">                                            
                                         </div>
                                     </fieldset> 
                                 </div>
@@ -234,6 +242,7 @@
                                 <option value='ChargerLocation'>Charger Location</option>
                                 <option value='ChargerUnit'>Charger Unit</option>
                                 <option value='ChargeSession'>Charge Session</option>
+                                <option value='TariffName'>Tariff Name</option>
                             </select>
                         </div>
                         <fieldset id='updatetable' name='UpdateTable' class='form centreminwidth'>

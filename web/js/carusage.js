@@ -4,11 +4,12 @@
 
 var sessionFilter;
 var logFilter;
-var prcur  = null;
-var prlast = null;
-var prgap  = 5;
-var timer  = null;
-var snFlds = null;
+var prcur     = null;
+var prlast    = null;
+var prgap     = 5;
+var timer     = null;
+var snFlds    = null;
+var sesClosed = false;
 
 class TableChangeAlerter {
     tableChange(table, action, listenerKey) {
@@ -40,15 +41,18 @@ function lockKey(yes) {
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-function setSave(action) {
+function configureChargeSession(action) {
     var clear  = true;
     var remove = true;
     var copy   = true;
     var elm;
     
+    getElement("close").checked = false;
+    
     switch (action) {
         case 'New':
             lockKey(false);
+            sesClosed = false;
             break;
         case 'Create':
             lockKey(false);
@@ -69,12 +73,15 @@ function setSave(action) {
             document.getElementById("keytimestamp").value = snFlds.get('Start~Date').value + ' ' + snFlds.get('Start~Time').value;
             break;
         default:
-            reporter.fatalError('carreg.js setSave action ' + action + ' is invalid');
+            reporter.fatalError('carreg.js configureChargeSession action ' + action + ' is invalid');
     }    
     setHidden("clear",            clear);
-    setHidden("remove",           remove);
+    setHidden("remove",           remove || sesClosed);
     setHidden("copy",             copy);
-    setHidden("allowstartchange", action !== "Update");
+    setHidden("allowstartchange", action !== "Update" || sesClosed);
+    
+    setHidden("save", sesClosed);
+    
     document.getElementById("save").value  = action;
     
     if (action !== "Update") document.getElementById("setstartchange").checked = false;        
@@ -180,11 +187,12 @@ function requestChargeSessions(filter) {
         loadJSONArray(response, 'chargesessionstable', 
             {scroll:  'table',
              onClick: 'btChargeSessionsRowClick(this)',
-             columns: [{name: 'StartMiles',   wrapHeader: true,  splitName:   true},
-                       {name: 'EndMiles',     wrapHeader: true,  splitName:   true},
-                       {name: 'EstDuration',  wrapHeader: true,  splitName:   true},
-                       {name: 'StartPerCent', wrapHeader: false, columnTitle: 'Start %'},
-                       {name: 'EndPerCent',   wrapHeader: false, columnTitle: 'End %'}]});
+             columns: [{name: 'StartMiles',     wrapHeader: true,  splitName:   true},
+                       {name: 'EndMiles',       wrapHeader: true,  splitName:   true},
+                       {name: 'EstDuration',    wrapHeader: true,  splitName:   true},
+                       {name: 'ChargeDuration', wrapHeader: true,  splitName:   true},
+                       {name: 'StartPerCent',   wrapHeader: false, columnTitle: 'Start %'},
+                       {name: 'EndPerCent',     wrapHeader: false, columnTitle: 'End %'}]});
         document.getElementById('chargesessionstable').removeAttribute('hidden');
     }
     if (filter === undefined) filter = sessionFilter.getWhere();
@@ -204,7 +212,6 @@ function requestChargers() {
             {onClick: 'btChargersRowClick(this)',
              columns: [
                  {name: 'Location', minSize: 3, maxSize: null},
-                 {name: 'Tariff',   minSize: 3},
                  {name: 'Network',  maxSize: 15}]});
         document.getElementById('chargerstable').removeAttribute('hidden');
     }
@@ -239,7 +246,7 @@ function reset() {
     requestChargers();
     requestSessionLog();
     timer.stop();
-    setSave('New');
+    configureChargeSession('New');
 }
 /*
  * Calling reset from onclick in html does not seem to work. So introduced clear to use in html on handler. 
@@ -248,6 +255,16 @@ function reset() {
  */
 function clearData() {
     reset();
+}
+function startPercentChange() {
+    var duration;
+    if (snFlds.getValue('StartPerCent') !== '' && 
+        snFlds.getValue('EstDuration')  === '' &&
+        snFlds.getValue('Charger').startsWith('Home')) {
+    
+        duration = convertDuration((100 - snFlds.getValue('StartPerCent')) / 13.0, true);
+        snFlds.setValue('EstDuration', duration);
+    }
 }
 function resetSessions() {
     reset();
@@ -294,7 +311,7 @@ function setNew(copy) {
         }
     }
     setDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'));
-    setSave('Create');
+    configureChargeSession('Create');
 }
 function exitTable() {
     setHidden('selecttable', false);
@@ -462,6 +479,7 @@ function send(action) {
             setCurrentTime(action);
             break;
         case 'Update':
+        case 'Close':
             setCurrentTime(action);
             valEnd = true;
             break;
@@ -507,6 +525,19 @@ function send(action) {
             return;
         }
         if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key~Start', getElement('keytimestamp').value);
+        
+        var chrgdur = trim(snFlds.get('ChargeDuration').value);
+        
+        if (chrgdur !== '') {
+            var cmpl = new Date();
+            
+            cmpl.setTime(dt.value.getTime() + 3600000 * convertDuration(chrgdur, false));
+            
+            if (cmpl > tm.value) {
+                displayAlert('Validation Error', 'Charge duration after end', {focus: snFlds.get('ChargeDuration')});
+                return;
+            }
+        }
     } 
     function processResponse() {
         requestChargeSessions();
@@ -521,7 +552,7 @@ function send(action) {
             clearData();
         else {
             timer.start();
-            setSave('Update');
+            configureChargeSession('Update');
         }
     }
     ajaxLoggedInCall("CarUsage", processResponse, pars);
@@ -534,13 +565,15 @@ function btChargeSessionsRowClick(row) {
     
     while (rdr.nextColumn()) {
         snFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
+        
+        if (rdr.columnName() === 'Closed') sesClosed = rdr.columnValue() === 'Y';
     }
     setSessionLog(false);
     setLogFilter();
     getElement("setstartchange").checked = false;
     getElement("currenttime").checked    = false;    
 
-    setSave('Update');
+    configureChargeSession('Update');
 }
 function btSessionLogRowClick(row) {
     var flds = new ScreenFields('updatelog');

@@ -16,6 +16,16 @@ and open the template in the editor.
 .largelab {
     width: 128px;
 }
+#endfields label {
+    width: 114px;
+}
+/*
+    Don't know why have to include following rather than rely on .nogap in framework.css.
+*/
+#endfields .nogap {    
+    display: inline-block;
+    width: auto;
+}
 #sessionlogtable {
     border-spacing: 3px;
 }
