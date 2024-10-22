@@ -38,57 +38,59 @@
                             <legend>Charge Session</legend>
                             <div>
                                 <div id='chargesessionform'>
-                                    <div>
-                                        <label for="carreg" class = 'largelab'>Car Reg</label>
-                                        <select id="carreg" name='CarReg'  tabindex="0">
-                                            <option></option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="chargesource" class = 'largelab'>Charge Source</label>
-                                        <input readonly type='text' name='Charger' size='15' id="chargesource"  tabindex="0">
-                                    </div>
-                                    <div>
-                                        <label for="chargeunit" class = 'largelab'>Charge Unit</label>
-                                        <input readonly type='text' name='Unit' size='15' id="chargeunit"  tabindex="0">
-                                    </div>
-                                    <div>
-                                        <label for="estduration" class = 'largelab'>Est Full Charge</label>
-                                        <input type="text" name='EstDuration' size ="7" id="estduration" tabindex="0" onchange="checkDuration();">
-                                        <p class="nogap">Hours</p>                        
-                                    </div>
-                                    <div>
-                                        <label for="sessioncomment" class = 'largelab'>Comment</label>
-                                        <textarea id='sessioncomment' name='Comment' rows='2'></textarea>
-                                    </div>
-                                    <fieldset id="startfields" class = 'form'>
+                                    <fieldset id = 'header' name='header' class = 'noborder'>
+                                        <div>
+                                            <label for="carreg" class = 'largelab'>Car Reg</label>
+                                            <select id="carreg" name='CarReg'  tabindex="0">
+                                                <option></option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="chargesource" class = 'largelab'>Charge Source</label>
+                                            <input readonly type='text' name='Charger' size='15' id="chargesource"  tabindex="0">
+                                        </div>
+                                        <div>
+                                            <label for="chargeunit" class = 'largelab'>Charge Unit</label>
+                                            <input readonly type='text' name='Unit' size='15' id="chargeunit"  tabindex="0">
+                                        </div>
+                                        <div>
+                                            <label for="estduration" class = 'largelab'>Est Full Charge</label>
+                                            <input type="text" name='EstDuration' size ="7" id="estduration" tabindex="0">
+                                            <p class="nogap">Hours</p>                        
+                                        </div>
+                                        <div>
+                                            <label for="sessioncomment" class = 'largelab'>Comment</label>
+                                            <textarea id='sessioncomment' name='Comment' rows='2'></textarea>
+                                        </div>
+                                    </fieldset>
+                                    <fieldset id="startfields" name="startfields" class = 'form'>
                                         <legend>Start</legend>
                                         <div>
                                             <label for="sdate">Date</label>
-                                            <input type="text" name='Start~Date' id="sdate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
+                                            <input type="text" name='Start~Date' id="sdate" class='date' maxlength="11" tabindex="0">
                                             <label for="stime" class="nogap">Time</label>
-                                            <input type="text" name='Start~Time' size="8" id="stime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                            <input type="text" name='Start~Time' size="8" id="stime" class='time' maxlength="8" tabindex="0">
                                         </div>
                                         <div>
                                             <label for="mileage">Mileage</label>
-                                            <input type="text" name="Mileage" size ="7" id="mileage" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="Mileage" size ="7" id="mileage" tabindex="0">                            
                                         </div>
                                         <div>
                                             <label for="schargepc">Charge %</label>
-                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onkeypress="allowedInNumberField();" onchange="startPercentChange();">
+                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onchange="startPercentChange();">
                                         </div>
                                         <div>
                                             <label for="smiles">Miles</label>
-                                            <input type="text" name="StartMiles" size ="7" id="smiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="StartMiles" size ="7" id="smiles" tabindex="0">                            
                                         </div>
                                     </fieldset>
-                                    <fieldset id="endfields" class = 'form'>
+                                    <fieldset id="endfields" name="endfields" class = 'form'>
                                         <legend>End</legend>
                                         <div>
                                             <label for="edate">Date</label>                   
-                                            <input type="text" name="End~Date" id="edate" class='date' maxlength="11" tabindex="0" onchange="checkDate();">
+                                            <input type="text" name="End~Date" id="edate" class='date' maxlength="11" tabindex="0">
                                             <label for="etime" class="nogap">Time</label>
-                                            <input type="text" name="End~Time" size="8" id="etime" class='time' maxlength="8" tabindex="0" onchange="checkTime();">
+                                            <input type="text" name="End~Time" size="8" id="etime" class='time' maxlength="8" tabindex="0">
                                         </div>
                                         <div>
                                             <label for="gap">Since Update</label>
@@ -96,23 +98,23 @@
                                         </div>
                                         <div>
                                             <label for="echargepc">Charge %</label>
-                                            <input type="text" name="EndPerCent" size ="7" id="echargepc" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="EndPerCent" size ="7" id="echargepc" tabindex="0">                            
                                         </div>
                                         <div>
                                             <label for="echargedur">Charge Duration</label>
-                                            <input type="text" name="ChargeDuration" size ="7" id="echargedur" tabindex="0" class='time' onchange="checkTime();">                            
+                                            <input type="text" name="ChargeDuration" size ="7" id="echargedur" tabindex="0" class='time'>                            
                                         </div>
                                         <div>
                                             <label for="emiles">Miles</label>
-                                            <input type="text" name="EndMiles" size ="7" id="emiles" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="EndMiles" size ="7" id="emiles" tabindex="0">                            
                                         </div>
                                         <div>
                                             <label for="charge">Charge</label>
-                                            <input type="text" name='Charge' size ="7" id="charge" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name='Charge' size ="7" id="charge" tabindex="0">                            
                                         </div>
                                         <div>
                                             <label for="cost">Cost</label>
-                                            <input type="text" name="Cost" size ="7" id="cost" tabindex="0" onkeypress="allowedInNumberField();">                            
+                                            <input type="text" name="Cost" size ="7" id="cost" tabindex="0">                            
                                         </div>
                                         <div>
                                             <label for="close" class="largelab">Close</label>

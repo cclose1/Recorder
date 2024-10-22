@@ -55,14 +55,15 @@ function tableFormChange(key) {
 function ColumnOptions() {   
     BaseOptions.call(this, false);
     
-    this.addSpec({name: 'label',      type: 'string',  default: null,      mandatory: false});
-    this.addSpec({name: 'source',     type: 'string',  default: null,      mandatory: false});
-    this.addSpec({name: 'isPrimeKey', type: 'boolean', default: false,     mandatory: false});
-    this.addSpec({name: 'type',       type: 'string',  default: 'VARCHAR', mandatory: false});
-    this.addSpec({name: 'mandatory',  type: 'boolean', default: false,     mandatory: false});
-    this.addSpec({name: 'modifiable', type: 'boolean', default: true,      mandatory: false});
-    this.addSpec({name: 'size',       type: 'number',  default: 0,         mandatory: false});
-    this.addSpec({name: 'colElement', type: 'object',  default: null,      mandatory: false});
+    this.addSpec({name: 'label',         type: 'string',  default: null,      mandatory: false});
+    this.addSpec({name: 'source',        type: 'string',  default: null,      mandatory: false});
+    this.addSpec({name: 'isPrimeKey',    type: 'boolean', default: false,     mandatory: false});
+    this.addSpec({name: 'type',          type: 'string',  default: 'VARCHAR', mandatory: false});
+    this.addSpec({name: 'mandatory',     type: 'boolean', default: false,     mandatory: false});
+    this.addSpec({name: 'modifiable',    type: 'boolean', default: true,      mandatory: false});
+    this.addSpec({name: 'size',          type: 'number',  default: 0,         mandatory: false});
+    this.addSpec({name: 'decimalDigits', type: 'number',  default: 0,         mandatory: false});
+    this.addSpec({name: 'colElement',    type: 'object',  default: null,      mandatory: false});
         
     this.clear();
 }
@@ -152,10 +153,11 @@ class TableColumn {
         this.setAttribute('colElement', nelm);
     } 
     get htmlType() {
-        switch (this.getAttribute('type')) {
-            case 'INT':
-            case 'REAL':
-            case 'FLOAT':                
+        switch (this.getAttribute('type').toLowerCase()) {
+            case 'int':
+            case 'real':
+            case 'float':
+            case 'decimal':                
                 return 'number';
                 break;
         default:
@@ -272,10 +274,13 @@ class DatabaseTable {
     /*
      * Returns the column details for name. A fatal error is reported if column name is not defined for the table.
      */
-    getColumn(name) {
-        if (this._index.get(name) === undefined) reporter.fatalError('Column ' + name + ' not defined for table ' + this._name);
+    getColumn(name, mustExist) {
+        let colNo = defaultNull(this._index.get(name), -1);
+        
+        if (!defaultNull(mustExist, true) && colNo === -1) return null;
+        if (colNo === -1) reporter.fatalError('Column ' + name + ' not defined for table ' + this._name);
 
-        return this._columns[this._index.get(name)];
+        return this._columns[colNo];
     }
     /*
      * Returns the table columns in an array in the order the columns were added to the table.
@@ -353,22 +358,38 @@ class DatabaseTable {
             allowBlank: true});        
         col.element.value = value;
     }
+    _checkValueDBType(elm, type, required) {
+        elm = getElement(elm);
+        
+        switch (type) {
+            case 'DATETIME':
+                return checkTimestamp(elm, required);
+                break;
+            case 'DATE':
+                return checkDate(elm, required);
+                break;
+            case 'TIME':
+                return checkTime(elm, required);
+                break;
+            default:
+               return fieldHasValue(elm, defaultNull(required, false));          
+        }
+    }
     _checkEnteredValue(colName) {
-        var col = this.getColumn(colName);
-        var elm = col.getAttribute('colElement');
-        var lab = elm.parentElement.firstChild;
-        var val = getFieldValue(elm, col.getAttribute('mandatory'));
+        let col = this.getColumn(colName);
+        let elm = col.getAttribute('colElement');
+        let val = getFieldValue(elm, col.getAttribute('mandatory'));
         
         if (val === undefined) return false;
         
-        switch (col.getAttribute('type')) {
-            case 'DATETIME':
+        switch (col.getAttribute('type').toLowerCase()) {
+            case 'datetime':
                 return checkTimestamp(elm, false);
                 break;
-            case 'DATE':
+            case 'date':
                 return checkDate(elm, false);
                 break;
-            case 'TIME':
+            case 'time':
                 return checkTime(elm, false);
                 break;
             default:
@@ -672,13 +693,14 @@ class DatabaseTable {
             var jcol = jcols.next().value;
             
             col = this.addColumn(jcol.getMember('Name', true).value);
-            col.setAttribute('label',       jcol.getMember('Label',      true).value);
-            col.setAttribute('source',      jcol.getMember('Source',     true).value);
-            col.setAttribute('isPrimeKey',  jcol.getMember('PKeyColumn', true).value);
-            col.setAttribute('type',        jcol.getMember('Type',       true).value);
-            col.setAttribute('mandatory',  !jcol.getMember('Nullable',   true).value);
-            col.setAttribute('modifiable',  jcol.getMember('Modifiable', true).value);
-            col.setAttribute('size',        jcol.getMember('Size',       true).value);
+            col.setAttribute('label',         jcol.getMember('Label',         true).value);
+            col.setAttribute('source',        jcol.getMember('Source',        true).value);
+            col.setAttribute('isPrimeKey',    jcol.getMember('PKeyColumn',    true).value);
+            col.setAttribute('type',          jcol.getMember('Type',          true).value);
+            col.setAttribute('mandatory',    !jcol.getMember('Nullable',      true).value);
+            col.setAttribute('modifiable',    jcol.getMember('Modifiable',    true).value);
+            col.setAttribute('size',          jcol.getMember('Size',          true).value);
+            col.setAttribute('decimalDigits', jcol.getMember('DecimalDigits', true).value);
         }
     }
     createForm(exitHandler) {
@@ -714,6 +736,16 @@ class DatabaseTable {
         this._updateNext('create');
         this._displayForm('read');
     }
+    
+    checkElement(elm, required) {
+        elm     = getElement(elm);
+        let nt  = ScreenFields.splitName(elm.name);
+        let col = this.getColumn(nt.name, false);
+        
+        nt.type = (nt.type === null? col.getAttribute('type') : nt.type).toUpperCase();
+        
+        return this._checkValueDBType(elm, nt.type, defaultNull(required, col.getAttribute('mandatory')));
+    } 
 }
 function getTableDefinition(server, tableName, formId) {
     var parameters = createParameters('getTableDefinition');

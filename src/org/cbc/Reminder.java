@@ -81,6 +81,7 @@ public class Reminder {
          */
         if (!force && (new Date()).getTime() - lastFrequencyUpdate.getTime() < MSINDAY) return;
         
+//        if (force || !force) return;
         sql.addField(
                 "Timestamp", 
                 db.getProtocol().equals("sqlserver")? 
@@ -156,7 +157,7 @@ public class Reminder {
         sql.addField("Phone");
         sql.addField("Web");
         sql.addField("Comment");
-        sql.setOrderBy("Timestamp DESC");
+        sql.setOrderBy("Timestamp");
         sql.addAnd(filter);
         
         if (!showall) sql.addAndClause(getActiveFilter(""));    

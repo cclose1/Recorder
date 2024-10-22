@@ -4,12 +4,16 @@
 
 var sessionFilter;
 var logFilter;
-var prcur     = null;
-var prlast    = null;
-var prgap     = 5;
+let prcur     = null;
+let prlast    = null;
+let prgap     = 5;
 var timer     = null;
 var snFlds    = null;
-var sesClosed = false;
+var hdrFlds   = null;
+let sesClosed = false;
+var csTab     = null;
+let capacity  = -1;
+let rate      = -1;
 
 class TableChangeAlerter {
     tableChange(table, action, listenerKey) {
@@ -23,8 +27,8 @@ class TableChangeAlerter {
         console.log('Action ' + action + 'for Table ' + table + ' key ' + listenerKey);
     };
 };
-var ts          = new TableChangeAlerter();
-var confirmSend = new ConfirmAction(send);
+let ts          = new TableChangeAlerter();
+let confirmSend = new ConfirmAction(send);
 
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
@@ -36,16 +40,28 @@ function lockKey(yes) {
     snFlds.get('StartPerCent').readOnly = yes;
     snFlds.get('StartMiles').readOnly   = yes;
 }
+function lockUpdate(yes) {
+    if (yes === undefined) yes = !event.target.checked;
+    
+    snFlds.get('End~Date').readOnly       = yes;
+    snFlds.get('End~Time').readOnly       = yes;
+    snFlds.get('ChargeDuration').readOnly = yes;
+    snFlds.get('EndPerCent').readOnly     = yes;
+    snFlds.get('EndMiles').readOnly       = yes;    
+    snFlds.get('Charge').readOnly         = yes;  
+    snFlds.get('Cost').readOnly           = yes;  
+    snFlds.get('close').disabled          = yes;
+}
 /* 
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 function configureChargeSession(action) {
-    var clear  = true;
-    var remove = true;
-    var copy   = true;
-    var elm;
+    let clear  = true;
+    let remove = true;
+    let copy   = true;
+    let elm;
     
     getElement("close").checked = false;
     
@@ -80,9 +96,13 @@ function configureChargeSession(action) {
     setHidden("copy",             copy);
     setHidden("allowstartchange", action !== "Update" || sesClosed);
     
-    setHidden("save", sesClosed);
+    //setHidden("save", sesClosed);
+    
+    if (sesClosed) action = 'Open';
     
     document.getElementById("save").value  = action;
+    
+    lockUpdate(action === 'Open');
     
     if (action !== "Update") document.getElementById("setstartchange").checked = false;        
 }
@@ -98,7 +118,7 @@ function configureChargeSession(action) {
 function getDurationFields(value) {
     if (value === undefined || trim(value) === "") return undefined;
     
-    var flds = value.split(':');
+    let flds = value.split(':');
     
     if (flds.length > 3) throw "Duration has more than 3 time fields"; 
     
@@ -113,13 +133,13 @@ function getDurationFields(value) {
 /*
  * A duration is stored in the database as a decimal hour.
  * 
- * It can be displayed as decimals or as as String of the form hh:mm:ss.
+ * It  be displayed as decimals or as as String of the form hh:mm:ss.
  * 
  * @param {type} val
  * @returns {undefined}
  */
 function convertDuration(val, toString) {
-    var v;
+    let v;
     
     if (toString === undefined) toString = true;
     if (val      === undefined || val === "") return "";
@@ -143,10 +163,10 @@ function convertDuration(val, toString) {
         case 'number':
             if (!toString) return v;
             
-            var h = Math.trunc(v);
+            let h = Math.trunc(v);
             v = 60 * (v - h);                 // Remove hours
-            var m = Math.trunc(v);            // Get minutes
-            var s = Math.trunc(60 * (v - m)); // Remove minutes and get seconds
+            let m = Math.trunc(v);            // Get minutes
+            let s = Math.trunc(60 * (v - m)); // Remove minutes and get seconds
             
             v = lpad(h, 2, '0') + ':' + lpad(m, 2, '0') + ':' + lpad(s, 2, '0');
             break;
@@ -156,8 +176,8 @@ function convertDuration(val, toString) {
     return v;
 }
 function checkGreaterOrEqual(flds, first, last) {
-    var fval = trim(flds.getValue(first));
-    var lval = trim(flds.getValue(last));
+    let fval = trim(flds.getValue(first));
+    let lval = trim(flds.getValue(last));
     
     if (fval !== "" && lval !== "") {
         if (Number(lval) < Number(fval)) {
@@ -167,21 +187,8 @@ function checkGreaterOrEqual(flds, first, last) {
     }
     return true;
 }
-function checkDuration(elm) {
-    elm       = getElement(elm === undefined? event.target : elm);
-    var val   = elm.value;
-    var valid = true;
-    
-    try {
-        convertDuration(val, false);
-    } catch (err) {
-        valid = false;
-        displayAlert('Validation Error', err, {focus: elm});
-    }
-    return valid;
-}
 function requestChargeSessions(filter) {
-    var parameters = createParameters('chargesessions');
+    let parameters = createParameters('chargesessions');
 
     function processResponse(response) {
         loadJSONArray(response, 'chargesessionstable', 
@@ -201,7 +208,7 @@ function requestChargeSessions(filter) {
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function requestChargers() {
-    var parameters = createParameters('chargers');
+    let parameters = createParameters('chargers');
 
     function processResponse(response) {
         /*
@@ -218,7 +225,7 @@ function requestChargers() {
     ajaxLoggedInCall('CarUsage', processResponse, parameters);
 }
 function requestSessionLog(filter) {
-    var parameters = createParameters('sessionlog');
+    let parameters = createParameters('sessionlog');
 
     function processResponse(response) {
         loadJSONArray(response, 'sessionlogtable', {
@@ -256,13 +263,37 @@ function reset() {
 function clearData() {
     reset();
 }
+/*
+ * On change of StartPercent EstDuration value is calculated is calculated if the current value is empty or is 0. Hence,
+ * if a none zero value is set, it will not be overwritten.
+ * 
+ * It is set to the number of minutes required to get to 100% at the rate of 13% per hour of charge.
+ * 
+ * Note: The calculation does not take account of the rate dropping when nearing 100%.
+ * 
+ */
 function startPercentChange() {
-    var duration;
-    if (snFlds.getValue('StartPerCent') !== '' && 
-        snFlds.getValue('EstDuration')  === '' &&
-        snFlds.getValue('Charger').startsWith('Home')) {
-    
-        duration = convertDuration((100 - snFlds.getValue('StartPerCent')) / 13.0, true);
+    if (snFlds.getValue('StartPerCent') !== '' &&
+       (snFlds.getValue('EstDuration') === '' || snFlds.getValue('EstDuration') === 0))
+    {
+        /*
+         * Derive the charge delivered per hour chPerHr from the car storage capacity and the charger rate using the
+         * formula
+         * 
+         *  chPerHr = 100 * rate / capacity.
+         * 
+         * This is a rough figure particularly the chPerHr drops as 100% is approached.
+         * 
+         * The following gets the capacity and rate from the server.
+         */
+        getChargeParameters();
+        /*
+         * If either rate or capacity are negative, the data is not available, so return.
+         */
+        if (rate < 0 || capacity < 0) return;
+        
+        let chPerHr = 100 * rate / capacity;
+        let duration = convertDuration((100 - snFlds.getValue('StartPerCent')) / chPerHr, true);
         snFlds.setValue('EstDuration', duration);
     }
 }
@@ -282,9 +313,9 @@ function setSessionLog(on) {
 function setNew(copy) {        
     if (copy) {
         clearData();  
-        setSessionLog(true);
+        setSessionLog(false);
         
-        getElement("currenttime").checked  = true;
+        getElement("currenttime").checked  = false;
     } else {
         var sessions = document.getElementById('chargesessionstable').children[1].tBodies[0];
 
@@ -292,12 +323,12 @@ function setNew(copy) {
             /*
              * Set carreg and charge source from the first table row.
              */
-            var row   = sessions.rows[0];
-            var cells = row.cells;
+            let row   = sessions.rows[0];
+            let cells = row.cells;
 
-            for (var c = 0; c < cells.length; c++) {
-                var cell  = cells[c];
-                var value = cell.innerHTML;
+            for (let c = 0; c < cells.length; c++) {
+                let cell  = cells[c];
+                let value = cell.innerHTML;
 
                 switch (cell.attributes.name.value) {
                     case 'Source':
@@ -318,7 +349,7 @@ function exitTable() {
     setHidden('updatetable', true);    
 }
 function setRate(id, from, to) {
-    var params = {
+    let params = {
         pcdiff:  to.perc - from.perc,
         elapsed: dateDiff(from.time, to.time, 'seconds'),
         rate:    null};
@@ -357,10 +388,10 @@ function updateProgress(reset) {
         document.getElementById("currenttime").checked = false;
         return;
     }
-    var start = {time: snFlds.getValue('Start'), perc: snFlds.getValue('StartPerCent')};
-    var end   = {time: snFlds.getValue('End'),   perc: snFlds.getValue('EndPerCent')};
+    let start = {time: snFlds.getValue('Start'), perc: snFlds.getValue('StartPerCent')};
+    let end   = {time: snFlds.getValue('End'),   perc: snFlds.getValue('EndPerCent')};
     
-    var rateData;
+    let rateData;
     /*
      * The end time may have been set earlier, so ajdust prcur and prlast if necessary.
      */
@@ -379,8 +410,8 @@ function updateProgress(reset) {
     rateData = setRate('prgcrate', prcur, end);
     
     if (rateData.rate !== null) {
-        var minToComplete = rateData.rate * (100 - end.perc);
-        var complete      = new Date(end.time.getTime() + minToComplete*60000);
+        let minToComplete = rateData.rate * (100 - end.perc);
+        let complete      = new Date(end.time.getTime() + minToComplete*60000);
         
         getElement('prgcstart').value   = dateTimeString(prcur.time);
         getElement('prgpcgain').value   = end.perc - prcur.perc;        
@@ -390,12 +421,13 @@ function updateProgress(reset) {
     if (end.perc > 99) getElement('currenttime').checked = false;
 }
 function tableSelected() {
-    var table = event.target.value;
+    let table = event.target.value;
     
     if (table === 'None')
         setHidden('updatetable', true);
     else {
-        var tab   = getTableDefinition('CarUsage', table, 'updatetable');
+        let tab   = getTableDefinition('CarUsage', table, 'updatetable');
+        
         event.target.selectedIndex = -1;
         tab.createForm(exitTable);
         setHidden('updatetable', false);
@@ -403,8 +435,8 @@ function tableSelected() {
     }
 }
 function setCurrentTime(action) {
-    var did = snFlds.get(action === 'Create' ? 'Start~Date' : 'End~Date');
-    var tid = snFlds.get(action === 'Create' ? 'Start~Time' : 'End~Time');
+    let did = snFlds.get(action === 'Create' ? 'Start~Date' : 'End~Date');
+    let tid = snFlds.get(action === 'Create' ? 'Start~Time' : 'End~Time');
     
     if (!getElement('currenttime').checked) return;
     
@@ -459,6 +491,18 @@ function modifyScreenField(get, name, value) {
 }
 function modifyParameter(name, value) {
     return name === 'EstDuration'? convertDuration(value, false) : value;
+}
+function getChargeParameters() {
+    let pars = createParameters('getchargeparameters', {fields:  hdrFlds.getFields()});
+    
+    function processResponse(response) {
+        let json = stringToJSON(response);
+        
+        capacity = json.getMember('Capacity').value;
+        rate     = json.getMember('Rate').value;
+    }
+    ajaxLoggedInCall("CarUsage", processResponse, pars);
+    return true;
 }      
 function send(action) {
     let valStart = true;
@@ -480,6 +524,7 @@ function send(action) {
             break;
         case 'Update':
         case 'Close':
+        case 'Open':
             setCurrentTime(action);
             valEnd = true;
             break;
@@ -500,18 +545,16 @@ function send(action) {
     /*
      * The start date time must be present for all actions that update the database.
      */
-    var dt = validateDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'), {required: true});
+    let dt = validateDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'), {required: true});
     
     if (!dt.valid) return;
     
-    if (valStart) {        
-        if (!snFlds.hasValue("Mileage"))               return;
-        if (!snFlds.hasValue("StartPerCent"))          return;
-        if (!snFlds.hasValue("StartMiles"))            return;
-        if (!checkDuration(snFlds.get("EstDuration"))) return;
+    if (valStart) {      
+        if (!snFlds.isValid(csTab, 'header'))      return;
+        if (!snFlds.isValid(csTab, 'startfields')) return;
     }
     if (valEnd) {             
-        var tm = validateDateTime(snFlds.get('End~Date'), snFlds.get('End~Time'), {required: true});
+        let tm = validateDateTime(snFlds.get('End~Date'), snFlds.get('End~Time'), {required: true});
         
         if (!tm.valid) return;
         
@@ -526,10 +569,10 @@ function send(action) {
         }
         if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key~Start', getElement('keytimestamp').value);
         
-        var chrgdur = trim(snFlds.get('ChargeDuration').value);
+        let chrgdur = trim(snFlds.get('ChargeDuration').value);
         
         if (chrgdur !== '') {
-            var cmpl = new Date();
+            let cmpl = new Date();
             
             cmpl.setTime(dt.value.getTime() + 3600000 * convertDuration(chrgdur, false));
             
@@ -542,6 +585,8 @@ function send(action) {
     function processResponse() {
         requestChargeSessions();
         requestSessionLog();
+        
+        sesClosed = getElement("close").checked;
         
         if (action === 'Update') {            
             updateProgress();
@@ -561,7 +606,7 @@ function send(action) {
 function btChargeSessionsRowClick(row) {    
     if (isDisabled(row)) return;
     
-    var rdr = new rowReader(row);
+    let rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
         snFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
@@ -576,11 +621,11 @@ function btChargeSessionsRowClick(row) {
     configureChargeSession('Update');
 }
 function btSessionLogRowClick(row) {
-    var flds = new ScreenFields('updatelog');
+    let flds = new ScreenFields('updatelog');
     
     if (isDisabled(row)) return;
     
-    var rdr  = new rowReader(row);
+    let rdr  = new rowReader(row);
     
     while (rdr.nextColumn()) {
         flds.setValue(rdr.columnName(), rdr.columnValue(), false);        
@@ -590,10 +635,10 @@ function btSessionLogRowClick(row) {
 function btChargersRowClick(row) {
     if (isDisabled(row)) return;
     
-    var rdr = new rowReader(row);
+    let rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
+        let value = rdr.columnValue();
 
         switch (rdr.columnName()) {
             case 'Name':
@@ -620,11 +665,53 @@ function setLogFilter() {
 /*
  * Ad Hoc tests
  */
+function test(tab) {
+    let ts = eval(tab);
+    let x = listAllEventListeners();
+    reporter.setFatalAction('alert');
+    
+    let cols = csTab.getColumns();
+    let col = csTab.getColumn('CarReg');
+    let man = col.getAttribute('mandatory');
+  //  col.setAttribute('mandatory', false);
+    col = csTab.getColumn('CarRegX', false);
+    col = csTab.getColumn('CarRegX');
+    let fld = snFlds.get('Comment');
+    x = fld.getAttribute('onchange');
+    fld.setAttribute('onchange', 'checkTime()');
+    fld.setAttribute('onchange', tab + '.checkElement()');
+    let test = csTab.checkElement(fld);
+    test = csTab.checkElement(fld, true);
+    fld.value = 'Test';
+    test = csTab.checkElement(fld);
+    test = csTab.checkElement(fld, true);//
+    test = getElementParent('xx');
+    test = getElementParent(fld);    
+    test = getElementParent(fld, 'fieldset', 'tagname');
+    test = getElementParent(fld, 'detailfields');
+    test = getElementParent(fld, 'header');    
+    test = getElementParent(fld, 'header', 'id');    
+}
 function initialize(loggedIn) {
     if (!loggedIn) return;
+     
+    csTab  = getTableDefinition('CarUsage', 'ChargeSession');
+    /*
+     * Should probably make the following database fields to be not null.
+     */
+    csTab.getColumn("Charger").setAttribute('mandatory', true);
+    csTab.getColumn("Mileage").setAttribute('mandatory', true);
+    csTab.getColumn("EstDuration").setAttribute('type', 'TIME');
+    csTab.getColumn("StartPerCent").setAttribute('mandatory', true);
+    csTab.getColumn("StartMiles").setAttribute('mandatory', true);
+    csTab.getColumn("EndPerCent").setAttribute('mandatory', true);
+    csTab.getColumn("EndMiles").setAttribute('mandatory', true);
     
-    reporter.setFatalAction('throw'); 
-    snFlds = new ScreenFields('chargesessionform', modifyScreenField);
+    snFlds  = new ScreenFields('chargesessionform', modifyScreenField);
+    hdrFlds = new ScreenFields('header');
+//    test('csTab');
+    reporter.setFatalAction('throw');
+    snFlds.syncWithTable('csTab', false);
     timer  = new Timer(document.getElementById("gap"), true);
     
     getReminderAlerts();

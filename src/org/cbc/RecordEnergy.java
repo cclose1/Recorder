@@ -37,7 +37,6 @@ public class RecordEnergy extends ApplicationServer {
             sel.addField("Reading");
             sel.addField("Meter");
             sel.addField("Type");
-            sel.addField("OffPeakKwh");
             sel.addField("Estimated",  sel.setValue(""));
             sel.addField("Comment",    sel.setFieldSource("MR.Comment"), sel.setValue(""));
             sel.setFrom("MeterReading AS MR LEFT JOIN Meter AS MT ON Meter = Identifier");

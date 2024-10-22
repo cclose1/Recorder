@@ -28,16 +28,16 @@
                 <div id='insertfields'>
                     <div>
                         <label>Name</label>
-                        <input type="text" name="identifier" id="identifier" value="ANON" onchange="requestHistory();newSession();" tabindex="-1">
+                        <input type="text" name="identifier" id="identifier" value="ANON" onchange="requestHistory();setSession();" tabindex="-1">
                     </div>
                     <div>
                         <label>Session</label>
                         <input name="session" id="session" readonly size="20" tabindex="-1">
-                        <input id="newsession" name="newsession" type="button" value="New Session" onclick="newSession();" tabindex="-1">
+                        <input id="newsession" name="newsession" type="button" value="New Session" onclick="setSession();" tabindex="-1">
                     </div>
                     <div>
                         <label for="maxsession">Max Session</label>
-                        <input class='smallnumber' type="text" name="Max Session" size ="1" id="maxsession" onkeypress="validateIntegerField(1, 50);">
+                        <input class='smallnumber' type="text" name="Max Session" size ="1" id="maxsession" onkeypress="validateIntegerField(1, 50);" onchange="setMaxSession();">
                         <label class='nogap'>Minutes</label>
                     </div>
                     <div>

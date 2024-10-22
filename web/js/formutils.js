@@ -1,4 +1,43 @@
 'use strict';
+/*
+ * These functions have been added over time and represent improving understanding of javaScript.
+ * 
+ * Most of the uses of var should be replaced by let. var creates a variable that has
+ * function or global scope, whereas let creates a variable that has block scope. Usually block scope is what is needed.
+ */
+
+/*
+ * Not sure about this. Need to investigate further.
+ */
+function listAllEventListeners() {
+  const allElements = Array.prototype.slice.call(document.querySelectorAll('*'));
+  allElements.push(document);
+  allElements.push(window);
+
+  const types = [];
+
+  for (let ev in window) {
+    if (/^on/.test(ev)) types[types.length] = ev;
+  }
+
+  let elements = [];
+  for (let i = 0; i < allElements.length; i++) {
+    const currentElement = allElements[i];
+    for (let j = 0; j < types.length; j++) {
+      if (typeof currentElement[types[j]] === 'function') {
+        elements.push({
+          "node": currentElement,
+          "type": types[j],
+          "func": currentElement[types[j]].toString()
+        });
+      }
+    }
+  }
+
+  return elements.sort(function(a,b) {
+    return a.type.localeCompare(b.type);
+  });
+}
 function globalError(message, file, line, column, error) {
     let location = '';
     let cause = 'Error';
@@ -48,6 +87,7 @@ function Statistics(enabled) {
     this.start = new Date();
 }
 var st = new Statistics();
+
 function Reporter() {
     var messageStore = [];
     var maxStore = 0;
@@ -274,13 +314,13 @@ function defaultNull(value, defValue) {
  * @returns a map of the selected elements, with the key determined by nameAsKey and the element as the value.
  */
 function getElements(selector, nameAsKey) {
-    var map = new Map();
-    var elms = document.querySelectorAll(selector);
+    let map = new Map();
+    let elms = document.querySelectorAll(selector);
 
     if (isNull(nameAsKey))
         nameAsKey = true;
 
-    for (var i = 0; i < elms.length; i++) {
+    for (let i = 0; i < elms.length; i++) {
         map.set(nameAsKey ? elms[i].name : elms[i].id, elms[i]);
     }
     return map;
@@ -309,15 +349,68 @@ function clearValues(elementMap, exclude) {
             element.value = '';
     }
 }
+/*
+ * Returns the first element in the parent chain of element that has parentTag.
+ * 
+ * If parentTag is undefined, the immediate parent is returned.
+ * 
+ * @returns parent element if found, otherwise null.
+ */
+function getElementParent(element, match, use) {
+    element = getElement(element);
+    match   = defaultNull(match, '');
+    use     = defaultNull(use, 'name');
+    
+    
+    while (element !== null && element.parentElement !== null) {
+        let test = null;
+        
+        element = element.parentElement;
+            
+        if (match === '') return element;
+        
+        switch (use.toLowerCase()) {
+            case 'id':
+                test = element.id;
+                break;
+            case 'name':
+                test = element.getAttribute('name');
+                break;
+            case 'tagname':
+                test = element.tagName;
+                break;
+            default:
+        }        
+        if (test !== null && test.toLowerCase() === match.toLowerCase()) return element;
+    }
+    return null;
+}
 function getParameters(id) {
     return getElements('#' + id + ' :is(select:not(.notparam), checkbox:not(.notparam), input:not(.notparam), textarea');
 }
 class ScreenFields {
     #fields;
     #id;
-    #ignoreSet = new Array();
     #formatter = null;
-    
+    /*
+     * Field names are usually the database column name where the value will be stored. The field name can be followed
+     * by the type separated by ~. This type overrides the database column type. 
+     * 
+     * This is typically used where the database field is a timestamp stored in 2 screen fields; one for date and
+     * one for time, e.g. Start~Date and Start~time.
+     * 
+     * name is the screen field name.
+     * 
+     * Returns {name: name, type: type} type: is null if there is no type appended to the name.
+     */
+    static splitName(name) {
+        let fields = name.split('~');
+        
+        return {
+            name: fields[0],
+            type: fields.length > 1? fields[1] : null       
+        };
+    }
     format(get, name, value) {
         return this.#formatter === null? value : this.#formatter(get, name, value);
     }
@@ -342,9 +435,6 @@ class ScreenFields {
         if (isNull(this.#fields))
             throw 'Element ' + elementid + ' passed to screenFields does not exist';
     }
-    setIgnoreSet(names) {
-        this.#ignoreSet = names.split(',');
-    }
     get(field, mustExist) {
         let elm = this.#fields.get(field);
         
@@ -365,10 +455,7 @@ class ScreenFields {
         return undefined;
     }
     setValue(field, value, mustExist) {
-        var found = false;
-
-        if (this.#ignoreSet.findIndex((element) => element === field) !== -1)
-            return;
+        let found = false;
 
         function loadValue(obj, name, value) {
             let elm = obj.#fields.get(name);
@@ -379,10 +466,9 @@ class ScreenFields {
             }
         }
         function loadTime(obj, date, time, value) {
-            let dVal = '';
-            let tVal = '';
-
-            var fields = value.split(" ");
+            let dVal   = '';
+            let tVal   = '';
+            let fields = value.split(" ");
             
             switch (fields.length) {
                 case 1:
@@ -420,6 +506,50 @@ class ScreenFields {
     hasValue(name, required) {
         return fieldHasValue(this.get(name), required);
     }
+    isValid(table, filter) {
+        for (let [name, element] of this.#fields) {            
+            if (!isNull(filter) && getElementParent(element, filter, 'name') === null) continue;
+            
+            if (!table.checkElement(element)) return false;
+        }
+        return true;
+    }
+    setHandler(element, event, handler, replace) {
+        let elmHandler = element.getAttribute('on' + event);
+        
+        if (elmHandler !== null && !defaultNull(replace, false)) return;
+        
+        element.setAttribute('on' + event, handler);
+    }
+    syncWithTable(tabStr, replaceEventHandler) {
+        let table = eval(tabStr);
+        
+        for (let [name, element] of this.#fields) {
+            let nt  = ScreenFields.splitName(name);            
+            let col = table.getColumn(nt.name, false);
+            
+            if (col === null) continue;
+            
+            nt.type = (nt.type === null? col.getAttribute('type') : nt.type).toUpperCase();
+
+            switch (nt.type) {
+                case 'DATETIME':
+                case 'DATE':
+                case 'TIME':
+                    this.setHandler(element, 'change', tabStr + '.checkElement();', replaceEventHandler);
+                    break;
+                case 'INT':
+                case 'FLOAT':
+                case 'DECIMAL':
+                    if (element.getAttribute('type').toLowerCase() === 'text')
+                        this.setHandler(element, 'keypress', 'allowedInNumberField()', replaceEventHandler);
+                    break;
+                default:
+                    console.log('Column ' + nt.name + ' type ' + nt.type);
+            }
+        }
+        
+    }
 }
 /*
  * object can be one of the following:
@@ -434,7 +564,7 @@ class ScreenFields {
  *               empty if value element value is undefined and empty set to true if value is the empty string.
  */
 function getElement(object, withValue) {
-    var elm = object;
+    let elm = object;
 
     if (isNull(object))
         elm = event.target;
@@ -444,10 +574,9 @@ function getElement(object, withValue) {
         else
             elm = document.getElementById(object);
     }
-    var val = elm === null || elm.value === undefined ? "" : trim(elm.value);
+    let val = elm === null || elm.value === undefined ? "" : trim(elm.value);
 
-    if (withValue === undefined || !withValue)
-        return elm;
+    if (withValue === undefined || !withValue) return elm;
 
     return {
         elm: elm,
@@ -474,7 +603,7 @@ function copyElement(source, target) {
  */
 function isDisabled(element) {
     while (!isNull(element)) {
-        var disabled = element.disabled;
+        let disabled = element.disabled;
 
         if (disabled !== undefined && disabled)
             return true;
@@ -493,13 +622,13 @@ function isDisabled(element) {
  * same location as the resourse folders.
  */
 function getFileRoot() {
-    var base = document.getElementsByTagName('base');
-    var baseURI;
+    let base = document.getElementsByTagName('base');
+    let baseURI;
 
     if (base.length !== 0)
         baseURI = base[0].href;
     else {
-        var flds = window.location.href.split("/");
+        let flds = window.location.href.split("/");
 
         delete flds[flds.length - 1];
         baseURI = flds.join("/");
@@ -509,9 +638,9 @@ function getFileRoot() {
 function addStyleSheetToiFrame(iFrame, file) {
     iFrame = getElement(iFrame);
 
-    var frameDoc = (iFrame.contentWindow || iFrame.contentDocument).document;
-    var links = frameDoc.getElementsByTagName('link');
-    var link;
+    let frameDoc = (iFrame.contentWindow || iFrame.contentDocument).document;
+    let links = frameDoc.getElementsByTagName('link');
+    let link;
 
     file = getFileRoot() + file;
     /*
@@ -535,9 +664,9 @@ function addStyleSheetToiFrame(iFrame, file) {
  * Returns an array of the elements children. If tagName is defined only children with tagName are returned.
  */
 function getChildren(element, tagName) {
-    var children = [];
+    let children = [];
 
-    for (var i = 0; i < element.childElementCount; i++) {
+    for (let i = 0; i < element.childElementCount; i++) {
         if (tagName === undefined || element.children[i].tagName === tagName) {
             children.push(element.children[i]);
         }
@@ -558,7 +687,7 @@ function removeChildren(element) {
  * are removed from the elements array.
  */
 function getElementsByTag(name, exclude) {
-    var elms = [...document.getElementsByTagName(name)];
+    let elms = [...document.getElementsByTagName(name)];
 
     if (exclude !== undefined && exclude !== null) {
         elms = elms.filter(function (elm) {
@@ -589,10 +718,10 @@ function removeURLPath(url) {
     return url.split('/').pop();
 }
 function randomString(len) {
-    var s = '';
+    let s = '';
 
-    var randomchar = function () {
-        var n = Math.floor(Math.random() * 62);
+    let randomchar = function () {
+        let n = Math.floor(Math.random() * 62);
 
         if (n < 10)
             return n; //1-10
@@ -609,7 +738,7 @@ function randomString(len) {
  */
 function readComputedStyle(element, property) {
     const cs = window.getComputedStyle(element, null);
-    var style = '';
+    let style = '';
     /*
      * According to Mozilla, getPropertyValue only works reliably with long hand property names such as font-style.
      * 
@@ -625,7 +754,7 @@ function readComputedStyle(element, property) {
     if (isNull(property) || property === '')
         return cs;
     else {
-        var props = [property];
+        let props = [property];
 
         if (property === 'font') {
             props[0] = 'font-style';
@@ -634,8 +763,8 @@ function readComputedStyle(element, property) {
             props[3] = 'font-size';
             props[4] = 'font-family';
         }
-        for (var i = 0; i < props.length; i++) {
-            var prop = cs.getPropertyValue(props[i]);
+        for (let i = 0; i < props.length; i++) {
+            let prop = cs.getPropertyValue(props[i]);
 
             if (prop === 'normal')
                 continue;
@@ -688,8 +817,8 @@ function displayTextWidth(text, font, adjustText) {
     return Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight);
 }
 function camelToWords(text) {
-    var words = '';
-    var ch;
+    let words = '';
+    let ch;
 
     for (let i = 0; i < text.length; i++) {
         ch = text.charAt(i);
@@ -795,10 +924,10 @@ function toDate(timestamp, notime) {
     if (timestamp instanceof Date)
         return timestamp;
 
-    var months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-    var date = timestamp.split(new RegExp("[/\-]"));
-    var time = new Array(0, 0, 0);
-    var errName = "Date";
+    let months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+    let date = timestamp.split(new RegExp("[/\-]"));
+    let time = new Array(0, 0, 0);
+    let errName = "Date";
 
     try {
         if (date.length !== 3)
@@ -808,7 +937,7 @@ function toDate(timestamp, notime) {
          */
         date[2] = trim(date[2]);
 
-        var i = date[2].indexOf(' ');
+        let i = date[2].indexOf(' ');
 
         if (i !== -1) {
             /*
@@ -832,7 +961,7 @@ function toDate(timestamp, notime) {
             /*
              * If first field is more than 2 digits, assume it is the year and swap with date[2]
              */
-            var y = date[0];
+            let y = date[0];
 
             date[0] = date[2];
             date[2] = y;
@@ -840,7 +969,7 @@ function toDate(timestamp, notime) {
         if (date[2] < 100)
             date[2] += 2000;
 
-        for (var i = 0; i < months.length; i++) {
+        for (let i = 0; i < months.length; i++) {
             if (months[i].toLowerCase() === date[1].toLowerCase()) {
                 date[1] = i + 1;
                 break;
@@ -860,7 +989,7 @@ function toDate(timestamp, notime) {
          * change to 2021-10-03 when the day number is set and the validation will correctly fail this as
          * an invalid date.
          */
-        var datetime = new Date('1901-01-01');
+        let datetime = new Date('1901-01-01');
 
         datetime.setFullYear(date[2]);
         datetime.setMonth(date[1]);
@@ -899,16 +1028,16 @@ function validateDateTimeOptions(pOptions) {
     this.load(pOptions, false);
 }
 function validateDateTime(did, tid, options) {
-    var timestamp = '';
-    var tm = null;
-    var opts = new validateDateTimeOptions(options);
-    var result = {
+    let timestamp = '';
+    let tm = null;
+    let opts = new validateDateTimeOptions(options);
+    let result = {
         valid: false,
         value: undefined,
         empty: true
     };
-    var dt = getElement(did, true);
-    var tm = tid !== undefined && tid !== null ? getElement(tid, true) : {elm: null, value: '', empty: true};
+    let dt = getElement(did, true);
+    tm = tid !== undefined && tid !== null ? getElement(tid, true) : {elm: null, value: '', empty: true};
     result.empty = dt.empty;
 
     if (!tm.empty && dt.empty && tm.elm !== null) {
@@ -1225,7 +1354,7 @@ function setLocalStorage(id, value) {
         localStorage.setItem(id, value);
 }
 function getLocalStorage(id) {
-    var val = localStorage.getItem(id);
+    let val = localStorage.getItem(id);
 
     if (val === 'true')
         return true;
@@ -1237,71 +1366,50 @@ function getLocalStorage(id) {
 function createUID(length, prefix) {
     return (prefix === undefined ? '' : prefix) + randomString(length);
 }
-function OldTimer(counter, previous) {
-    this.current = counter;
-    this.previous = previous;
-    this.startTime;
-    this.upd = setInterval(updateTimer, 1000, this);
-
-    function updateTimer(obj) {
-        if (obj.current !== undefined && obj.current.value !== '') {
-            var count = parseInt(obj.current.value) + 1;
-            var gap = dateDiff(obj.startTime, null);
-
-            if (gap - count > 3) {
-                reporter.log('Timer update slow count is ' + count + ' gap ' + gap + ' diff is ' + (gap - count));
-                count = gap;
-            }
-            obj.current.value = count;
-        }
-    }
-    ;
-    this.start = function () {
-        if (this.previous !== undefined)
-            this.previous.value = this.current.value;
-
-        this.current.value = 0;
-        this.startTime = new Date();
-    };
-}
 class Timer {
     #target;
     #intId;
     #startTime;
     #format;
-
+    #maxGap;
+    
     constructor(target, format) {
         this.#target = target;
         this.#format = defaultNull(format, false);
     }
-    updateTimer(obj) {
-        if (obj.#target !== undefined && obj.#target.value !== '') {
-            var gap = Math.round(dateDiff(obj.#startTime, null));
-
-            if (gap === 0)
-                return;
-
-            obj.#target.value = obj.#format ? secondsToTime(gap) : gap;
-        }
+    set maxGap(seconds) {
+        this.#maxGap = seconds;        
     }
-    ;
-            start() {
-        if (isNull(this.#intId))
-            this.#intId = setInterval(this.updateTimer, 1000, this);
+    get maxGap() {
+        return this.#maxGap;
+    }
+    updateTimer() {
+        if (this.#target !== undefined && this.#target.value !== '') {
+            let gap = Math.round(dateDiff(this.#startTime, null));
+
+            if (gap === 0) return;
+            
+            if (this.#maxGap !== null && gap > this.#maxGap) {
+                this.stop();
+                return;
+            }
+            this.#target.value = this.#format ? secondsToTime(gap) : gap;
+        }
+    };
+    start(time) {
+        if (isNull(this.#intId)) this.#intId = setInterval(this.updateTimer.bind(this), 1000);
 
         this.#target.value = 0;
-        this.#startTime = new Date();
-    }
-    ;
-            stop() {
+        this.#startTime = isNull(time)? new Date() : time;
+    };
+    stop() {
         if (!isNull(this.#intId)) {
             clearInterval(this.#intId);
             this.#intId = null;
         }
         this.#target.value = '';
         this.#startTime = new Date();
-    }
-    ;
+    };
 }
 /*
  * The following 2 function provide a workaround for the older versions of javascript that don't support the constuctor object element.
@@ -1334,7 +1442,7 @@ function BaseOptions(pAccessByGet) {
         reporter.fatalError(getObjectName(options) + ' ' + message);
     }
     function getSpec(options, name, mustExist) {
-        for (var i = 0; i < options.optSpecs.length; i++) {
+        for (let i = 0; i < options.optSpecs.length; i++) {
             if (options.optSpecs[i].name === name)
                 return options.optSpecs[i];
         }
@@ -1357,7 +1465,7 @@ function BaseOptions(pAccessByGet) {
      * @returns The current value of the option.
      */
     function accessValue(options, name, read, value, loaded) {
-        var spec = getSpec(options, name, true);
+        let spec = getSpec(options, name, true);
 
         if (spec === null)
             return;
@@ -1409,7 +1517,7 @@ function BaseOptions(pAccessByGet) {
             this.used = name;
     };
     this.clear = function () {
-        for (var i = 0; i < this.optSpecs.length; i++) {
+        for (let i = 0; i < this.optSpecs.length; i++) {
             var spec = this.optSpecs[i];
 
             accessValue(this, spec.name, false, spec.default);
@@ -1527,67 +1635,6 @@ function UnitConvert(pOptions) {
     this.load(pOptions);
 }
 
-function ConvertUnitsO() {
-    BaseOptions.call(this, false);
-
-    var base = undefined;
-
-    this.conversions = [];
-    /*
-     * Returns the entry in conversions for source and target. If one exists for target and source it is returned with the reciprocal multipler
-     * for source and target and a appropiate description.
-     * 
-     * Note: Given the reverse check, the returned conversion may not be in conversions.
-     */
-    function get(conversions, source, target) {
-        var conversion = null;
-
-        for (var i = 0; i < conversions.length; i++) {
-            conversion = conversions[i];
-
-            if (conversion.source === source && conversion.target === target)
-                return conversion;
-
-            if (conversion.target === source && conversion.source === target)
-                return new UnitConvert(
-                        {source: source,
-                            target: target,
-                            isVolume: conversion.isVolume,
-                            multiplier: 1 / conversion.multiplier,
-                            description: source + ' to ' + target});
-        }
-        return null;
-    }
-    function add(conversions, conversion) {
-        var conv = get(conversions, conversion.source, conversion.target);
-
-        if (conv !== null) {
-            if (conv.isVolume !== conversion.isVolume && conv.multiplier !== conversion.multiplier && conv.description !== conversion.description)
-                throw ErrorObject('Adding conversion for source ' + conversion.source + ' to target ' + conversion.target + ' would change an existing conversion');
-            else
-                return;
-        }
-        conversions.push(conversion);
-    }
-    if (base === undefined) {
-        base = [];
-        add(base, new UnitConvert({source: 'gm', target: 'ml', isVolume: false, multiplier: 1, description: 'gm to ms'}));
-    }
-    this.addConversion = function (conversion) {
-        var conv = get(base, conversion.source, conversion);
-
-        if (conv === null)
-            add(this.conversions, new UnitConvert(conversion));
-    };
-    this.getConversion = function (source, target) {
-        var cv = get(base, source, target);
-
-        if (cv !== null)
-            return cv;
-
-        return get(this.conversions, source, target);
-    };
-}
 /*
  * This describes a columns for columns option of JSONArrayOptions. The options are:
  * 
@@ -3525,8 +3572,8 @@ function loadListResponse(response, options) {
     loadOptionsJSON(response, options);
 }
 function getList(server, options, returnResponse) {
-    var parameters = createParameters('getList');
-    var save;
+    let parameters = createParameters('getList');
+    let save;
 
     if (options.async === undefined)
         options.async = false;

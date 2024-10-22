@@ -799,7 +799,7 @@ public abstract class ApplicationServer extends HttpServlet {
     }
 
     /*
-     * For a table enables the records surrounding the key of a new record.
+     * For a table enables the records surrounding the key of an existing or new record.
      */
     protected class EnclosingRecords {
 
@@ -812,10 +812,22 @@ public abstract class ApplicationServer extends HttpServlet {
             boolean equals;
             SQLValue value;
 
+            /*
+             * Used to identify the table column names used to identify the row key
+             * that the surrounding records are required
+             *
+             * name   field column name.
+             * value  field value/
+             * equals if true, surrounding row field value must equal value, otherwise lower bound must
+             *        be less than, or optionally equal to, value and the upper bound greater than or, optionally
+             *        equal to, value.
+             *
+             * The order of the records is ascending on each field.
+             */
             public Field(String name, SQLValue value, boolean equals) {
-                this.name = name;
+                this.name   = name;
                 this.equals = equals;
-                this.value = value;
+                this.value  = value;
             }
 
             public Field(String name, Date value, boolean equals) {
@@ -833,7 +845,19 @@ public abstract class ApplicationServer extends HttpServlet {
         private final String table;
         private final SQLSelectBuilder sel;
 
-        private ResultSet getBound(boolean before) throws SQLException {
+        /*
+         * Finds the bound that matches the test non equal key fields. The equal fields must match
+         * those of the test key.
+         *
+         * allowEqual applies only the non equal fields and if true, the corresponding field can equal the
+         * test value.
+         *
+         * before identifies which bound is required. 
+         *
+         *   If true  the highest row, in the search order, that is before test record subject to the setting of allowEqual.
+         *   If false the lowest  row, in the search order, thar is after  test record subject to the setting of allowEqual.
+         */
+        private ResultSet getBound(boolean before, boolean allowEqual) throws SQLException {
             String operator;
             boolean desc;
             ResultSet rs;
@@ -846,10 +870,10 @@ public abstract class ApplicationServer extends HttpServlet {
                     operator = "=";
                     desc = false;
                 } else if (before) {
-                    operator = "<=";
+                    operator = allowEqual? "<=" : "<";
                     desc = true;
                 } else {
-                    operator = ">";
+                    operator = allowEqual? ">=" : ">";
                     desc = false;
                 }
                 sel.addAnd(fld.name, operator, fld.value);
@@ -861,32 +885,18 @@ public abstract class ApplicationServer extends HttpServlet {
 
             return rs.next() ? rs : null;
         }
-
         /*
          * ctx   Application context.
          * table Database table to be searched.
          */
         public EnclosingRecords(Context ctx, String table) {
-            this.ctx = ctx;
+            this.ctx   = ctx;
             this.table = table;
-            this.sel = ctx.getSelectBuilder(this.table);
+            this.sel   = ctx.getSelectBuilder(this.table);
             this.sel.addField("*");
         }
-
         /*
-         * name   Table column name.
-         * value  Value of the field the new record will have for the column.
-         * equals True if the field comparison is equal in the where clause,
-         *        otherwise it is used to determine the new records position
-         *        within the ordered records.
-         *
-         * Ideally all the key fields should be added with one of them having equals set to false.
-         *
-         * To explain the way it works. Assume a table has primary key Type, Start and the new record
-         * will have Type = 'Gas' and Start = '01-Jan-2024'. The following addFields are made.
-         *
-         *   addField('Type',  'Gas',          true);
-         *   addField('Start', '01-Jan-2024',  false);
+         * See definition of Field for how the parameters are used.
          */
         public void addField(String name, String value, boolean equals) {
             fields.add(new Field(name, value, equals));
@@ -899,29 +909,53 @@ public abstract class ApplicationServer extends HttpServlet {
         public void addField(String name, int value, boolean equals) {
             fields.add(new Field(name, value, equals));
         }
-
         /*
-         * Returns the result set of the record the last record that is less than or equal the new record
-         * where the column fields have equals false. Using the above example. The resulting query is
+         * To explain the way it works. Assume a table has primary key Type, Start and the test record
+         * will have Type = 'Gas' and Start = '01-Jan-2024'. The following addFields are made.
+         *
+         *   addField('Type',  'Gas',          true);
+         *   addField('Start', '01-Jan-2024',  false);
+         *
+         * For getBefore(true);
+         *
+         * The resulting query is
          *
          *   SELECT * FROM Table
          *   WHERE Type ='Gas' AND Start <= '2024-01-01'
          *   ORDER BY Type, Start DESC LIMIT 1
          */
-        public ResultSet getBefore() throws SQLException {
-            return getBound(true);
+        public ResultSet getBefore(boolean allowEqual) throws SQLException {
+            return getBound(true, allowEqual);
         }
-
+        public ResultSet getBefore() throws SQLException {
+            return getBound(true, true);
+        }
         /*
          * Returns the result set of the record the first record that is greater than the new record
          * where the column fields have equals false. The resulting query is
          *
+         * For getAfter(false);
+         *
+         * The resulting query is
+         *
          *   SELECT * FROM Table
          *   WHERE Type ='Gas' AND Start > '2024-01-01'
          *   ORDER BY Type, Start LIMIT 1
-         */
+         *
+         * For getAfter(true);
+         *
+         * The resulting query is
+         *
+         *   SELECT * FROM Table
+         *   WHERE Type ='Gas' AND Start >= '2024-01-01'
+         *   ORDER BY Type, Start LIMIT 1
+         */        
+        public ResultSet getAfter(boolean allowEqual) throws SQLException {
+            return getBound(false, allowEqual);
+        }
+        
         public ResultSet getAfter() throws SQLException {
-            return getBound(false);
+            return getBound(false, false);
         }
     }
     @Deprecated
@@ -1723,9 +1757,14 @@ public abstract class ApplicationServer extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (IOException | ServletException e) {
+            throw e;
+        } catch (Exception e) {           
+            Report.error(null, "Exception from processRequest on request " + request.toString(), e);
+        }
     }
-
     /**
      * Returns a short description of the servlet.
      *

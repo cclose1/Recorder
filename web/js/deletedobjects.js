@@ -514,3 +514,65 @@ function setFilterVisibilityNotUsed(key) {
         if (filter.isiFrame) resizeFrame(filter.element);
     }
 }
+
+function ConvertUnitsO() {
+    BaseOptions.call(this, false);
+
+    var base = undefined;
+
+    this.conversions = [];
+    /*
+     * Returns the entry in conversions for source and target. If one exists for target and source it is returned with the reciprocal multipler
+     * for source and target and a appropiate description.
+     * 
+     * Note: Given the reverse check, the returned conversion may not be in conversions.
+     */
+    function get(conversions, source, target) {
+        var conversion = null;
+
+        for (var i = 0; i < conversions.length; i++) {
+            conversion = conversions[i];
+
+            if (conversion.source === source && conversion.target === target)
+                return conversion;
+
+            if (conversion.target === source && conversion.source === target)
+                return new UnitConvert(
+                        {source: source,
+                            target: target,
+                            isVolume: conversion.isVolume,
+                            multiplier: 1 / conversion.multiplier,
+                            description: source + ' to ' + target});
+        }
+        return null;
+    }
+    function add(conversions, conversion) {
+        var conv = get(conversions, conversion.source, conversion.target);
+
+        if (conv !== null) {
+            if (conv.isVolume !== conversion.isVolume && conv.multiplier !== conversion.multiplier && conv.description !== conversion.description)
+                throw ErrorObject('Adding conversion for source ' + conversion.source + ' to target ' + conversion.target + ' would change an existing conversion');
+            else
+                return;
+        }
+        conversions.push(conversion);
+    }
+    if (base === undefined) {
+        base = [];
+        add(base, new UnitConvert({source: 'gm', target: 'ml', isVolume: false, multiplier: 1, description: 'gm to ms'}));
+    }
+    this.addConversion = function (conversion) {
+        var conv = get(base, conversion.source, conversion);
+
+        if (conv === null)
+            add(this.conversions, new UnitConvert(conversion));
+    };
+    this.getConversion = function (source, target) {
+        var cv = get(base, source, target);
+
+        if (cv !== null)
+            return cv;
+
+        return get(this.conversions, source, target);
+    };
+}

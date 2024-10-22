@@ -4,33 +4,32 @@
 
 var hstFilter;
 var mysql;
+var snFlds    = null;
+var csTab     = null;
 
-function trim(str) {
-    return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-}
 function setTime() {
-    var date = new Date();
+    let date = new Date();
 
-    if (trim(document.getElementById("date").value) === "") {
-        document.getElementById("date").value = currentDate(date);
+    if (trim(snFlds.getValue("Timestamp~Date")) === "") {
+        snFlds.setValue("Timestamp~Date", currentDate(date));
     }
-    if (trim(document.getElementById("time").value) === "") {
-        document.getElementById("time").value = currentTime(date);
+    if (trim(snFlds.getValue("Timestamp~Time")) === "") {
+        snFlds.setValue("Timestamp~Time", currentTime(date));
     }
 }
-function reset() {    
-    clearValues(getParameters('detailfields'));
-    document.getElementById("save").value        = "Create";
-    document.getElementById("type").focus();
-    setHidden("clone", true);
+function reset() {        
+    snFlds.clear();
+    getElement("save").value = "Create";
+    getElement("type").focus();
+    setHidden("clone",  true);
     setHidden("remove", true);
     requestReminders();
 }
 function clonedata() {
     setHidden("clone", true);
     setHidden("remove", true);
-    document.getElementById("save").value = "Create";
-    document.getElementById("date").value = currentDate(new Date());
+    getElement("save").value = "Create";
+    snFlds.setValue("Timestamp~Time", currentTime(new Date()));
 }
 function checkRefId() {
     var valid      = true;
@@ -48,8 +47,8 @@ function send() {
     var action = getElement().value;
     var parameters; 
 
-    let flds       = getParameters('detailfields');   
-    if (!fieldHasValue("date"))   return;
+    if (!snFlds.isValid(csTab))      return;
+    
     
     switch (action) {
         case 'Create':
@@ -73,7 +72,7 @@ function send() {
     parameters = createParameters(
                 action,
                 {
-                    fields: flds,
+                    fields: snFlds.getFields(),
                     initialParams: [{name: 'table', value: 'Reminder'}]}); 
     ajaxLoggedInCall('Reminder', reset, parameters);
 }
@@ -92,26 +91,25 @@ function requestReminders(filter) {
 }
 function rowClick(row) {
     var rdr  = new rowReader(row);
-    let flds = new ScreenFields('detailfields');
     
-    flds.setIgnoreSet('Weekday');
-    
-    while (rdr.nextColumn()) {
-        console.log('Att name ' + rdr.valueAttribute('name') + ' col name ' + rdr.columnName());
-        flds.setValue(rdr.columnName(), rdr.columnValue());
+    while (rdr.nextColumn()) {        
+        if (rdr.columnName() !== 'Weekday') snFlds.setValue(rdr.columnName(), rdr.columnValue());
     }
-    document.getElementById("save").value = "Update";
+    getElement("save").value = "Update";
     setHidden("clone",  false);
     setHidden("remove", false);
 }
 function initialize(loggedIn) {
     if (!loggedIn) return;
-    let test = ['name1', 'name2', 'name3'];
-    let found = test.findIndex((element) => element === 'name2');
-    found = test.findIndex((element) => element === 'xx');
+    
+    csTab  = getTableDefinition('Reminder', 'Reminder');
+    snFlds = new ScreenFields('detailfields');
+    snFlds.syncWithTable('csTab', false);
+    
     var types = 
             'Anniversary,' +
             'Birthday,'    +
+            'Car,     '    +
             'Dentist,'     + 
             'Delivery,'    + 
             'Health,'      +
