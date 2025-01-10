@@ -49,7 +49,7 @@ public class HeartMonitor extends ApplicationServer {
     private String getMemberValue(JSONArray row,  HashMap<String, Integer> index, String id) throws JSONException {
         return row.get(index.get(id)).getString();
     }
-    private void applyJSONUpdate(Context ctx, String table, String user, HashMap<String, Integer> index, JSONArray row) throws JSONException, ParseException, SQLException {
+    private boolean applyJSONUpdate(Context ctx, String table, String user, HashMap<String, Integer> index, JSONArray row) throws JSONException, ParseException, SQLException {
         ResultSet      rs;
         SQLNamedValues nv      = new SQLNamedValues();
         Date           time    = DateFormatter.parseDate(getMemberValue(row, index, "Time"));
@@ -75,6 +75,8 @@ public class HeartMonitor extends ApplicationServer {
             sql.addField("Comment",     getMemberValue(row, index, "Comment"));
            
             executeUpdate(ctx, sql);   
+            
+            return false;
         } else {            
             rs = ctx.getAppDb().insertTable(table);
             rs.moveToInsertRow();
@@ -90,6 +92,8 @@ public class HeartMonitor extends ApplicationServer {
             rs.updateString("Comment",      getMemberValue(row, index, "Comment"));
             rs.insertRow();            
             rs.close();
+            
+            return true;
         }
     }
     @Override
@@ -144,9 +148,9 @@ public class HeartMonitor extends ApplicationServer {
                 sqlb.addAnd("Side",       "=", kSide);
                 
                 sqlb.addField("Individual",  ctx.getParameter("uindividual"));
-                sqlb.addField("Timestamp",   ctx.getParameter("utimestamp"));
+                sqlb.addField("Timestamp",   ctx.getTimestamp("utimestamp"));
                 sqlb.addField("Side",        ctx.getParameter("uside"));
-                sqlb.addField("Session",     ctx.getParameter("usession"));
+                sqlb.addField("Session",     ctx.getTimestamp("usession"));
                 sqlb.addField("Systolic",    ctx.getParameter("usystolic"));
                 sqlb.addField("Diastolic",   ctx.getParameter("udiastolic"));
                 sqlb.addField("Pulse",       ctx.getParameter("upulse"));
@@ -196,6 +200,8 @@ public class HeartMonitor extends ApplicationServer {
                 break;
             }
             case "updates": {
+                int                      inserts = 0;
+                int                      updates = 0;
                 HashMap<String, Integer> index   = new HashMap<>(0);
                 String                   user    = ctx.getParameter("user");
                 JSONValue                value   = JSONValue.load(new JSONReader(ctx.getParameter("updates")));
@@ -210,9 +216,13 @@ public class HeartMonitor extends ApplicationServer {
                 for (int i = 0; i < rows.size(); i++) {
                     JSONArray row = rows.get(i).getArray();
 
-                    applyJSONUpdate(ctx, table, user, index, row);
+                    if (applyJSONUpdate(ctx, table, user, index, row))
+                        inserts += 1;
+                    else
+                        updates += 1;
                 }
                 ctx.setStatus(200);
+                ctx.getReplyBuffer().append("Inserts ").append(inserts).append(" Updates ").append(updates);
                 break;
             }
             default:

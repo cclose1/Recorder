@@ -197,6 +197,7 @@ function requestChargeSessions(filter) {
              columns: [{name: 'StartMiles',     wrapHeader: true,  splitName:   true},
                        {name: 'EndMiles',       wrapHeader: true,  splitName:   true},
                        {name: 'EstDuration',    wrapHeader: true,  splitName:   true},
+                       {name: 'MaxDuration',    wrapHeader: true,  splitName:   true},
                        {name: 'ChargeDuration', wrapHeader: true,  splitName:   true},
                        {name: 'StartPerCent',   wrapHeader: false, columnTitle: 'Start %'},
                        {name: 'EndPerCent',     wrapHeader: false, columnTitle: 'End %'}]});

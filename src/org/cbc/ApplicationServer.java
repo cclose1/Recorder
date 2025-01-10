@@ -1221,8 +1221,8 @@ public abstract class ApplicationServer extends HttpServlet {
 
     private void reply(Context ctx, Exception ex, int status) {
         Report.error("ErRep", ex);
-        rollback(ctx, status);
-        ctx.getReplyBuffer().append(ex.getMessage());
+        rollback(ctx, status);        
+        ctx.getReplyBuffer().append(ex.getClass().getSimpleName()).append(": ").append(ex.getMessage());
     }
 
     public abstract String getVersion();
@@ -1697,7 +1697,7 @@ public abstract class ApplicationServer extends HttpServlet {
             }
 
             reply(ctx, ex, ex.getStatus());
-        } catch (IOException | ServletException | ParseException | NoSuchAlgorithmException | JSONException ex) {
+        } catch (Exception ex) {
             reply(ctx, ex, 400);
         } finally {
             try {
@@ -1762,7 +1762,7 @@ public abstract class ApplicationServer extends HttpServlet {
         } catch (IOException | ServletException e) {
             throw e;
         } catch (Exception e) {           
-            Report.error(null, "Exception from processRequest on request " + request.toString(), e);
+            Report.error(null, "Exception from processRequest", e);
         }
     }
     /**
