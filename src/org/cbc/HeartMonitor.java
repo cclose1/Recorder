@@ -18,11 +18,9 @@ import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.json.JSONReader;
 import org.cbc.json.JSONValue;
-import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLNamedValues;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
-import org.cbc.utils.data.DatabaseSession;
 import org.cbc.utils.system.DateFormatter;
 
 /**
@@ -44,7 +42,9 @@ public class HeartMonitor extends ApplicationServer {
         
         ResultSet rs = ctx.getAppDb().executeQuery(sql.build());
         
-        return rs.next()? rs.getString("Id") : null;
+        if (!rs.next()) throw new SQLException("Orientation " + field + " not found");
+        
+        return rs.getString("Id");
     }    
     private String getMemberValue(JSONArray row,  HashMap<String, Integer> index, String id) throws JSONException {
         return row.get(index.get(id)).getString();
@@ -102,74 +102,23 @@ public class HeartMonitor extends ApplicationServer {
                 super.config.getProperty("bpdatabase"),
                 super.config.getProperty("bpuser"),
                 super.config.getProperty("bppassword"));
-    }    
+    } 
+    @Override
+    protected String updateParameter(Context ctx, String name, String value) {
+        try {
+            return name.endsWith("rientation")? getOrientation(ctx, value) : value;
+        } catch (Exception ex) {
+            errorExit("updateParameter " + name + "-failed with exception:" + ex.getMessage());
+        }
+        return null;
+    }
     @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         String     table = "Measure";
         JSONObject data  = new JSONObject();
         ResultSet  rs;
-        SQLBuilder sqlb;
         
         switch (action) {
-            case "save": {
-                rs = ctx.getAppDb().insertTable(table);
-                rs.moveToInsertRow();
-                rs.updateString("Individual",    ctx.getParameter("identifier"));
-                rs.updateTimestamp("Session",   ctx.getSQLTimestamp(ctx.getTimestamp("session")));
-                rs.updateTimestamp("Timestamp", ctx.getSQLTimestamp(ctx.getTimestamp("timestamp")));
-                rs.updateString("Side",         ctx.getParameter("side"));
-                rs.updateString("Systolic",     ctx.getParameter("systolic"));
-                rs.updateString("Diastolic",    ctx.getParameter("diastolic"));
-                rs.updateString("Pulse",        ctx.getParameter("pulse"));
-                rs.updateString("Orientation",  getOrientation(ctx, ctx.getParameter("orientation")));
-                rs.updateString("Comment",      ctx.getParameter("comment"));
-                rs.insertRow();
-                rs.close();
-                ctx.setStatus(200);
-                break;
-            }
-            case "delete": {
-                sqlb = ctx.getDeleteBuilder(table);
-                sqlb.addAnd("Individual", "=", ctx.getParameter("ukindividual"));
-                sqlb.addAnd("Timestamp",  "=", ctx.getSQLTimestamp("uktimestamp"));
-                sqlb.addAnd("Side",       "=", ctx.getParameter("ukside"));
-                executeUpdate(ctx, sqlb.build());
-                ctx.setStatus(200);
-                break;
-            }
-            case "modify": {
-                String kIndividual = ctx.getParameter("ukindividual");
-                Date   kTimestamp  = ctx.getTimestamp("uktimestamp");
-                String kSide       = ctx.getParameter("ukside");
-                
-                sqlb = ctx.getUpdateBuilder(table);
-                sqlb.addAnd("Individual", "=", kIndividual);
-                sqlb.addAnd("Timestamp",  "=", kTimestamp);
-                sqlb.addAnd("Side",       "=", kSide);
-                
-                sqlb.addField("Individual",  ctx.getParameter("uindividual"));
-                sqlb.addField("Timestamp",   ctx.getTimestamp("utimestamp"));
-                sqlb.addField("Side",        ctx.getParameter("uside"));
-                sqlb.addField("Session",     ctx.getTimestamp("usession"));
-                sqlb.addField("Systolic",    ctx.getParameter("usystolic"));
-                sqlb.addField("Diastolic",   ctx.getParameter("udiastolic"));
-                sqlb.addField("Pulse",       ctx.getParameter("upulse"));
-                sqlb.addField("Orientation", getOrientation(ctx, ctx.getParameter("uorientation")));
-                sqlb.addField("Comment",     ctx.getParameter("ucomment"));
-                
-                try {
-                    executeUpdate(ctx, sqlb);
-                    ctx.setStatus(200);
-                } catch (SQLException e) {
-                    if (ctx.getAppDb().getStandardError(e) == DatabaseSession.Error.Duplicate) {
-                        ctx.getReplyBuffer().append("Change duplicates primary key");
-                        ctx.setStatus(200);
-                    } else {
-                        throw e;
-                    }
-                }
-                break;
-            }
             case "getList":
                 getList(ctx);
                 break;
@@ -226,8 +175,7 @@ public class HeartMonitor extends ApplicationServer {
                 break;
             }
             default:
-                ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
+                invalidAction();
                 break; 
         }
     }

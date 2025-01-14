@@ -230,7 +230,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 }
                 sql.addAnd(col.getName(), "=", ctx.getParameter(keyParam), col.getTypeName());
             }
-            if (!delete) {
+            if (!delete && col.isModifiable()) {
                 sql.addField(col.getName(), ctx.getParameter(col.getName()), col.getTypeName());
             }
         }
@@ -442,6 +442,9 @@ public abstract class ApplicationServer extends HttpServlet {
     }
     protected Configuration config = new Configuration();
 
+    protected String updateParameter(Context ctx, String name, String value) {
+        return value;
+    }
     protected class Context {
         private DatabaseSession     appDb = null;
         private DatabaseSession     secDb = null;
@@ -553,7 +556,6 @@ public abstract class ApplicationServer extends HttpServlet {
             handler.getResponse().getWriter().println(replyBuffer.toString());
             printTrace("Response added");
         }
-
         /*
          * This is the interface to handler.getParameter.
          *
@@ -568,8 +570,10 @@ public abstract class ApplicationServer extends HttpServlet {
          */
         public String getParameter(String name) {
             String value = handler.getParameter(name);
+                    
+            value = updateParameter(this, name, value);
 
-            if (value.length() == 0 && resolveTimestamp && name.equals("Timestamp")) {
+            if (value != null && value.length() == 0 && resolveTimestamp && name.equals("Timestamp")) {
                 value = handler.getParameter("Date", null);
 
                 if (value != null && handler.getParameter("Time") != null) {

@@ -3473,12 +3473,22 @@ function enableMySql(server) {
     }
 }
 function getPairedParameter(pairs, name, value) {
+    
     let flds = name.split('~');
 
     switch (flds.length) {
         case 1:
             return false;
         case 2:
+            /*
+             * If the pair starts with Key then this a database record key field of the original record providing
+             * the data, so return false.
+             * 
+             * This is an interim solution as it does not allow a key field to be paired. Consider using
+             * a different character, e.g. ! to denote an original key.
+             */
+            if (flds[0] === 'Key') return false;
+            
             let pair = pairs.get(flds[0]);
 
             if (pair === undefined) {

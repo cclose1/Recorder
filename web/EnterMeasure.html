@@ -28,39 +28,39 @@
                 <div id='insertfields'>
                     <div>
                         <label>Name</label>
-                        <input type="text" name="identifier" id="identifier" value="ANON" onchange="requestHistory();setSession();" tabindex="-1">
+                        <input type="text" name="Individual" id="identifier" value="ANON" onchange="requestHistory();setSession();" tabindex="-1">
                     </div>
                     <div>
                         <label>Session</label>
-                        <input name="session" id="session" readonly size="20" tabindex="-1">
-                        <input id="newsession" name="newsession" type="button" value="New Session" onclick="setSession();" tabindex="-1">
+                        <input name="Session" id="session" readonly size="20" tabindex="-1">
+                        <input id="newsession" name="newsession" class="notparam" type="button" value="New Session" onclick="setSession();" tabindex="-1">
                     </div>
                     <div>
                         <label for="maxsession">Max Session</label>
-                        <input class='smallnumber' type="text" name="Max Session" size ="1" id="maxsession" onkeypress="validateIntegerField(1, 50);" onchange="setMaxSession();">
-                        <label class='nogap'>Minutes</label>
+                        <input class='smallnumber notparam' type="text" name="Max Session" size ="1" id="maxsession" onkeypress="validateIntegerField(1, 50);" onchange="setMaxSession();">
+                        <label class='nogap notparam'>Minutes</label>
                     </div>
                     <div>
                         <label for="side">Side</label>
-                        <select id="side" class='optlist' onchange="document.getElementById('try').value = 1;document.getElementById('systolic').focus();" tabindex="-1">
+                        <select id="side" name='Side' class='optlist' onchange="document.getElementById('try').value = 1;document.getElementById('systolic').focus();" tabindex="-1">
                             <option>Left</option>
                             <option>Right</option>
                         </select>
                     </div>
                     <div>
                         <label for="orientation">Orientation</label>
-                        <select id="orientation" class='optlist' onchange="document.getElementById('systolic').focus();" tabindex="-1">
+                        <select id="orientation" name = 'Orientation' class='optlist' onchange="document.getElementById('systolic').focus();" tabindex="-1">
                             <option></option>
                         </select>
                     </div>
                     <div>
                         <label for="time">Time</label>
-                        <input type="text" name="time" size ="8" id="time" readonly tabindex="-1">
-                        <input type="text" name="timestamp" id="timestamp" hidden tabindex="-1">
+                        <input type="text" name="time" size ="8" id="time" readonly class='notparam' tabindex="-1">
+                        <input type="text" name="Timestamp" id="timestamp" hidden tabindex="-1">
                         <label for="timer" class ='nogap'>Gap</label>
-                        <input type="text" name="timer" size ="3" id="timer" readonly tabindex="-1">
+                        <input type="text" name="timer" class='notparam' size ="3" id="timer" readonly tabindex="-1">
                         <label for="try" class ='nogap'>Try</label>
-                        <input type="text" name="try" size ="2" id="try" readonly tabindex="-1">
+                        <input type="text" name="try" class='notparam' size ="2" id="try" readonly tabindex="-1">
                     </div>
                     <div>
                         <label for="systolic">Systolic</label>
@@ -76,51 +76,50 @@
                     </div>
                     <div>
                         <label for="comment">Comment</label>
-                        <input type="text" size ="4" id="comment" list="commentList"  tabindex="-1" onchange="document.getElementById('systolic').focus();">
+                        <input type="text" size ="4" id="comment" name='Comment' list="commentList"  tabindex="-1" onchange="document.getElementById('systolic').focus();">
                         <datalist id="commentList">
                             <option></option>
                         </datalist>
                     </div>
                     <div>
                         <label for="save"></label>
-                        <input id="save" name="save" type="button" value="Save" onclick="send();" onkeypress="send(event);">
+                        <input id="save" name="save" type="button" value="Save" class='notparam' onclick="updateMeasure('create');" onkeypress="updateMeasure('create');">
                     </div>
                     <div id="logoff" hidden>
                         <label for="logoffbtn"></label>
-                        <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" onclick="logOff();">
+                        <input id="logoffbtn" name="logoffbtn" type="button" value="Logoff" class='notparam' onclick="logOff();">
                     </div>
                     <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                 </div>
                 <div id='updatefields'>
                     <div hidden>
-                        <input type="text" id="ukindividual">
-                        <input type="text" id="uktimestamp">
-                        <input type="text" id="ukside">
+                        <input type="text" id="ukindividual" name='Key~Individual'>
+                        <input type="text" id="uktimestamp"  name='Key~Timestamp' >
                     </div>
                     <div>
                         <label>Name</label>
-                        <input type="text" name="individual" id="uindividual">
+                        <input type="text" name="Individual" id="uindividual">
                     </div>
                     <div>
                         <label>Time</label>
-                        <input name="timestamp" id="utimestamp" size="20">
+                        <input name="Timestamp" id="utimestamp" size="20" >
                     </div>
                     <div>
                         <label for="uside">Side</label>
-                        <select id="uside">
+                        <select id="uside" name='Side'>
                             <option>Left</option>
                             <option>Right</option>
                         </select>
                     </div>
                     <div>
                         <label for="uorientation">Orientation</label>
-                        <select id="uorientation" tabindex="-1">
+                        <select id="uorientation" tabindex="-1" name='Orientation'>
                             <option></option>
                         </select>
                     </div>
                     <div>
                         <label>Session</label>
-                        <input name="session" id="usession" size="20">
+                        <input id="usession" size="20" name='Session'>
                     </div>
                     <div>
                         <label for="usystolic">Systolic</label>
@@ -144,9 +143,9 @@
                         Changing the enclosing div to a form caused name modify to be added as an attribute to the form element which
                         caused the modify function to be hidden. Perhaps should remove name attribute if never used.
                         -->
-                        <input id="umodify" name="xmodify" type="button" value="Modify" onclick="modify(false);">
-                        <input id="udelete" name="delete" type="button" value="Delete" onclick="modify(true);">
-                        <input id="ucancel" name="cancel" type="button" value="Cancel" onclick="showUpdate(false);">
+                        <input id="umodify" name="modify" class='notparam' type="button" value="Modify" onclick="updateMeasure('update');">
+                        <input id="udelete" name="delete" class='notparam' type="button" value="Delete" onclick="updateMeasure('delete');">
+                        <input id="ucancel" name="cancel" class='notparam' type="button" value="Cancel" onclick="showUpdate(false);">
                     </div>
                 </div>
             </div>

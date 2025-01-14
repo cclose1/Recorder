@@ -3,6 +3,8 @@
 'use strict';
 
 var timer;
+var insFlds = null;
+var updFlds = null;
 
 function showUpdate(yes) {
     setHidden('insertfields', yes);
@@ -90,48 +92,34 @@ function restartSession() {
     
     return true;
 }
-function send(ev) {
-    var parameters = createParameters('save');
-    /*
-     * If there is an event it is a key press and in this case discard the key and
-     * treat it as a click on the Send button;
-     */
-    if (ev !== undefined)
-        ev.preventDefault();
-    if (!checkIntegerField("systolic", 0, 300))
-        return;
-    if (!checkIntegerField("diastolic", 0, 300))
-        return;
-    if (!checkIntegerField("pulse", 20, 300))
-        return;
+function updateMeasure(action) {
+    let flds = action === 'create'? insFlds : updFlds;
+    
+    let pars  = createParameters(
+            action + 'TableRow',
+            {
+                fields:        flds.getFields(),
+                initialParams: [{name: 'table', value: 'Measure'}]});
         
-    parameters = addParameterById(parameters, 'identifier');
-    parameters = addParameterById(parameters, 'timestamp');
-    parameters = addParameterById(parameters, 'side');
-    parameters = addParameterById(parameters, 'session');
-    parameters = addParameterById(parameters, 'systolic');
-    parameters = addParameterById(parameters, 'diastolic');
-    parameters = addParameterById(parameters, 'pulse');
-    parameters = addParameterById(parameters, 'orientation');
-    parameters = addParameterById(parameters, 'comment');
+    function processResponse(response) {
+        if (response.length > 2) {
+            displayAlert("Validation Failure", response);
+        }
+        document.getElementById("time").value = "";
         
-    function processResponse() {
-        document.getElementById("time").value        = "";
-        document.getElementById("timestamp").value   = "";
-        document.getElementById("systolic").value    = "";
-        document.getElementById("diastolic").value   = "";
-        document.getElementById("pulse").value       = "";
-        document.getElementById("orientation").value = "";
-        document.getElementById("comment").value     = "";
-        document.getElementById("try").value         = parseInt(document.getElementById("try").value) + 1;
+        if (action === 'create') {
+            insFlds.clear('Session, Side, Individual');
+            document.getElementById("try").value = parseInt(document.getElementById("try").value) + 1;
+        } else
+            showUpdate(false);
         
         requestHistory();
     }
-    ajaxLoggedInCall("Record", processResponse, parameters);
+    ajaxLoggedInCall("Record", processResponse, pars);
     document.getElementById("systolic").focus();
     return true;
 }
-function modify(deleteRow) {
+function updateDeletexx(deleteRow) {
     var parameters = createParameters(deleteRow? 'delete' : 'modify');
     
     if (!checkIntegerField("usystolic", 0, 300))
@@ -143,7 +131,6 @@ function modify(deleteRow) {
 
     parameters = addParameterById(parameters, 'ukindividual');
     parameters = addParameterById(parameters, 'uktimestamp');
-    parameters = addParameterById(parameters, 'ukside');
     
     if (!deleteRow) {
         parameters = addParameterById(parameters, 'uindividual');
@@ -159,7 +146,6 @@ function modify(deleteRow) {
     function processResponse() {
         document.getElementById("ukindividual").value = "";
         document.getElementById("uktimestamp").value  = ""; 
-        document.getElementById("ukside").value       = "Left";
         document.getElementById("uindividual").value  = "";
         document.getElementById("utimestamp").value   = "";
         document.getElementById("uside").value        = "Left";
@@ -178,38 +164,14 @@ function bpHistoryRowClick(row) {
     var rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
-
+        updFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
+        
         switch (rdr.columnName()) {
             case 'Individual':
-                document.getElementById('uindividual').value  = value;
-                document.getElementById('ukindividual').value = value;
-                break;
-            case 'Session':
-                document.getElementById('usession').value = value;
+                updFlds.setValue('Key~Individual', rdr.columnValue());
                 break;
             case 'Timestamp':
-                document.getElementById('utimestamp').value  = value;
-                document.getElementById('uktimestamp').value = value;
-                break;
-            case 'Side':
-                document.getElementById('uside').value  = value;
-                document.getElementById('ukside').value = value;
-                break;
-            case 'Systolic':
-                document.getElementById('usystolic').value = value;
-                break;
-            case 'Diastolic':
-                document.getElementById('udiastolic').value = value;
-                break;
-            case 'Pulse':
-                document.getElementById('upulse').value = value;
-                break;
-            case 'Orientation':
-                document.getElementById('uorientation').value = value;
-                break;
-            case 'Comment':
-                document.getElementById('ucomment').value = value;
+                updFlds.setValue('Key~Timestamp', rdr.columnValue());
                 break;
         }
     }
@@ -231,7 +193,9 @@ function updateOrientationList(name, dbField) {
 function initialize(loggedIn) {  
     if (!loggedIn) return;
 
-    timer = new Timer(document.getElementById("timer"));
+    insFlds = new ScreenFields('insertfields');
+    updFlds = new ScreenFields('updatefields');
+    timer   = new Timer(document.getElementById("timer"));
     getElement('maxsession').value = 25;
     timer.maxGap = 60 * 25;
     updateOrientationList('orientation',  'Orientation');
