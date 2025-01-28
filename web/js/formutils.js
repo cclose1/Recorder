@@ -388,6 +388,16 @@ function getElementParent(element, match, use) {
 function getParameters(id) {
     return getElements('#' + id + ' :is(select:not(.notparam), checkbox:not(.notparam), input:not(.notparam), textarea');
 }
+
+function screenFieldsOptions(pOptions) {
+    BaseOptions.call(this, false);
+
+    setObjectName(this, 'screenFields');
+    this.addSpec({name: 'mustExist', type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'setKey',    type: 'boolean', default: false, mandatory: false});
+    this.clear();
+    this.load(pOptions, false);
+}
 class ScreenFields {
     #fields;
     #id;
@@ -2567,6 +2577,16 @@ function rowReader(row, throwError) {
         if (this.selectColumn(name))
             return this.columnValue();
     };
+    this.loadScreenFields = function (screen, options) {
+        options = new screenFieldsOptions(options);
+        this.reset();
+        
+        while (this.nextColumn()) {
+            screen.setValue(this.columnName(), this.columnValue(), options.mustExist);    
+            
+            if (options.setKey) screen.setValue('Key!' + this.columnName(), this.columnValue(), false);
+        }
+    };
 }
 /*
  * Returns a width large enough to fit noOfChars.
@@ -3479,16 +3499,7 @@ function getPairedParameter(pairs, name, value) {
     switch (flds.length) {
         case 1:
             return false;
-        case 2:
-            /*
-             * If the pair starts with Key then this a database record key field of the original record providing
-             * the data, so return false.
-             * 
-             * This is an interim solution as it does not allow a key field to be paired. Consider using
-             * a different character, e.g. ! to denote an original key.
-             */
-            if (flds[0] === 'Key') return false;
-            
+        case 2:            
             let pair = pairs.get(flds[0]);
 
             if (pair === undefined) {

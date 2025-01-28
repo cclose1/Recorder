@@ -32,12 +32,89 @@
                         <label for="menu1" class="left largelab">Enter Readings</label>
                     </div>
                     <div>
-                        <input type="radio" id="menu2" name="menu" value="rates" onclick="menuClick(this.value)"/>
-                        <label for="menu2" class="left largelab">Manage Tariffs</label>
+                        <input type="radio" id="menu2" name="menu" value="derive" onclick="menuClick(this.value)" />
+                        <label for="menu2" class="left largelab">Derive Reading</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="menu3" name="menu" value="rates" onclick="menuClick(this.value)"/>
+                        <label for="menu3" class="left largelab">Manage Tariffs</label>
                     </div>
                 </div>
             </fieldset>
             <div class="innerfields">
+                <div id="derive" class='floatleft' hidden>
+                    <fieldset id="derivefields" class='centreminwidth form'>
+                        <legend>Derive Reading</legend>
+                        <fieldset id="derivestart">
+                            <legend>Start From</legend>
+                            <div>
+                                <label for="drvsdate">Date</label>
+                                <input type="text" name="Timestamp~Date" id="drvsdate" class='date' maxlength="11" onchange="checkDate()">
+                                <label for="drvstime" class="nogap">Time</label>
+                                <input type="text" name="Timestamp~Time" size="8" id="drvstime" class='time' maxlength="8" onchange="checkTime()">
+                            </div>
+                            <div>
+                                <label for="drvsreading">Reading</label>
+                                <input type= "text" name="Reading" id="drvsreading" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                            </div>
+                            <div>
+                                <label for="drvstype">Type</label>
+                                <select id="drvstype" name='Type' class='optlist' onclick="requestDeriveReadings(this.value)">
+                                    <option>Electric</option>
+                                    <option>Gas</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="drvssave"></label>
+                                <input id="drvssave" class="notparam" name="save"   type="button" value="Derive" onclick="actionDerive();">
+                             </div>
+                        </fieldset>                        
+                        <fieldset id="derivereading">
+                            <legend>Derived</legend>
+                            <fieldset>
+                                <legend>Prior Reading</legend>
+                                <div>
+                                    <label for="drvrpdate">Date</label>
+                                    <input readonly type="text" name="PriorTimestamp~Date" id="drvrpdate" class='date' maxlength="11" tabindex="-1">
+                                    <label for="drvrptime" class="nogap">Time</label>
+                                    <input readonly type="text" name="PriorTimestamp~Time" size="8" id="drvrptime" class='time' maxlength="8" tabindex="-1">
+                                </div>
+                                <div>
+                                    <label for="drvrpreading">Reading</label>
+                                    <input readonly type= "text" name="PriorReading" id="drvrpreading" size="8" oninput="setDateTime();">
+                                </div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>New Reading</legend>
+                                <div>
+                                    <label for="drvrdate">Date</label>
+                                    <input readonly type="text" name="Timestamp~Date" id="drvrdate" class='date' maxlength="11" tabindex="-1">
+                                    <label for="drvrtime" class="nogap">Time</label>
+                                    <input readonly type="text" name="Timestamp~Time" size="8" id="drvrtime" class='time' maxlength="8" tabindex="-1">
+                                </div>
+                                <div>
+                                    <label for="drvrreading">Reading</label>"
+                                    <input readonly type= "text" name="Reading" id="drvrreading" size="8">
+                                </div>
+                                <div>
+                                    <label for="drvrtype">Type</label>                    
+                                    <input readonly type= "text" name="Type" id="drvrtype" size="8" oninput="setDateTime();">
+                                </div>
+                                <div>
+                                    <label for="drvrcomment">Comment</label>
+                                    <textarea id='drvrcomment' Name="Comment" rows='2'></textarea>
+                                </div>
+                            </fieldset>
+                        </fieldset>
+                    </fieldset>
+                    <table id="drvhistory">
+                        <caption>Recent Readings</caption>
+                        <thead>
+                            <tr><th></th></tr>
+                        </thead>
+                        <tr><th></th></tr>
+                    </table>
+                </div>
                 <div id="meter" class='floatleft'>
                     <fieldset id="detailfields" class='centreminwidth form'>
                         <legend>Meter Readings</legend>

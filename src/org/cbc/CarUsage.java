@@ -376,7 +376,7 @@ public class CarUsage extends ApplicationServer {
         }
         executeUpdate(ctx, sql);
         
-        if (action.equalsIgnoreCase("updateTableRow") && ctx.getTimestamp("Start") != ctx.getTimestamp("Key~Start")) {
+        if (action.equalsIgnoreCase("updateTableRow") && ctx.getTimestamp("Start") != ctx.getTimestamp("Key!Start")) {
             /*
              * The start time of the session has changed, so update session log to reflect this.
              */
@@ -384,7 +384,7 @@ public class CarUsage extends ApplicationServer {
             
             sql.addField("Session", ctx.getTimestamp("Start"));
             sql.addAnd("CarReg",  "=", ctx.getParameter("CarReg"));
-            sql.addAnd("Session", "=", ctx.getTimestamp("Key~Start"));
+            sql.addAnd("Session", "=", ctx.getTimestamp("Key!Start"));
             
             executeUpdate(ctx, sql);
             /*
@@ -393,7 +393,7 @@ public class CarUsage extends ApplicationServer {
             sql.clear();
             sql.addField("Timestamp", ctx.getTimestamp("Start"));
             sql.addAnd("CarReg",    "=", ctx.getParameter("CarReg"));
-            sql.addAnd("Timestamp", "=", ctx.getTimestamp("Key~Start"));
+            sql.addAnd("Timestamp", "=", ctx.getTimestamp("Key!Start"));
             
             executeUpdate(ctx, sql);
         }
@@ -420,7 +420,7 @@ public class CarUsage extends ApplicationServer {
     private void validateChangeSession(Context ctx,  String action) throws ParseException, SQLException {
         Date             start   = ctx.getTimestamp("Start");
         Date             end     = ctx.getTimestamp("End");
-        Date             keyTime = ctx.getTimestamp("Key~Start");
+        Date             keyTime = ctx.getTimestamp("Key!Start");
         int              mileage = ctx.getInt("Mileage", -1);
         EnclosingRecords er      = new EnclosingRecords(ctx, "ChargeSession");
         ResultSet        upper;

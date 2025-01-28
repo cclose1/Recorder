@@ -122,18 +122,21 @@ public abstract class ApplicationServer extends HttpServlet {
     /*
      * Moved to here as it is called by RecordEnergy and CarUsage.
      */
-    protected String getMeter(Context ctx, Date timestamp, String type) throws SQLException, ParseException {
-        SQLSelectBuilder sel = ctx.getSelectBuilder("Meter");
-        String           ts  = ctx.getDbTimestamp(timestamp);
+    protected String getMeter(DatabaseSession session, Date timestamp, String type) throws SQLException, ParseException {
+        SQLSelectBuilder sel = new SQLSelectBuilder("Meter", session.getProtocol());
+        String           ts  = session.getDateTimeString(timestamp);
         ResultSet        rs;
        
         sel.addField("Identifier");
         sel.addAnd("Type", "=", type);
         sel.addAnd("Installed", "<=", ts);
         sel.setWhere("AND ('" + ts + "' <= Removed OR Removed IS NULL)");
-        rs = executeQuery(ctx, sel);
+        rs = session.executeQuery(sel.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
         
         return rs.next()? rs.getString("Identifier") : "";
+    }
+    protected String getMeter(Context ctx, Date timestamp, String type) throws SQLException, ParseException {
+        return getMeter(ctx.appDb, timestamp, type);
     }
     protected Reminder reminder = null;
 
@@ -223,8 +226,8 @@ public abstract class ApplicationServer extends HttpServlet {
             if (col.isPrimeKeyColumn() && keyRequired) {
                 String keyParam = col.getName();
 
-                if (ctx.existsParameter("Key~" + col.getName())) {
-                    keyParam = "Key~" + col.getName();
+                if (ctx.existsParameter("Key!" + col.getName())) {
+                    keyParam = "Key!" + col.getName();
                 } else if (!ctx.existsParameter(keyParam)) {
                     throw new ErrorExit("Key column " + keyParam + " is not a parameter", Severity.ApplicationError);
                 }
@@ -600,7 +603,7 @@ public abstract class ApplicationServer extends HttpServlet {
         public int getInt(String name, int nullDefault) {
             String value = getParameter(name);
 
-            if (value == null) {
+            if (value.length() == 0) {
                 return nullDefault;
             }
 

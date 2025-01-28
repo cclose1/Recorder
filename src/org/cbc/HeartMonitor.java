@@ -29,8 +29,9 @@ import org.cbc.utils.system.DateFormatter;
  */
 @WebServlet(name = "NewServletz", urlPatterns = {"/NewServletz"})
 public class HeartMonitor extends ApplicationServer {
+    @Override
     public String getVersion() {
-        return "V1.4 Released 30-Nov-20";    
+        return "V1.5 Released 14-Jan-25";    
     }
     private String getOrientation(Context ctx, String field) throws SQLException {
         SQLSelectBuilder sql = ctx.getSelectBuilder("MeasureOrientation");

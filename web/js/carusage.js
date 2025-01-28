@@ -568,7 +568,7 @@ function send(action) {
             displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: snFlds.get('EndTime')});
             return;
         }
-        if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key~Start', getElement('keytimestamp').value);
+        if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key!Start', getElement('keytimestamp').value);
         
         let chrgdur = trim(snFlds.get('ChargeDuration').value);
         
@@ -609,11 +609,9 @@ function btChargeSessionsRowClick(row) {
     
     let rdr = new rowReader(row);
     
-    while (rdr.nextColumn()) {
-        snFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
-        
-        if (rdr.columnName() === 'Closed') sesClosed = rdr.columnValue() === 'Y';
-    }
+    rdr.loadScreenFields(snFlds, {mustExist:false});
+    
+    sesClosed = snFlds.getValue('close');
     setSessionLog(false);
     setLogFilter();
     getElement("setstartchange").checked = false;
@@ -628,9 +626,7 @@ function btSessionLogRowClick(row) {
     
     let rdr  = new rowReader(row);
     
-    while (rdr.nextColumn()) {
-        flds.setValue(rdr.columnName(), rdr.columnValue(), false);        
-    }
+    rdr.loadScreenFields(flds, {mustExist:false});
     setHidden('updatelog', false);
 }
 function btChargersRowClick(row) {
@@ -639,14 +635,12 @@ function btChargersRowClick(row) {
     let rdr = new rowReader(row);
     
     while (rdr.nextColumn()) {
-        let value = rdr.columnValue();
-
         switch (rdr.columnName()) {
             case 'Name':
-                document.getElementById('chargesource').value  = value;
+                document.getElementById('chargesource').value  = rdr.columnValue();
                 break;
             case 'Unit':
-                document.getElementById('chargeunit').value  = value;
+                document.getElementById('chargeunit').value  = rdr.columnValue();
                 break;
         }
     }

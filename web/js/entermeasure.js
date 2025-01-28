@@ -119,62 +119,10 @@ function updateMeasure(action) {
     document.getElementById("systolic").focus();
     return true;
 }
-function updateDeletexx(deleteRow) {
-    var parameters = createParameters(deleteRow? 'delete' : 'modify');
-    
-    if (!checkIntegerField("usystolic", 0, 300))
-        return;
-    if (!checkIntegerField("udiastolic", 0, 300))
-        return;
-    if (!checkIntegerField("upulse", 20, 300))
-        return;
-
-    parameters = addParameterById(parameters, 'ukindividual');
-    parameters = addParameterById(parameters, 'uktimestamp');
-    
-    if (!deleteRow) {
-        parameters = addParameterById(parameters, 'uindividual');
-        parameters = addParameterById(parameters, 'utimestamp');
-        parameters = addParameterById(parameters, 'uside');
-        parameters = addParameterById(parameters, 'usession');
-        parameters = addParameterById(parameters, 'usystolic');
-        parameters = addParameterById(parameters, 'udiastolic');
-        parameters = addParameterById(parameters, 'upulse');
-        parameters = addParameterById(parameters, 'uorientation');
-        parameters = addParameterById(parameters, 'ucomment');
-    }
-    function processResponse() {
-        document.getElementById("ukindividual").value = "";
-        document.getElementById("uktimestamp").value  = ""; 
-        document.getElementById("uindividual").value  = "";
-        document.getElementById("utimestamp").value   = "";
-        document.getElementById("uside").value        = "Left";
-        document.getElementById("usystolic").value    = "";
-        document.getElementById("udiastolic").value   = "";
-        document.getElementById("upulse").value       = "";
-        document.getElementById("ucomment").value     = "";
-        requestHistory();
-        showUpdate(false);
-    }
-    ajaxLoggedInCall("Record", processResponse, parameters);
-    document.getElementById("systolic").focus();
-    return true;
-}
 function bpHistoryRowClick(row) {
     var rdr = new rowReader(row);
     
-    while (rdr.nextColumn()) {
-        updFlds.setValue(rdr.columnName(), rdr.columnValue(), false);      
-        
-        switch (rdr.columnName()) {
-            case 'Individual':
-                updFlds.setValue('Key~Individual', rdr.columnValue());
-                break;
-            case 'Timestamp':
-                updFlds.setValue('Key~Timestamp', rdr.columnValue());
-                break;
-        }
-    }
+    rdr.loadScreenFields(updFlds, {mustExist:false, setKey:true});
     showUpdate(true);
 }
 function requestHistory(async) { 
@@ -188,7 +136,13 @@ function requestHistory(async) {
     ajaxLoggedInCall("Record", processResponse, parameters, async);
 }
 function updateOrientationList(name, dbField) {
-    getList('Record', {name: name, field: dbField, table: 'MeasureOrientation', firstValue: ' ', async:false, allowBlank: true}); 
+    getList('Record', {
+        name:       name, 
+        field:      dbField, 
+        table:      'MeasureOrientation', 
+        firstValue: ' ', 
+        async:      false,
+        allowBlank: true}); 
 }
 function initialize(loggedIn) {  
     if (!loggedIn) return;
@@ -200,7 +154,13 @@ function initialize(loggedIn) {
     timer.maxGap = 60 * 25;
     updateOrientationList('orientation',  'Orientation');
     updateOrientationList('uorientation', 'Orientation');
-    getList('Record', {name: "commentList", table: 'Measure', field: 'Comment', firstValue: ' ', async:false, allowBlank: true});
+    getList('Record', {
+        name:       'commentList', 
+        table:      'Measure', 
+        field:      'Comment', 
+        firstValue: ' ', 
+        async:      false, 
+        allowBlank: true});
     requestHistory(false);
     showUpdate(false);
     

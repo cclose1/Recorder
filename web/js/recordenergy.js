@@ -121,6 +121,26 @@ function actionTariff(action, fields) {
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
+function actionDerive() {
+    let flds = new ScreenFields('derivestart');
+    let pars = createParameters('deriveReading', {fields: flds.getFields()}); 
+    
+    function processResponse(response) {
+        var json = stringToJSON(response);
+        
+        flds = new ScreenFields('derivereading');
+        flds.setValue('PriorTimestamp', json.getMember('PriorTimestamp').value);
+        flds.setValue('PriorReading',   json.getMember('PriorReading').value);
+        flds.setValue('Timestamp',      json.getMember('Timestamp').value);
+        flds.setValue('Reading',        json.getMember('Reading').value);
+        flds.setValue('Type',           json.getMember('Type').value);
+    }
+    let dt = validateDateTime(flds.get('Timestamp~Date'), flds.get('Timestamp~Time'), {required: true});
+    
+    if (!dt.valid) return;
+    
+    ajaxLoggedInCall('Energy', processResponse, pars);
+}
 function send(action) {
     action = defaultNull(action, event.target.value);
 
@@ -184,8 +204,8 @@ function loadFieldsDateTime(fields, dateField, timeField, timestamp) {
  * table. Hence source will have the same value as src.
  */
 function readingsRowClick(row, source) {
-    var rdr = new rowReader(row);
-    let src = row.parentElement.parentElement.getAttribute('name');
+    var rdr  = new rowReader(row);
+    let src  = row.parentElement.parentElement.getAttribute('name');
     let flds = getParameters('deletefields');
 
     if (src !== 'Meter') {
@@ -227,6 +247,9 @@ function readingsRowClick(row, source) {
 function menuClick(option) {
     setHidden('meter', option !== 'meter');
     setHidden('rates', option !== 'rates');
+    setHidden('derive', option !== 'derive');
+    
+    if (option === 'derive') requestDeriveReadings();
 }
 function tariffsRowClick(row) {
     var rdr  = new rowReader(row);
@@ -238,7 +261,7 @@ function tariffsRowClick(row) {
     setHidden('modifytariff', false);
 }
 function requestReadings() {
-    let readings = getElement('readings').value;
+    let readings   = getElement('readings').value;
     let parameters = createParameters('readingshistory');
 
     function processResponse(response) {
@@ -256,6 +279,21 @@ function requestReadings() {
     parameters = addParameter(parameters, 'readings', readings);
 
     parameters = readingsFilter.addFilterParameter(parameters);
+
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function requestDeriveReadings() {
+    let parameters = createParameters('readingshistory');
+    let filter = '';
+    
+    filter = addDBFilterField(filter, getElement('drvstype'), 'Type',      'quoted');
+    filter = addDBFilterField(filter, '',                     'Estimated', 'quoted');
+    
+    function processResponse(response) {
+        loadJSONArray(response, "drvhistory", {maxSize: 19, setTableName: true});
+    }
+    parameters = addParameter(parameters, 'readings', 'Meter');
+    parameters = addParameter(parameters, 'filter', filter);
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
