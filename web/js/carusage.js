@@ -611,7 +611,7 @@ function btChargeSessionsRowClick(row) {
     
     rdr.loadScreenFields(snFlds, {mustExist:false});
     
-    sesClosed = snFlds.getValue('close');
+    sesClosed = rdr.getColumnValue('Closed') === 'Y';
     setSessionLog(false);
     setLogFilter();
     getElement("setstartchange").checked = false;

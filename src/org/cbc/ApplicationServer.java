@@ -105,7 +105,31 @@ public abstract class ApplicationServer extends HttpServlet {
             return -1;
         }
     }
-
+    public final class LocalErrorExit extends ErrorExit {
+        private String location;
+        private String reason;
+        
+        public void setReason(String reason) {
+            this.reason = reason;
+            super.setMessage(location + ':' + reason);
+        }        
+        public LocalErrorExit(String location, String reason) {
+            super("");
+            this.location = location;
+            this.reason   = reason;
+            setReason(reason);
+        }
+        public LocalErrorExit(String reason) {
+            super(reason);
+        }
+        public String getReason() {
+            return reason;
+        }
+        public void throwMessage(String reason) {
+            setReason(reason);
+            throw this;
+        }
+    }
     public void errorExit(String message) {
         throw new ErrorExit(message);
     }
@@ -475,9 +499,11 @@ public abstract class ApplicationServer extends HttpServlet {
                 sql.addAnd(field, operator, value);
             }
         }
-
         public String getTimestamp(Date date, String format) {
             return date == null ? null : (new SimpleDateFormat(format)).format(date);
+        }
+        public String getTimestamp(Date date) {
+            return getTimestamp(date, "dd-MMM-yyy HH:MM");
         }
 
         public String getDbTimestamp(Date date) {
@@ -627,28 +653,6 @@ public abstract class ApplicationServer extends HttpServlet {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
             }
         }
-        /*
-         * Time is of the hh[:mm:[ss]].
-         */
-        public int toSeconds(String time) {            
-            String fields[] = time.split(":");
-            int    seconds  = 0;
-            int    mult     = 60 * 60;
-            
-            for (String field : fields) {
-                int d = Integer.parseInt(field);
-                
-                seconds += mult * d;
-                mult     = mult / 60;
-            }
-            return seconds;
-        }
-        public void incrementDate(Date date, int seconds) {
-            date.setTime(date.getTime() + 1000 * seconds);
-        }
-        public void incrementDate(Date date, String time) {
-            incrementDate(date, toSeconds(time));
-        }
         public Date toDate(String date, String time) throws ParseException {
             return DateFormatter.parseDate(date + ' ' + time);
         }
@@ -667,7 +671,6 @@ public abstract class ApplicationServer extends HttpServlet {
 
             return dt.length() == 0 && tm.length() == 0 ? null : DateFormatter.parseDate(dt + ' ' + tm);
         }
-
         public Date getTimestamp(String date) throws ParseException {
             String ts = getParameter(date);
 
@@ -1781,4 +1784,142 @@ public abstract class ApplicationServer extends HttpServlet {
     public String getServletInfo() {
         return "Short description";
     }// </editor-fold>
+
+    public class Tariff {
+        private Date            start;
+        private Date            end;
+        private String          opStart;
+        private String          opEnd;
+        private String          type;
+        private double          unitRate;
+        private double          opRate;
+        private double          standingCharge;
+        private double          calorificValue;
+        private Date            loadDate;
+        private DatabaseSession session;
+
+        /*
+         * Loads the tariff data, if not already loaded, or if day has changed since the last load.
+         */
+        public final void load(Date day) throws SQLException {
+            ResultSet rs;
+           Date      loadDay = new Date(day.getTime());
+            
+            Utils.zeroTime(loadDay);
+            
+            if (this.loadDate != null && this.loadDate.equals(loadDay)) {
+                return;
+            }
+            if (getStart() == null || day.before(getStart()) || (getEnd() != null && day.after(getEnd()))) {
+                SQLSelectBuilder sql = new SQLSelectBuilder("Tariff", session.getProtocol());
+                sql.addField("*");
+                sql.addAnd("Type", "=", getType());
+                sql.addAndStart(day);
+                rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
+                
+                if (rs.next()) {
+                    start          = rs.getTimestamp("Start");
+                    end            = rs.getTimestamp("End");
+                    opStart        = rs.getString("OffPeakStart");
+                    opEnd          = rs.getString("OffPeakEnd");
+                    unitRate       = rs.getDouble("UnitRate");
+                    opRate         = rs.getDouble("OffPeakRate");
+                    calorificValue = rs.getDouble("CalorificValue");
+                    standingCharge = rs.getDouble("StandingCharge");
+                } else {
+                    start          = null;
+                    end            = null;
+                    opStart        = null;
+                    opEnd          = null;
+                    unitRate       = -1;
+                    opRate         = -1;
+                    standingCharge = -1;
+                }
+            }
+            this.loadDate = loadDay;
+        }
+        public final class OffPeak {
+            Date start;
+            Date end;
+
+            public void setTimestamp(Date timestamp) throws SQLException, ParseException {
+                load(timestamp);
+                
+                if (opStart == null || opEnd == null) {
+                    return;
+                }
+                start = new Date(timestamp.getTime());
+                Utils.setTime(start, opStart);
+                end = new Date(timestamp.getTime());
+                
+                if (Utils.toSeconds(opStart) > Utils.toSeconds(opEnd)) {
+                    Utils.addDays(end, 1);
+                }
+                Utils.setTime(end, opEnd);                
+            }
+            public boolean isOffPeak(Date timestamp) throws SQLException, ParseException {
+                setTimestamp(timestamp);
+                
+                if (start == null) {
+                    return false;
+                }
+                if (timestamp.after(start) && timestamp.before(end)) {
+                    return true;
+                }
+                return timestamp.getTime() == start.getTime();
+ //             return timestamp.equals(start);
+            }
+            /*
+             * Derives the off peak boundaries
+             */
+            public OffPeak(Date timestamp) throws ParseException, SQLException {
+                super();
+                setTimestamp(timestamp);
+            }
+        }
+
+        public Tariff(DatabaseSession session, String type, Date timestamp) throws SQLException {
+            this.session = session;
+            this.type   = type;
+            load(timestamp);
+            
+        }
+        public Tariff(DatabaseSession session, String type) throws SQLException {
+            this(session, type, new Date());
+        }
+        public Date getStart() {
+            return start;
+        }
+        public Date getEnd() {
+            return end;
+        }
+        public void setOpStart(String time) {
+            opStart = time;
+        }
+        public String getOpStart() {
+            return opStart;
+        }
+        public void setOpEnd(String time) {
+            opEnd = time;
+        }
+        public String getOpEnd() {
+            return opEnd;
+        }
+
+        public String getType() {
+            return type;
+        }
+        public double getUnitRate() {
+            return unitRate;
+        }
+        public double getOpRate() {
+            return opRate;
+        }
+        public double getStandingCharge() {
+            return standingCharge;
+        }
+        public double readingToKwh(double reading) {
+            return type.equals("Gas")? 1.02264 * reading * calorificValue / 3.6 :reading;
+        }
+    }
 }

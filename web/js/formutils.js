@@ -559,6 +559,13 @@ class ScreenFields {
             }
         }
         
+    }  
+    
+    loadJSON(json, mustExist) {
+        for (let i = 0; i < json.getMemberCount(); i++) {
+            let value = json.getMember(i);
+            this.setValue(value.name, value.value, mustExist);
+        }
     }
 }
 /*
@@ -576,13 +583,22 @@ class ScreenFields {
 function getElement(object, withValue) {
     let elm = object;
 
-    if (isNull(object))
+    if (isNull(object) || typeof object === 'string' && trim(object) === '') {
+        /*
+         * This is unsafe and the use of the global windows event is deprecated.
+         * 
+         * Log for now and consider making this an error.
+         */        
+        console.log('getElement called with null object');
         elm = event.target;
+    } else if (object instanceof Event)
+        elm = object.target;
     else if (typeof object === 'string') {
-        if (trim(object) === '')
-            elm = event.target;
-        else
-            elm = document.getElementById(object);
+        elm = document.getElementById(object);
+    } else {
+        /*
+         * Object should be an element. Perhaps should check this.
+         */
     }
     let val = elm === null || elm.value === undefined ? "" : trim(elm.value);
 
@@ -1747,6 +1763,7 @@ function JSONArrayOptions(pOptions) {
     this.addSpec({name: 'wrapHeader',    type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'usePrecision',  type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'setTableName',  type: 'boolean', default: false,  mandatory: false});
+    this.addSpec({name: 'setTableTitle', type: 'string',  default: '',     mandatory: false});
 
     this.clear();
     this.load(pOptions);
@@ -2918,6 +2935,10 @@ function loadJSONArray(jsonArray, id, options) {
             table.setAttribute('Name', svrName);
         if (isNull(table.tBodies[0]))
             table.createTBody();
+        if (options.setTableTitle !=='') {
+            let caption = table.createCaption();
+            caption.textContent = options.setTableTitle;
+        }
 
         clearTable(table);
 

@@ -1,3 +1,10 @@
+    .testx {
+list-style-type:;
+padding: 0;
+margin: 0;
+text-align: right;
+width: 20em;
+    }
 /*
 To change this license header, choose License Headers in Project Properties.
 To change this template file, choose Tools | Templates
@@ -96,6 +103,10 @@ textarea {
 .left {
     margin: auto;
     text-align: left
+}
+.right {
+    margin: auto;
+    text-align: right
 }
 .colall {
     width: 100%;

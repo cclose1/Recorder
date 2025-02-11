@@ -81,29 +81,31 @@ public class CarUsage extends ApplicationServer {
         }
     }
     public class OffPeakUsage {
-        private Date    opStart        = null;   // Offpeak start
-        private Date    opEnd          = null;
-        private Date    ssStart        = null;   // Session start
-        private Date    ssEnd          = null;   // session end        
-        private Date    sopStart       = null;   // Session start that is within offpeak        
-        private Date    sopEnd         = null;   // Session end that is within offpeak
-        private String  provider       = null;
-        private String  meter          = null;
-        private String  action         = null;
-        private Date    mtStart        = null;
-        private double  ssKwh           = -1;
-        private double  opKwhFromCost   = -1;
-        private double  opKwhFromRatio  = -1;
-        private double  opKwhFromApprox = -1;
-        private double  opKwh           = -1;
-        private String  opKwhDerivation = "";
-        private double  cost            = -1;
-        private double  pkRate          = -1;
-        private double  opRate          = -1;
-        private double  credit          = -1;
-        private boolean supportsCredit  = false;
-        private Context ctx;
-        private boolean closed          = false;
+  //      private Date    opStart        = null;   // Offpeak start
+  //      private Date    opEnd          = null;
+        private Date           ssStart        = null;   // Session start
+        private Date           ssEnd          = null;   // session end        
+        private Date           sopStart       = null;   // Session start that is within offpeak        
+        private Date           sopEnd         = null;   // Session end that is within offpeak
+        private String         provider       = null;
+        private String         meter          = null;
+        private String         action         = null;
+        private Date           mtStart        = null;
+        private double         ssKwh           = -1;
+        private double         opKwhFromCost   = -1;
+        private double         opKwhFromRatio  = -1;
+        private double         opKwhFromApprox = -1;
+        private Tariff         tf;
+        private Tariff.OffPeak op;
+        private double         opKwh           = -1;
+        private String         opKwhDerivation = "";
+        private double         cost            = -1;
+//        private double         pkRate          = -1;
+  //      private double         opRate          = -1;
+        private double         credit          = -1;
+        private boolean        supportsCredit  = false;
+        private Context        ctx;
+        private boolean        closed          = false;
       
         private void setOpKwh(double kwh, String derivation) {
             opKwh           = Utils.round(kwh, 2);
@@ -113,7 +115,7 @@ public class CarUsage extends ApplicationServer {
          * Sets the appropriate variable for the different options for calculating the offpeak kwh.
          */
         private void setOpKwhOptions() throws SQLException, ParseException {
-            if (cost > 0 && pkRate > 0) {
+            if (cost > 0 && tf.getUnitRate() > 0) {
                 /*
                  * We can break down the session kwh into the part that takes in the off peak and the
                  * part that takes place in the peak. The following equations apply
@@ -123,7 +125,7 @@ public class CarUsage extends ApplicationServer {
                  *
                  * Solving them for opKwh gives the following.
                  */
-                opKwhFromCost = Utils.round((100 * cost  - pkRate * ssKwh) / (opRate - pkRate), 2);
+                opKwhFromCost = Utils.round((100 * cost  - tf.getUnitRate() * ssKwh) / (tf.getOpRate() - tf.getUnitRate()), 2);
                 
                 if (!action.equalsIgnoreCase("openTableRow")) {
                     if (opKwhFromCost < 0)     errorExit("Cost " + cost + " produces a negative off peak Kwh value");
@@ -145,8 +147,8 @@ public class CarUsage extends ApplicationServer {
              *
              * Note: In this case sopStart will be opStart.
              */
-            if (ssStart.before(opStart)) {
-                kwh -= cp.getKwh(ssStart, opStart);
+            if (ssStart.before(op.start)) {
+                kwh -= cp.getKwh(ssStart, op.start);
             }
             opKwhFromApprox = cp.getKwh(sopStart, sopEnd);
             /*
@@ -159,10 +161,10 @@ public class CarUsage extends ApplicationServer {
             opKwhFromApprox = kwh;
         }
         public Date getOffPeakStart() {
-            return opStart;
+            return op.start;
         }
         public Date getOffPeakEnd() {
-            return opEnd;
+            return op.end;
         }
         public Date getSessionStart() {
             return ssStart;
@@ -199,8 +201,8 @@ public class CarUsage extends ApplicationServer {
                 sql.addField("OpKwhFromCost",   opKwhFromCost);
                 sql.addField("OpKwhFromRatio",  opKwhFromRatio);
                 sql.addField("OpKwhFromApprox", opKwhFromApprox);
-                sql.addField("PkRate",          pkRate);
-                sql.addField("OpRate",          opRate);
+                sql.addField("PkRate",          tf.getUnitRate());
+                sql.addField("OpRate",          tf.getOpRate());
                 sql.addField("Cost",            cost);
                 
                 if (mtStart != null) sql.addField("MeterStart",   mtStart);
@@ -238,9 +240,9 @@ public class CarUsage extends ApplicationServer {
         public OffPeakUsage(Context ctx) throws SQLException, ParseException {            
             SQLSelectBuilder sql     = ctx.getSelectBuilder("ChargerLocation"); 
             EnclosingRecords er      = new EnclosingRecords(ctx, "MeterReading");
-            String           start[] = ctx.getParameter("Start").split(" ");
-            String           opstime;
-            String           opetime;
+//            String           start[] = ctx.getParameter("Start").split(" ");
+//            String           opstime;
+//            String           opetime;
             String           chDuration;
             ResultSet        rs;
             
@@ -272,9 +274,7 @@ public class CarUsage extends ApplicationServer {
                 credit         = rs.getDouble("Credit");
                 supportsCredit = !rs.wasNull();
                 return;
-            }            
-            sql = ctx.getSelectBuilder("Tariff");
-            
+            }                        
             chDuration = ctx.getParameter("ChargeDuration");
             ssKwh      = ctx.getDouble("Charge", -1);            
             cost       = ctx.getDouble("Cost", -1);
@@ -283,67 +283,51 @@ public class CarUsage extends ApplicationServer {
                 ssEnd = ctx.getTimestamp("End");
             else {
                 ssEnd = new Date(ssStart.getTime());
-                ctx.incrementDate(ssEnd, chDuration);
+                Utils.addSeconds(ssEnd, Utils.toSeconds(chDuration));
             }
-            sql.addField("*");
-            sql.addAndStart(ssStart);
-            sql.addAnd("Type", "=", "Electric");
-            sql.addAnd("Code", "NOT LIKE", "%Test%"); // Not a good way of doing this.
-            rs = executeQuery(ctx, sql);
-           
-            if (!rs.next()) errorExit("Tariff not found for " + start[0] + ' ' + start[1]);
+            tf = new Tariff(ctx.getAppDb(), "Electric", ssStart);
+            op = tf.new OffPeak(ssEnd);
             
-            pkRate = rs.getDouble("UnitRate");
-            opRate = rs.getDouble("OffPeakRate");
+            if (tf.getStart() == null) errorExit("Tariff not found for " + ctx.getParameter("Start"));
             
-            if (opRate <= 0) return;  // Tariff does not have off peak
-         
-            opstime = rs.getString("OffPeakStart");
-            opetime = rs.getString("OffPeakEnd");
+            if (tf.getOpRate() <= 0) return;  // Tariff does not have off peak         
+            /*
+             * Check if session overlaps or surrounds the offpeak period for the session start day. This
+             * will be the case if the the session end is after the off peak start and the session start is
+             * before the offpeak end.
+             *
+             * Note: If the session is longer than a day there could be other offpeak areas
+             *       in the session and the following calculations may not be accurate. So exit in this case.
+             */
+            if (DateFormatter.dateDiff(ssStart, ssEnd, DateFormatter.TimeUnits.Days) > 0) return;
             
-            opStart = ctx.toDate(start[0], opstime);
-            opEnd   = ctx.toDate(start[0], opetime);
-            
-        if (opEnd.before(ssStart)) {
-                /*
-                 * Off peak starts in the day following the session.
-                 */
-                ctx.incrementDate(opStart, "24");
-                ctx.incrementDate(opEnd,   "24");
-            }
-            if (ctx.toSeconds(opetime) < ctx.toSeconds(opstime)) 
-                /*
-                 * The end time is in the following day. Add 1 day to session day .
-                 */
-                ctx.incrementDate(opEnd, "24");
-            
-            if (ssEnd.before(opStart) || ssStart.after(opEnd)) return; // Session does not overlap off peak.
-            
-            sopStart = ssStart.before(opStart)? opStart : ssStart;
-            sopEnd   = ssEnd.after(opEnd)? opEnd : ssEnd;
+            if (!(ssEnd.after(op.start) && ssStart.before(op.end))) return;
+
+            sopStart = ssStart.before(op.start)? op.start : ssStart;
+            sopEnd   = ssEnd.after(op.end)? op.end : ssEnd;
             setOpKwhOptions();
             /*
              * Calculate the Kwh for the overlapping part of the session. This is done to get the offpeak usage for
              * charging so the offpeak usage for billing can be estimated. This is not directly recorded by
              * the smart meter. The most part of the offpeak usage will be due to charging the car.
              */
-            if (!ssStart.before(opStart) && !ssEnd.after(opEnd) || ctx.getDouble("EndPerCent", 0) < 96) 
-            {
+            if (!ssStart.before(op.start) && !ssEnd.after(op.end) || ctx.getDouble("EndPerCent", 0) < 96) {
                 /*
                  * This will be the majority of cases, as most of the charging takes place in the off peak.
                  */
                 setOpKwh(opKwhFromRatio, "FromRatio");
-            }
-            else if (opKwhFromCost > -1 )
-                setOpKwh(opKwhFromCost, "FromCost");
-            else     
+            } else if (opKwhFromCost > -1) {
+                setOpKwh(opKwhFromCost, "FromCost");  
+            } else {
                 setOpKwh(opKwhFromApprox, "FromApprox");
-            
+            }
             meter = getMeter(ctx, ssStart, "Electric");
-            er.addField("Meter",     meter,    true);
+            er.addField("Meter",     meter, true);
             er.addField("Timestamp", sopStart, false);
-            
-            if (er.getBefore() != null) mtStart = ctx.getDateTime(er.getBefore(), "Timestamp");
+
+            if (er.getBefore() != null) {
+                mtStart = ctx.getDateTime(er.getBefore(), "Timestamp");
+            }
         }
     }
     private void log(Context ctx, String action) throws SQLException, ParseException {

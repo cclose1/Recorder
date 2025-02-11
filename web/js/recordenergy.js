@@ -129,13 +129,28 @@ function actionDerive() {
         var json = stringToJSON(response);
         
         flds = new ScreenFields('derivereading');
-        flds.setValue('PriorTimestamp', json.getMember('PriorTimestamp').value);
-        flds.setValue('PriorReading',   json.getMember('PriorReading').value);
-        flds.setValue('Timestamp',      json.getMember('Timestamp').value);
-        flds.setValue('Reading',        json.getMember('Reading').value);
-        flds.setValue('Type',           json.getMember('Type').value);
+        flds.loadJSON(json, false);
     }
     let dt = validateDateTime(flds.get('Timestamp~Date'), flds.get('Timestamp~Time'), {required: true});
+    
+    if (!dt.valid) return;
+    
+    ajaxLoggedInCall('Energy', processResponse, pars);
+}
+function actionCalculate() {
+    let flds = new ScreenFields('calculatestart');
+    let pars = createParameters('calculateCosts', {fields: flds.getFields()}); 
+    
+    function processResponse(response) {
+        var json = stringToJSON(response);
+        flds = new ScreenFields('costs');
+        flds.loadJSON(json, false);
+    }
+    let dt = validateDateTime(flds.get('Start~Date'), flds.get('Start~Time'), {required: true});
+    
+    if (!dt.valid) return;
+    
+    dt = validateDateTime(flds.get('End~Date'), flds.get('End~Time'), {required: false});
     
     if (!dt.valid) return;
     
@@ -245,11 +260,24 @@ function readingsRowClick(row, source) {
     setHidden('deletefields', false);
 }
 function menuClick(option) {
-    setHidden('meter', option !== 'meter');
-    setHidden('rates', option !== 'rates');
-    setHidden('derive', option !== 'derive');
+    setHidden('meter',     option !== 'meter');
+    setHidden('derive',    option !== 'derive');
+    setHidden('calculate', option !== 'calculate');
+    setHidden('rates',     option !== 'rates');
     
-    if (option === 'derive') requestDeriveReadings();
+    switch (option) {
+        case 'meter':
+            requestReadings();
+            break;
+        case 'derive' :
+            requestMeterReadings('drvrtype', 'meterhistory');
+            break;
+        case 'calculate':
+            requestReadings('cststype', 'meterhistory');
+        case 'rates':
+            requestTariffs();
+            break;
+    }
 }
 function tariffsRowClick(row) {
     var rdr  = new rowReader(row);
@@ -274,7 +302,7 @@ function requestReadings() {
          * Note: For a variable to be included in the processResponse closure, it must be referenced.
          *       Hence readings is included but parameters is not.
          */
-        loadJSONArray(response, "history", {maxSize: 19, onClick: "readingsRowClick(this, '" + readings + "')", setTableName: true});
+        loadJSONArray(response, "meterhistory", {setTableTitle: 'Meter History', maxSize: 19, onClick: "readingsRowClick(this, '" + readings + "')", setTableName: true});
     }
     parameters = addParameter(parameters, 'readings', readings);
 
@@ -282,27 +310,29 @@ function requestReadings() {
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function requestDeriveReadings() {
+function requestMeterReadings(type, table) {
     let parameters = createParameters('readingshistory');
     let filter = '';
     
-    filter = addDBFilterField(filter, getElement('drvstype'), 'Type',      'quoted');
-    filter = addDBFilterField(filter, '',                     'Estimated', 'quoted');
+    filter = addDBFilterField(filter, getElement(type), 'Type', 'quoted');
     
     function processResponse(response) {
-        loadJSONArray(response, "drvhistory", {maxSize: 19, setTableName: true});
+        loadJSONArray(response, table, {maxSize: 19, setTableName: true, setTableTitle: 'Readings History'});
     }
     parameters = addParameter(parameters, 'readings', 'Meter');
     parameters = addParameter(parameters, 'filter', filter);
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
+function requestDeriveReadings() {
+    requestMeterReadings('drvstype', 'meterhistory');
+}
 function requestTariffs() {
     var parameters = createParameters('tariffs');
 
     function processResponse(response) {
-        loadJSONArray(response, "tariffs", 
-            {maxSize: 19, onClick: "tariffsRowClick(this)",
+        loadJSONArray(response, 'meterhistory', 
+            {setTableTitle: 'Tariffs History', maxSize: 19, onClick: "tariffsRowClick(this)",
              columns: [{name: 'Code', wrapHeader: false, columnTitle: 'Tariff'}]});
     }
     parameters = tariffsFilter.addFilterParameter(parameters);

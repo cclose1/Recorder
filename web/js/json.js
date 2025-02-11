@@ -259,16 +259,27 @@ function JSON(type) {
         
         this.values.push({name: name, value: value});      
     };
+    this.getMemberCount = function() {
+        if (this.type === 'array') reporter.fatalError('JSON getMemberCount is not valid for an array');
+        
+        return this.values.length;
+    };
     this.getMember = function(name, mustExist) {
         if (this.type === 'array') reporter.fatalError('JSON getMember is not valid for an array');
         
-        for (var i = 0; i < this.values.length; i++) {
-            if (this.values[i].name === name) return getValue(this.values[i], true);
-        };
-        if (mustExist === undefined || mustExist) 
-            reporter.fatalError('JSON object does not have a member with name-' + name);
-        else
-            return {type: 'simple', name: name, value: null};
+        if (isNaN(name)) {
+            for (var i = 0; i < this.values.length; i++) {
+                if (this.values[i].name === name) return getValue(this.values[i], true);
+            };
+            if (mustExist === undefined || mustExist) 
+                reporter.fatalError('JSON object does not have a member with name-' + name);
+            else
+                return {type: 'simple', name: name, value: null};
+        } else {
+            if (name < 0 || name >= this.values.length) reporter.fatalError('JSON object index ' + name + ' is invalid');
+            
+            return getValue(this.values[name], true);
+        }            
     };
     this.addElement = function(value) {
         if (this.type === 'object') reporter.fatalError('JSON addElement is not valid for an object');
