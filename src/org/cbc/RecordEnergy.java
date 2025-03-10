@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.TimeZone;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -27,6 +28,42 @@ import org.cbc.utils.system.DateFormatter;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public class RecordEnergy extends ApplicationServer {
+
+    /*
+         * Returns a new date from tumestamp with time set to 00:00:00.
+     */
+    private Date dateFromTimestamp(Date timestamp) {
+        Date date = new Date(timestamp.getTime());
+
+        Utils.zeroTime(date);
+
+        return date;
+    }
+    private int[] unpackDate(Date date) {
+        long time = date.getTime();
+        long rem  = time / 1000;
+        
+        int[] flds = {0, 0, 0, 0, 0};
+        
+        flds[4] = (int)(time - 1000 * rem);
+        time    = rem;
+        rem     = time / 60;
+        flds[3] = (int) (time - 60 * rem);
+        time    = rem;
+        rem     = time / 60;
+        flds[2] = (int) (time - 60 * rem);
+        time    = rem;
+        rem     = time / 24;
+        flds[1] = (int) (time - 24 * rem);
+        flds[0] = (int) rem;
+        return flds;
+    }
+    public final int getElapsedDaysOld(Date from, Date to) {
+        return (int) DateFormatter.dateDiff(dateFromTimestamp(from), dateFromTimestamp(to), DateFormatter.TimeUnits.Days);
+    }
+    public final int getElapsedDays(Date from, Date to) {
+        return (int)(to.getTime() / 1000 / 60 / 60 / 24 - from.getTime() / 1000 / 60 / 60 / 24);
+    }
     private class Meter {
         private String identifier;
         private String type;
@@ -115,16 +152,16 @@ public class RecordEnergy extends ApplicationServer {
         private float  peakKwh     = 0;
         private double stdCost     = 0;
         private Date   smStart     = null;
+        private Date   smPrev      = null;
         private Date   smEnd       = null;
         private int    usageCount  = 0;
         private long   hours       = 0;
         
         public EnergyCost(DatabaseSession session, Date from, Date to, String type) throws SQLException, ParseException {
-            long             hours       = 0;
-            Tariff           tf          = new Tariff(session, type);
-            Tariff.OffPeak   op          = tf.new OffPeak(new Date());
+            Tariff           tf  = new Tariff(session, type);
+            Tariff.OffPeak   op  = tf.new OffPeak(new Date());
             ResultSet        rs;
-            SQLSelectBuilder sql         = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
+            SQLSelectBuilder sql = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
         
             sql.addField("Timestamp");
             sql.addAnd("Type",       "=", type);
@@ -166,10 +203,13 @@ public class RecordEnergy extends ApplicationServer {
                     peakKwh  += smKwh;
                     peakCost += smKwh * tf.getUnitRate();
                 }
+                if (smPrev == null || getElapsedDays(smPrev, smTime) == 1) stdCost  += tf.getStandingCharge();
+                
+                smPrev = smTime;
                 usageCount++;
             }
-            hours   = DateFormatter.dateDiff(smStart, smEnd, DateFormatter.TimeUnits.Hours);
-            stdCost = tf.getStandingCharge() * DateFormatter.dateDiff(smStart, smEnd, DateFormatter.TimeUnits.Days);
+            hours    = DateFormatter.dateDiff(smStart, smEnd, DateFormatter.TimeUnits.Hours);
+            stdCost  = tf.getStandingCharge() * getElapsedDays(smStart, smEnd);
         }
         public float getMeterChange() {
             return meterChange;
@@ -202,7 +242,8 @@ public class RecordEnergy extends ApplicationServer {
             return hours;
         }
     }
-    private class DeriveMeterReading {                
+    private class DeriveMeterReading {
+        LocalErrorExit   exit   = new LocalErrorExit("CreateMeterReading", "");     
         Date             timestamp;
         String           type;
         double           toReading;
@@ -214,6 +255,22 @@ public class RecordEnergy extends ApplicationServer {
         boolean          complete      = false;
         String           error         = "";
         
+        private void error(String message) {
+            StringBuilder report = new StringBuilder("For ");
+            
+            report.append(DateFormatter.format(timestamp, "dd-MMM-yyy HH:mm"));
+            
+            if (start != null) {
+                report.append(" prior ");
+                report.append(DateFormatter.format(start.getTimestamp(), "dd-MMM-yyy HH:mm"));
+                report.append(" reading ");
+                report.append(start.getReading());
+            }
+            report.append(' ');
+            report.append(message);
+            
+            exit.throwMessage(report.toString());
+        }
         private MeterReading getNearestMeterReading(DatabaseSession session, Date timestamp, String type) throws SQLException, ParseException {
             ResultSet        rs;
             SQLSelectBuilder sql   = new SQLSelectBuilder("MeterReading", session.getProtocol());
@@ -225,7 +282,6 @@ public class RecordEnergy extends ApplicationServer {
             sql.addField("Meter");
             sql.addAnd("Meter",     "=",  meter.getIdentifier());
             sql.addAnd("Timestamp", "<=", timestamp);
-            sql.addAnd("Estimated", "<>", "Y");
             sql.addOrderByField("Timestamp", true);
             sql.setMaxRows(1);
             rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
@@ -235,22 +291,22 @@ public class RecordEnergy extends ApplicationServer {
             return new MeterReading(rs);
         }
         public DeriveMeterReading(DatabaseSession session, Date timestamp, String type, double targetReading) throws SQLException, ParseException {            
-            LocalErrorExit   exit   = new LocalErrorExit("CreateMeterReading", "");
             SQLSelectBuilder sql    = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
-            String           tsText = DateFormatter.format(timestamp, "dd-MMM-yyy HH:MM");
             ResultSet        rs;
-            
             this.timestamp = timestamp;
             this.type      = type;
             this.toReading = targetReading;
             
-            start = getNearestMeterReading(session, timestamp, type);
+            start = getNearestMeterReading(session, timestamp, this.type);
             
             try {
-                if (start == null) exit.throwMessage("For " + tsText + " no prior meter reading");
+                if (start == null) error("No prior meter reading");
                 
                 meter   = new Meter(session, start.meter);
                 reading = start.getReading();
+                
+                if (targetReading > 0 && targetReading < reading) error("Prior reading is after target " + targetReading);
+                
                 sql.addField("*");
                 sql.addAnd("Type",       "=", type);
                 sql.addAnd("Timestamp", ">=", start.getTimestamp());
@@ -264,25 +320,27 @@ public class RecordEnergy extends ApplicationServer {
                     complete = true;
                     
                     if (meter.getRemoved() != null && usageTime.after(meter.getRemoved()))
-                        exit.throwMessage("For " + tsText + " calculated time beyond meter " + meter.getIdentifier());
+                        error("Calculated time " + DateFormatter.format(usageTime, "dd-MMM-yyy HH:MM") + " beyond meter " + meter.getIdentifier());
                 
-                    if (toReading > 0 && reading + increment > toReading) break;
+                    if (toReading >  0 && reading + increment > toReading) break;
                     if (toReading <= 0 && usageTime.after(timestamp)) break;
                 
                     increments++;
                     complete = false;
-                    reading += increment;
-                    lastIncrement = usageTime;
-                }
-            if (!complete) exit.throwMessage("CreateMeterReading for " + tsText + " not possible");
-            
-            long hours = DateFormatter.dateDiff(start.getTimestamp(), lastIncrement, DateFormatter.TimeUnits.Hours);
+                    reading += increment;;
 
-            if (2 * hours - increments > 5)
-                exit.throwMessage(
-                        "For " + tsText + " not possible. "
-                        + " Time gap " + hours
-                        + " hours but only " + increments + " SmartMeterUsageData values available");
+                    if (lastIncrement == null || 
+                        increment > 0         || 
+                        getElapsedDays(lastIncrement, usageTime) == 1) lastIncrement = usageTime;
+                }
+                if (lastIncrement == null) error("No SmartMeterUsageData available");
+                
+                if (!complete) error("Not enough SmartMeterUsageData available");
+            
+                long hours = DateFormatter.dateDiff(start.getTimestamp(), lastIncrement, DateFormatter.TimeUnits.Hours);
+
+                if (2 * hours - increments > 5)
+                    error("Time gap " + hours + " but only " + increments + " SmartMeterUsageData values available");
             
             } catch (LocalErrorExit ex) {
                 error = ex.getReason();
@@ -318,7 +376,8 @@ public class RecordEnergy extends ApplicationServer {
             sel.addField("Reading");
             sel.addField("Meter");
             sel.addField("Type");
-            sel.addField("Estimated",  sel.setValue(""));
+            sel.addField("Status",     sel.setValue(""));
+            sel.addField("Source",     sel.setValue(""));
             sel.addField("Comment",    sel.setFieldSource("MR.Comment"), sel.setValue(""));
             sel.setFrom("MeterReading AS MR LEFT JOIN Meter AS MT ON Meter = Identifier");
             sel.setOrderBy("Timestamp DESC, Meter");
@@ -472,6 +531,7 @@ public class RecordEnergy extends ApplicationServer {
         data.add("PeakCost",       ec.getPeakCost()/100,2);
         data.add("PeakKwh",        ec.getPeakKwh(),     2);
         data.add("StandingCharge", ec.getStdCost()/100, 2);
+        data.add("TotalCost",      (ec.getPeakCost() + ec.getOpCost() + ec.getStdCost())/100, 2);
         data.add("ValuesUsed",     ec.getUsageCount());
         data.append(ctx.getReplyBuffer(), "");
     }
@@ -481,7 +541,8 @@ public class RecordEnergy extends ApplicationServer {
         Date             timestamp = ctx.getTimestamp("Date", "Time");
         String           meter     = (new Meter(ctx.getAppDb(), timestamp, type)).getIdentifier();
         double           reading   = ctx.getDouble(type,       -2);
-        String           estimated = ctx.getParameter("Estimated").equalsIgnoreCase("true") ? "Y" : "";
+        String           status    = ctx.getParameter("Status");
+        String           source    = ctx.getParameter("Source");
         ResultSet        upper;
         ResultSet        lower;
         double           minReading = -1;
@@ -517,12 +578,13 @@ public class RecordEnergy extends ApplicationServer {
             int dayOffset = Calendar.daysBetween(lower.getDate("Timestamp"), timestamp);
             
             reading   = minReading + (maxReading - minReading) * dayOffset / days;
-            estimated = "Y";
+            status = "";
         }
         sql.addField("Timestamp", timestamp);
         sql.addField("Meter",     meter);
         sql.addField("Reading",   reading);
-        sql.addField("Estimated", estimated);
+        sql.addField("Status",    status);
+        sql.addField("Source",    source);
         sql.addField("Comment",   ctx.getParameter("Comment"));
         executeUpdate(ctx, sql);
 
@@ -538,7 +600,18 @@ public class RecordEnergy extends ApplicationServer {
         boolean          commit = false;
         String           readings;
         ResultSet        rs;
-
+        /*
+         * The following is necessary as the default appears to be BST. 
+         *
+         * Without this date strings are converted to GMT when creating the Date object, so 20-Aug-24 00:30:00 
+         * becomes 19-Aug-24 23:30:00. Usually this does not matter as on output is converted to BST format and
+         * the result is consistent the front end or the database point of view.
+         *
+         * However, this code takes action on when the day changes, e.g. when 19-Aug-24 23:30:00 changes to
+         * 20-Aug-24 00:30:00. Without the following, day change is only triggered on the date 20-Aug-24 01:00:00.
+         */
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+        
         switch (action) {
             case "Create":
                 if (addReading(ctx, "Gas"))      commit = true;

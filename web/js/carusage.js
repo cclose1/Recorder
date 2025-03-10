@@ -737,7 +737,6 @@ function initialize(loggedIn) {
     logFilter.addFilter('Device',  {name: 'Device',  listTable: 'SessionLog'});
     logFilter.addFilter('Percent', {name: 'Percent'});
     
-    
     setHidden('updatetable', true);
     setSessionLog(false);
     sessionFilter.setValue('CarReg', 'EO70 ECC');
@@ -746,5 +745,4 @@ function initialize(loggedIn) {
     addTableListener('Test2', ts);
     invokeTableListeners('Test1', 'Update');
     invokeTableListeners('Test2', 'Create');
-    logFilter.loadSelectLists();
 }

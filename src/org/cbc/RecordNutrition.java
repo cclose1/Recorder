@@ -188,7 +188,7 @@ public class RecordNutrition extends ApplicationServer {
         String source    = ctx.getParameter("source");
         String quantity  = ctx.getParameter("quantity");
         String abv       = ctx.getParameter("abv");
-        
+
         if (rs.next()) {
             if (ctx.getAppDb().getProtocol().equalsIgnoreCase("sqlserver")) {
                 rs.moveToCurrentRow();

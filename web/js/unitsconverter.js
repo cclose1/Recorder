@@ -32,7 +32,7 @@ function ConvertUnits(createDefaults) {
         for (var i = 0; i < this.units.length; i++) {
             if (this.units[i].name === name) return this.units[i];
         }
-        if (getParameter(mustExist, true)) throw new ErrorObject('ConvertUnits-Unit ' + name + ' is not recognised');
+        if (defaultNull(mustExist, true)) throw new ErrorObject('ConvertUnits-Unit ' + name + ' is not recognised');
         
         return null;
     };
@@ -85,7 +85,7 @@ function ConvertUnits(createDefaults) {
         }
         obj.conversions.push(new UnitConvert(conversion));
     }
-    if (getParameter(createDefaults, true)) {
+    if (defaultNull(createDefaults, true)) {
         this.addUnit({name: 'gm',     description: 'Gram'});
         this.addUnit({name: 'oz',     description: 'Ounce'});
         this.addUnit({name: 'lb',     description: 'Pound'});
@@ -127,6 +127,6 @@ function ConvertUnits(createDefaults) {
             else if (conv.target === source)
                 options.push(conv.source);
         }
-        loadOptionsJSON(options, {name: element, defaultValue: source, keepValue: false});
+        loadSelect(element, options, {defaultValue: source, keepValue: false});
     };
 }

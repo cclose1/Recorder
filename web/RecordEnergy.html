@@ -168,6 +168,10 @@
                                 <input class='right' type="text" name="StandingCharge" id="cstsstdch" size="3" readonly>
                             </div>
                             <div>
+                                <label class='largelab' for='cststot'>Total Cost</label>
+                                <input class='right' type="text" name="TotalCost" id="cststot" size="3" readonly>
+                            </div>
+                            <div>
                                 <label class='largelab' for='cstsvalusd'>Values Used</label>
                                 <input class='right' type="text" name="ValuesUsed" id="cstsvalusd" size="3" readonly>
                             </div>
@@ -205,8 +209,18 @@
                                 Kwh
                             </div>
                             <div>
-                                <label for="estimated">Estimated</label>
-                                <input id="estimated" Name="Estimated" type="checkbox">
+                                <label for="status">Status</label>
+                                <select id="status" Name="Status" class='optlist'>
+                                    <option></option>
+                                    <option>V</option>
+                                    <option>I</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="source">Source</label>
+                                <select id="source" Name="Source" class='optlist'>
+                                    <option></option>
+                                </select>
                             </div>
                             <div>
                                 <label for="comment">Comment</label>
@@ -263,8 +277,12 @@
                                 <label id="labunits" class='nogap notparam'>Kwh</label>
                             </div>
                             <div>
-                                <label for="destimated">Estimated</label>
-                                <input id="destimated" name='Estimated' type="checkbox">
+                                <label for="dstatus">Status</label>
+                                <input id="dstatus" name='Status' type="text" readonly>
+                            </div>
+                            <div>
+                                <label for="dsource">Source</label>
+                                <input id="dsource" name='Source' type="text" readonly>
                             </div>
                             <div>
                                 <label for="copy">Copy</label>

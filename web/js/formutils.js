@@ -101,6 +101,7 @@ function Reporter() {
                 break;
             case 'error':
                 console.error(timedMessage);
+                throw new ErrorObject(message);
                 break;
             case 'store':
                 if (maxStore !== 0) {
@@ -721,9 +722,6 @@ function getElementsByTag(name, exclude) {
         });
     }
     return elms;
-}
-function getParameter(value, defaultValue) {
-    return value === undefined ? defaultValue : value;
 }
 function ErrorObject(name, message) {
     this.name = name;
@@ -1802,63 +1800,40 @@ function createParametersOptions(pOptions) {
     this.clear();
     this.load(pOptions, true);
 }
-function loadOptionsJSONOptions(pOptions) {
-    /*
-     * Force access by getValue. 
-     * 
-     * Doing this makes the code more verbose as rather than opt.name to get option have to use opt.getValue('name').
-     * However, it will cause an exception on an attempt to access to an undefined option.
-     */
-    BaseOptions.call(this, true);
+function loadSelectOptions(pOptions) {
+    BaseOptions.call(this, false);
 
-    setObjectName(this, 'loadOptionsJSONOptions');
-    this.addSpec({name: 'name', type: null, default: ''});
-    this.addSpec({name: 'element', type: 'object', default: null, mandatory: false});
-    this.addSpec({name: 'keepValue', type: 'boolean', default: true});
-    this.addSpec({name: 'defaultValue', type: 'string', default: ''});
-    this.addSpec({name: 'allowBlank', type: 'boolean', default: false});
-    this.addSpec({name: 'table', type: 'string', default: ''});
-    this.addSpec({name: 'field', type: 'string', default: ''});
-    this.addSpec({name: 'filter', type: 'string', default: ''});
-    this.addSpec({name: 'async', type: 'boolean', default: true});
+    setObjectName(this, 'loadSelectOptions');
+    this.addSpec({name: 'keepValue',    type: 'boolean', default: true});
+    this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
+    this.addSpec({name: 'allowBlank',   type: 'boolean', default: false});
 
     this.clear();
     this.load(pOptions, true);
 }
-loadOptionsJSONOptions.prototype = {
-    /*
-     * In retrospect adding the getters is not particularly useful in trying to error access to invalid options.
-     * options.property will return undefined if not property not valid. Without getters the only way to get
-     * property values is via getValue.
-     */
-    get name() {
-        return this.getValue('name');
-    },
-    get element() {
-        return this.getValue('element');
-    },
-    get keepValue() {
-        return this.getValue('keepValue');
-    },
-    get defaultValue() {
-        return this.getValue('defaultValue');
-    },
-    get table() {
-        return this.getValue('table');
-    },
-    get field() {
-        return this.getValue('field');
-    },
-    get filter() {
-        return this.getValue('filter');
-    },
-    get async() {
-        return this.getValue('async');
-    },
-    get allowBlank() {
-        return this.getValue('allowBlank');
-    }};
-loadOptionsJSONOptions.prototype.constructor = loadOptionsJSONOptions;
+/*
+ * The options include those above for loadSelect.
+ * 
+ * Probably better to have a way to include other options without having
+ * to include them indvidually.
+ */
+function getListOptions(pOptions) {
+    BaseOptions.call(this, false);
+
+    setObjectName(this, 'getListOptions');
+    this.addSpec({name: 'name',         type: null,      default: ''});
+    this.addSpec({name: 'element',      type: null,      default: null, mandatory: false});
+    this.addSpec({name: 'keepValue',    type: 'boolean', default: true});
+    this.addSpec({name: 'defaultValue', type: 'string',  default: ''});
+    this.addSpec({name: 'allowBlank',   type: 'boolean', default: false});
+    this.addSpec({name: 'table',        type: 'string',  default: ''});
+    this.addSpec({name: 'field',        type: 'string',  default: ''});
+    this.addSpec({name: 'filter',       type: 'string',  default: ''});
+    this.addSpec({name: 'async',        type: 'boolean', default: true});
+
+    this.clear();
+    this.load(pOptions, true);
+}
 
 function resizeFrame(id) {
     var elm = getElement(id);
@@ -3021,50 +2996,64 @@ function addOption(select, value, ignoreBlank) {
     else
         select.options[select.options.length] = new Option(value, value);
 }
-function loadOptionsJSON(jsonOptions, loadOptions) {
+/*
+ * id          The select element to be loaded. This can be eith the element id string or the element object.
+ * values      The select options. The following are the allowed formats:
+ *               - A string starting with {. This is the JSON string returned by the server for the getList action.
+ *               - A comma seperated list of select option values.
+ *               = An array of strings containing the select option values.
+ *               - A select element from which the option values are copied.
+ * loadOptions The loadSelectOptions as defined above.
+ */
+function loadSelect(id, values, loadOptions) {
     try {
-        var options = new loadOptionsJSONOptions(loadOptions);
+        var options = new loadSelectOptions(loadOptions);
+        var select  = isNull(id) || typeof id === 'string' && trim(id) === ''? null : getElement(id);
+        
+        if (select === null) throw new ErrorObject('loadSelect', 'Id ' + id + ' does not identify an element');
 
-        if (options.element === null && options.name === '')
-            return; // No list element to load values.
-
-        var json = jsonOptions;
-        var select = getElement(options.element === null ? options.name : options.element);
         var initial = options.keepValue ? select.value : options.defaultValue !== null ? options.defaultValue : "";
         /*
          * For the Datalist options setting select.options = 0 has no effe
          */
         select.innerHTML = "";
 
-        if (options.allowBlank)
-            addOption(select, '');
-
-        if (Array.isArray(json)) {
-            for (var i = 0; i < json.length; i++)
-                addOption(select, json[i], true);
-        } else if (typeof json === 'string' && json.charAt(0) !== '{') {
-            json.split(',').forEach(function (option) {
-                addOption(select, option, true);
-            });
-        } else {
-            if (typeof json === 'string')
-                json = (new JSONReader(jsonOptions)).getJSON();
-
-            var jopt = json.getMember('Data', true).value;
-
-            /*
-             * Iterate over rows.                
-             */
-            while (jopt.isNext()) {
-                var jrow = jopt.next().value;
+        if (options.allowBlank) addOption(select, '');
+        
+        if (typeof values === 'string') {
+            if (values.charAt(0) !== '{') {
+                // Values are a comma separated string;
+                
+                values.split(',').forEach(function (option) {
+                    addOption(select, option, true);
+                });
+            } else {
+                values = (new JSONReader(values)).getJSON();
+                
+                var jopt = values.getMember('Data', true).value;
                 /*
-                 * Each row should only contain one column.
+                 * Iterate over rows.                
                  */
-                jrow.setFirst();
-
-                addOption(select, jrow.next().value, true);
+                while (jopt.isNext()) {
+                    var jrow = jopt.next().value;
+                    /*
+                     * Each row should only contain one column.
+                     */
+                    jrow.setFirst();
+                    addOption(select, jrow.next().value, true);
+                }
+            } 
+        } else if (values instanceof Element && values.tagName === 'SELECT') {            
+            for(i=0; i < values.options.length; i++){
+                console.log(values.options[i].value);
+                addOption(select, values.options[i].value, true);
             }
-        }
+        } else if (Array.isArray(values)) {
+            for (var i = 0; i < values.length; i++)
+                addOption(select, values[i], true);
+        } else
+            throw new ErrorObject('loadSelect', 'Values ' + values + ' not a supported source of values');
+        
         select.value = initial;
     } catch (e) {
         reporter.logThrow(e, true);
@@ -3395,7 +3384,6 @@ function ajaxCall(destination, parameters, processResponse, async) {
     else
         params = parameters;
 
-
     if (params === undefined)
         return;
 
@@ -3610,9 +3598,6 @@ function addDBFilterField(filter, element, name, qualifier) {
 function addDBFilterTodayField(filter, name) {
     return addDBFilterField(filter, getDayText(), name);
 }
-function loadListResponse(response, options) {
-    loadOptionsJSON(response, options);
-}
 function getList(server, options, returnResponse) {
     let parameters = createParameters('getList');
     let save;
@@ -3620,7 +3605,7 @@ function getList(server, options, returnResponse) {
     if (options.async === undefined)
         options.async = false;
 
-    options = new loadOptionsJSONOptions(options);
+    options = new getListOptions(options);
     parameters = addParameter(parameters, 'field', options.field === undefined ? options.name : options.field);
 
     if (options.table !== undefined)
@@ -3630,10 +3615,11 @@ function getList(server, options, returnResponse) {
         parameters = addParameter(parameters, 'filter', options.filter);
 
     function processResponse(response) {
-        loadListResponse(response, options);
-
-        if (returnResponse !== undefined && returnResponse)
-            save = response;
+        let elm = options.element === null ? options.name : options.element;
+        
+        if (returnResponse !== undefined && returnResponse) save = response;
+        
+        if (elm !== null && elm !== '') loadSelect(elm, response, options);
     }
     ajaxLoggedInCall(server, processResponse, parameters, options.async);
     return save;

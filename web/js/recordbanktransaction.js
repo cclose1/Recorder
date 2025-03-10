@@ -412,11 +412,12 @@ function initialize(loggedIn) {
         async:        false},
         true);
     txnFilter.addFilter('Currencies', {name: 'Currency', values: response});
-    loadListResponse(response, {
-        name:         "scurrency",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
+    loadSelect(
+            'scurrency',
+            response, {
+                keepValue:    true,
+                async:        false,
+                allowBlank:   true});
     response = getList('BankTransaction', {
         name:         "txntype",
         table:        "BankTransactionType",

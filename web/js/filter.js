@@ -79,12 +79,12 @@ function FilterOptions(pOptions) {
 function FilterFieldOptions(pOptions) {   
     BaseOptions.call(this, false);
     
-    this.addSpec({name: 'name',       type: 'string',  default: undefined, mandatory: true});
+    this.addSpec({name: 'name',       type: null,      default: undefined, mandatory: true});
     this.addSpec({name: 'type',       type: 'string',  default: 'text',    mandatory: false});
     this.addSpec({name: 'id',         type: 'string',  default: null,      mandatory: false});
     this.addSpec({name: 'size',       type: 'number',  default: 15,        mandatory: false});
     this.addSpec({name: 'single',     type: 'boolean', default: true,      mandatory: false});
-    this.addSpec({name: 'values',     type: 'string',  default: null,      mandatory: false});
+    this.addSpec({name: 'values',     type: null,      default: null,      mandatory: false});
     this.addSpec({name: 'listTable',  type: 'string',  default: null,      mandatory: false});
     this.addSpec({name: 'listColumn', type: 'string',  default: null,      mandatory: false});
         
@@ -281,9 +281,8 @@ function Filter(key, element, requestor, options) {
                 this.fatalError(
                     'loadSelectList', 'Field ' + name + ' values not provided and listTable option not provided');
                     
-        if (this.options.server === null)
-            this.fatalError(
-                'loadSelectList', 'Field ' + name + ' values not provided and filter option server not provided');
+            if (this.options.server === null)
+                this.fatalError('loadSelectList', 'Field ' + name + ' values not provided and filter option server not provided');
             
             getList(this.options.server, {
                 table:      table,
@@ -293,18 +292,18 @@ function Filter(key, element, requestor, options) {
                 async:      false,
                 allowBlank: true}, true);
             return;
-        }
-        if (trim(values) === '')
-            this.fatalError(
-                'loadSelectList', 'Field ' + name + ' values parameter is empty');
-        
-        loadListResponse(
+        }        
+        loadSelect(
+                field,
                 values, 
                     {element:    field,
                      keepValue:  true,
                      async:      false,
                      allowBlank: true});
     };
+    /*
+     * This refreshes the filter options lists.
+     */
     this.loadSelectLists = function() {
         var fields = this.fields.children;
         

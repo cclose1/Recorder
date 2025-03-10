@@ -120,11 +120,12 @@ function initialize(loggedIn) {
     
     reporter.setFatalAction('console');
     
-    loadListResponse(types, {
-        name:         "type",
-        keepValue:    true,
-        async:        false,
-        allowBlank:   true});
+    loadSelect(
+            'type', 
+            types, {
+                keepValue:    true,
+                async:        false,
+                allowBlank:   true});
     hstFilter = getFilter('filter1', document.getElementById('filterframe'), requestReminders, {
         allowAutoSelect: true, 
         autoSelect:      true,

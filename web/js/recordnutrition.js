@@ -744,7 +744,7 @@ function rowEventHistoryClick(row) {
 
         if (document.getElementById('item').value !== '') {
             displayAlert('Error', 'Complete or cancel item');
-            return;
+            return;''
         }
         while (rdr.nextColumn()) {
             switch (rdr.columnName()) {

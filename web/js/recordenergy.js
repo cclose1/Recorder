@@ -21,9 +21,10 @@ function resetDelete(cancel) {
     if (!cancel) {
         if (dflds.get('Copy').checked) {
             reset();
-            copyFld(dflds, 'Date', rflds);
-            copyFld(dflds, 'Time', rflds);
-            copyFld(dflds, 'Estimated', rflds);
+            copyFld(dflds, 'Date',    rflds);
+            copyFld(dflds, 'Time',    rflds);
+            copyFld(dflds, 'Status',  rflds);
+            copyFld(dflds, 'Source' , rflds);
             copyFld(dflds, 'Comment', rflds);
 
             switch (dflds.get('Type').value) {
@@ -244,12 +245,13 @@ function readingsRowClick(row, source) {
                 flds.get('Type').value = value;
                 break;
             case 'Reading':
-            case 'StartReading':
                 flds.get('Reading').value = value;
                 break;
-            case 'Estimated':
-            case 'StartEstimated':
-                flds.get('Estimated').checked = value === 'Y';
+            case 'Status':
+                flds.get('Status').value = value;
+                break;
+            case 'Source':
+                flds.get('Source').value = value;
                 break;
             case 'Comment':
                 flds.get('Comment').value = value;
@@ -358,16 +360,13 @@ function initialize(loggedIn) {
     test(100);
     test(1);
     test(20);
+    loadSelect('source', 'Reading,Estimated,Derived', {allowBlank: true});
+    
     getList('Energy', {
-        name: "tariffcode",
-        table: 'TariffName',
-        field: 'Code',
-        async: true});
-    getList('Energy', {
-        name: "tariffcode",
-        table: 'TariffName',
-        field: 'Code',
-        async: false});
+        element: 'tariffcode',
+        table:   'TariffName',
+        field:   'Code',
+        async:   true});
     reporter.logStore();
     readingsFilter = getFilter('readingskey', getElement('readingsfilter'), requestReadings, {
         allowAutoSelect: true,
@@ -382,9 +381,13 @@ function initialize(loggedIn) {
                 name: 'Type',
                 values: 'Gas,Electric,Solar'});
     readingsFilter.addFilter(
-            'Estimated', {
-                name: 'Estimated',
-                values: ',Y,N'});
+            'Status', {
+                name: 'Status',
+                values: ',V,I'});
+    readingsFilter.addFilter(
+            'Source', {
+                name: 'Source',
+                values: getElement('source')});
     requestReadings();
 
     tariffsFilter = getFilter('tariffkey', getElement('tariffsfilter'), requestTariffs, {
