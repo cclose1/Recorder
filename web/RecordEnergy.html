@@ -43,6 +43,10 @@
                         <input type="radio" id="menu4" name="menu" value="rates" onclick="menuClick(this.value)"/>
                         <label for="menu4" class="left largelab">Manage Tariffs</label>
                     </div>
+                    <div>
+                        <input type="radio" id="menu5" name="menu" value="calvals" onclick="menuClick(this.value)"/>
+                        <label for="menu4" class="left largelab">Calorific Value</label>
+                    </div>
                 </div>
             </fieldset>
             <div class="innerfields">
@@ -50,20 +54,34 @@
                     <fieldset id="derivefields" class='centreminwidth form'>
                         <legend>Derive Reading</legend>
                         <fieldset id="derivestart">
-                            <legend>Start From</legend>
+                            <legend>Parameters</legend>
                             <div>
-                                <label for="drvsdate">Date</label>
-                                <input type="text" name="Timestamp~Date" id="drvsdate" class='date' maxlength="11" onchange="checkDate()">
-                                <label for="drvstime" class="nogap">Time</label>
-                                <input type="text" name="Timestamp~Time" size="8" id="drvstime" class='time' maxlength="8" onchange="checkTime()">
+                                <label for="drvfdate">From Date</label>
+                                <input type="text" name="From~Date" id="drvfdate" class='date' maxlength="11" onchange="checkDate()">
+                                <label for="drvftime" class="nogap">Time</label>
+                                <input type="text" name="From~Time" size="8" id="drvftime" class='time' maxlength="8" onchange="checkTime()">
                             </div>
                             <div>
-                                <label for="drvsreading">Reading</label>
-                                <input type= "text" name="Reading" id="drvsreading" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                                <label for="drvtdate">To Date</label>
+                                <input type="text" name="To~Date" id="drvtdate" class='date' maxlength="11" onchange="checkDate()">
+                                <label for="drvttime" class="nogap">Time</label>
+                                <input type="text" name="To~Time" size="8" id="drvttime" class='time' maxlength="8" onchange="checkTime(this, false)">
+                            </div>
+                            <div>
+                                <label for="drvsreading">To Reading</label>
+                                <input type= "number" name="ToReading" id="drvsreading" oninput="setDateTime();" onkeypress="allowedInNumberField();">
+                            </div>
+                            <div>
+                                <label for="drvsusever">Use Verified</label>
+                                <input type= "checkbox" name="UseVerified" id="drvsusever" onclick="requestScreenReadings('derivestart')">
+                            </div>                            
+                            <div>
+                                <label for="drvsoffset">Offset</label>
+                                <input type= "text" name="Offset" id="drvsoffset" size="8" oninput="setDateTime();" onkeypress="allowedInNumberField();" onchange="applyOffset(this)">
                             </div>
                             <div>
                                 <label for="drvstype">Type</label>
-                                <select id="drvstype" name='Type' class='optlist' onclick="requestDeriveReadings(this.value)">
+                                <select id="drvstype" name='Type' class='optlist' onclick="requestScreenReadings('derivestart')">
                                     <option>Electric</option>
                                     <option>Gas</option>
                                 </select>
@@ -87,12 +105,16 @@
                                     <label for="drvrpreading">Reading</label>
                                     <input readonly type= "text" name="PriorReading" id="drvrpreading" size="8" oninput="setDateTime();">
                                 </div>
+                                <div>
+                                    <label for="drvsaddoffset"></label>
+                                    <input id="drvsaddoffset" hidden class="notparam" name="addoffset" type="button" value="Add Offset" onclick="applyOffset(this);">
+                                </div>
                             </fieldset>
-                            <fieldset>
+                            <fieldset id="derivedread">
                                 <legend>New Reading</legend>
                                 <div>
                                     <label for="drvrtype">Meter</label>                    
-                                    <input readonly type= "text" name="Identifier" id="drvrtype" size="8" oninput="setDateTime();">
+                                    <input readonly type= "text" name="Meter" id="drvrtype" size="8" oninput="setDateTime();">
                                 </div>
                                 <div>
                                     <label for="drvrdate">Date</label>
@@ -107,6 +129,10 @@
                                 <div>
                                     <label for="drvrcomment">Comment</label>
                                     <textarea id='drvrcomment' Name="Comment" rows='2'></textarea>
+                                </div>
+                                <div>
+                                    <label for="drvscreate"></label>
+                                    <input id="drvscreate" class="notparam" name="apply" type="button" value="Apply" onclick="actionCreate();">
                                 </div>
                             </fieldset>
                         </fieldset>
@@ -131,7 +157,7 @@
                             </div>
                             <div>
                                 <label for="cststype">Type</label>
-                                <select id="cststype" name='Type' class='optlist' onclick="requestMeterReadings(event, 'meterhistory')">
+                                <select id="cststype" name='Type' class='optlist' onclick="requestScreenReadings('calculatestart')">
                                     <option>Electric</option>
                                     <option>Gas</option>
                                 </select>
@@ -164,8 +190,8 @@
                                 <input class='right' type="text" name="OffPeakCost" id="cstsopkcost" size="3" readonly>
                             </div>
                             <div>
-                                <label class='largelab' for='cstsstdch'>Standing Charge</label>
-                                <input class='right' type="text" name="StandingCharge" id="cstsstdch" size="3" readonly>
+                                <label class='largelab' for='cstsstdcst'>Standing Cost</label>
+                                <input class='right' type="text" name="StandingCost" id="cstsstdcst" size="3" readonly>
                             </div>
                             <div>
                                 <label class='largelab' for='cststot'>Total Cost</label>
@@ -174,6 +200,22 @@
                             <div>
                                 <label class='largelab' for='cstsvalusd'>Values Used</label>
                                 <input class='right' type="text" name="ValuesUsed" id="cstsvalusd" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for='cstsstdch'>Standing Charge</label>
+                                <input class='right' type="text" name="StandingCharge" id="cstsstdch" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for='cstsunitrt'>Unit Rate</label>
+                                <input class='right' type="text" name="UnitRate" id="cstsunitrt" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for='cstsoprt'>Off Peak Rate</label>
+                                <input class='right' type="text" name="OffPeakRate" id="cstsoprt" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for='cstscval'>Calorific Value</label>
+                                <input class='right' type="text" name="CalorificValue" id="cstscval" size="3" readonly>
                             </div>
                         </fieldset>
                     </fieldset>
@@ -184,9 +226,9 @@
                         <div>
                             <div>
                                 <label for="date">Date</label>
-                                <input type="text" name="Date" id="date" class='date' maxlength="11" onchange="checkDate()" tabindex="-1">
+                                <input type="text" name="Timestamp~Date" id="date" class='date' maxlength="11" onchange="checkDate()" tabindex="-1">
                                 <label for="time" class="nogap">Time</label>
-                                <input type="text" name="Time" size="8" id="time" class='time' maxlength="8" onchange="checkTime()"  tabindex="-1">
+                                <input type="text" name="Timestamp~Time" size="8" id="time" class='time' maxlength="8" onchange="checkTime()"  tabindex="-1">
                             </div>
                             <div>
                                 <label for="gas">Gas</label>
@@ -212,14 +254,19 @@
                                 <label for="status">Status</label>
                                 <select id="status" Name="Status" class='optlist'>
                                     <option></option>
-                                    <option>V</option>
-                                    <option>I</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="source">Source</label>
                                 <select id="source" Name="Source" class='optlist'>
                                     <option></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="tmoffset">Time Offset</label>
+                                <select id="tmoffset" Name="TimeOffset" class='optlist'>
+                                    <option>Local</option>
+                                    <option>GMT</option>
                                 </select>
                             </div>
                             <div>
@@ -235,8 +282,8 @@
                             </div>
                             <div>
                                 <label for="save"></label>
-                                <input id="save"   name="save"   class='notparam' type="button" value="Create" onclick="send();">
-                                <input id="cancel" name="cancel" class='notparam' type="button" value="Cancel" onclick="send('CancelCreate');">
+                                <input id="save"   name="save"   class='notparam' type="button" value="Create" onclick="actionCreate();">
+                                <input id="cancel" name="cancel" class='notparam' type="button" value="Cancel" onclick="actionCreate();">
                             </div>
                             <div id="logoff" hidden>
                                 <label for="logoffbtn"></label>
@@ -257,45 +304,47 @@
                         <fieldset id="readingsfilter" class='form filter'>
                         </fieldset>
                     </fieldset>
-                    <fieldset id="deletefields" class='centreminwidth form'>                        
-                        <legend>Delete Reading</legend>
+                    <fieldset id="updatefields" class='centreminwidth form'>                        
+                        <legend>Update Reading</legend>
                         <div>
                             <input readonly type= "text" name="Type" id="type" size="6" hidden>
                             <div>
-                                <label for="ddate">Date</label>
-                                <input readonly type="text" name="Date" id="ddate" class='date' maxlength="11" tabindex="-1">
-                                <label for="dtime" class="nogap">Time</label>
-                                <input readonly type="text" name="Time" size="8" id="dtime" class='time' maxlength="8" tabindex="-1">
+                                <label for="udate">Date</label>
+                                <input readonly type="text" name="Timestamp~Date" id="udate" class='date' maxlength="11" tabindex="-1">
+                                <label for="utime" class="nogap">Time</label>
+                                <input readonly type="text" name="Timestamp~Time" size="8" id="utime" class='time' maxlength="8" tabindex="-1">
                             </div>
                             <div>
-                                <label for="dmeter">Meter</label>
-                                <input readonly type= "text" name="Meter" id="dmeter" size="8">
+                                <label for="umeter">Meter</label>
+                                <input readonly type= "text" name="Meter" id="umeter" size="8">
                             </div>
                             <div>
                                 <label for="reading">Reading</label>
-                                <input readonly type= "text" name="Reading" id="reading" size="6">
+                                <input type= "text" name="Reading" id="reading" size="6">
                                 <label id="labunits" class='nogap notparam'>Kwh</label>
                             </div>
                             <div>
-                                <label for="dstatus">Status</label>
-                                <input id="dstatus" name='Status' type="text" readonly>
+                                <label for="ustatus">Status</label>
+                                <select id="ustatus" Name="Status" class='optlist'>
+                                    <option></option>
+                                </select>
                             </div>
                             <div>
-                                <label for="dsource">Source</label>
-                                <input id="dsource" name='Source' type="text" readonly>
+                                <label for="usource">Source</label>
+                                <select id="usource" Name="Source" class='optlist'>
+                                    <option></option>
+                                </select>
                             </div>
                             <div>
-                                <label for="copy">Copy</label>
-                                <input id="copy" name='Copy'  type="checkbox">
+                                <label for="ucomment">Comment</label>
+                                <textarea id='ucomment' name='Comment' rows='2'></textarea>
                             </div>
                             <div>
-                                <label for="dcomment">Comment</label>
-                                <textarea readonly id='dcomment' name='Comment' rows='2'></textarea>
-                            </div>
-                            <div>
-                                <label for="delete"></label>
-                                <input id="delete"  name="delete"  class='notparam' type="button" value="Delete" onclick="send();">
-                                <input id="dcancel" name="dcancel" class='notparam' type="button" value="Cancel" onclick="send();">
+                                <label for="ucopy"></label>
+                                <input id="ucopy"   name="ucopy"   class='notparam' type="button" value="Copy"   onclick="actionUpdate();">
+                                <input id="umodify" name="umpdify" class='notparam' type="button" value="Modify" onclick="actionUpdate();">
+                                <input id="udelete" name="udelete" class='notparam' type="button" value="Delete" onclick="actionUpdate();">
+                                <input id="dcancel" name="dcancel" class='notparam' type="button" value="Cancel" onclick="actionUpdate();">
                             </div>
                         </div>
                     </fieldset>
@@ -327,8 +376,6 @@
                                 <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                                 <label for="tgrate" class="nogap">Rate</label>
                                 <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="tgcalval" class="nogap">Cal Value</label>
-                                <input type="text" name="CalorificValue" id="tgcalval" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">                            
                                 </div>
                                 <div>
                                 <label for="tgoprate">Off Peak</label>
@@ -368,7 +415,7 @@
                         </div>
                         <fieldset id="tariffsfilter" class='form filter'>
                         </fieldset>
-                    </fieldset>
+                    </fieldset>      
                     <fieldset id="modifytariff" class='centreminwidth form' hidden>                        
                         <legend>Modify Tariff</legend>
                         <div>
@@ -424,6 +471,33 @@
                             </div>
                         </div>
                     </fieldset>        
+                </div>
+                
+                <div id="calvals" class="floatleft" hidden>
+                    <fieldset id="calval" class='centreminwidth form'>                        
+                        <legend>Calorific Value</legend>
+                        <div>
+                            <div>
+                                <label for="cvaldate" class="largelab">Start Date</label>
+                                <input type="text" name="Date" id="cvaldate" class='date' maxlength="11" tabindex="-1">                                
+                            </div>                       
+                            <div>
+                                <label for="cvalue" class="largelab">Value</label>
+                                <input type="text" name="Value" id="cvalue" size='2' onkeypress="allowedInNumberField();" >
+                             </div> 
+                            <div>
+                                <label for="cvalcomment" class="largelab">Comment</label>
+                                <textarea id='cvalcomment' name='Comment' rows='2'></textarea>
+                            </div>  
+                            <div>
+                                <label for="cvcreate"></label>
+                                <input id="cvcreate" name="cvcreate" class='notparam' type="button" value="Create" onclick="actionCalValue(this);">
+                                <input id="cvmodify" name="cvmodify" class='notparam' type="button" value="Modify" onclick="actionCalValue(this);">
+                                <input id="cvdelete" name="cpdelete" class='notparam' type="button" value="Delete" onclick="actionCalValue(this);">
+                                <input id="cvcancel" name="cvcancel" class='notparam' type="button" value="Cancel" onclick="actionCalValue(this);">
+                            </div>
+                        </div>
+                    </fieldset> 
                 </div>
             </div> 
             <table id="meterhistory">

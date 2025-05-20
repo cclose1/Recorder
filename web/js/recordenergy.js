@@ -7,45 +7,31 @@ var tariffsFilter;
 
 function copyFld(fromFlds, fromName, toFlds, toName) {
     toName = defaultNull(toName, fromName);
-
-    copyElement(fromFlds.get(fromName), toFlds.get(toName));
+    
+    toFlds.setValue(toName, fromFlds.getValue(fromName));
 }
-function reset() {
-    clearValues(getParameters('detailfields'));
-    requestReadings();
-}
-function resetDelete(cancel) {
-    let dflds = getParameters('deletefields');
-    let rflds = getParameters('detailfields');
+function copyUpdate() {
+    let uflds = new ScreenFields('updatefields');
+    let rflds = new ScreenFields('detailfields');
+    copyFld(uflds, 'Timestamp', rflds);
+    copyFld(uflds, 'Status',    rflds);
+    copyFld(uflds, 'Source',    rflds);
+    copyFld(uflds, 'Comment',   rflds);
 
-    if (!cancel) {
-        if (dflds.get('Copy').checked) {
-            reset();
-            copyFld(dflds, 'Date',    rflds);
-            copyFld(dflds, 'Time',    rflds);
-            copyFld(dflds, 'Status',  rflds);
-            copyFld(dflds, 'Source' , rflds);
-            copyFld(dflds, 'Comment', rflds);
-
-            switch (dflds.get('Type').value) {
-                case "Gas":
-                    copyFld(dflds, 'Reading', rflds, 'Gas');
-                    break;
-                case "Electric":
-                    copyFld(dflds, 'Reading', rflds, 'Electric');
-                    break;
-                case "Export":
-                    copyFld(dflds, 'Reading', rflds, 'Export');
-                    break;
-                case "Solar":
-                    copyFld(dflds, 'Reading', rflds, 'Solar');
-                    break;
-            }
-        }
-        requestReadings();
+    switch (uflds.get('Type').value) {
+        case "Gas":
+            copyFld(uflds, 'Reading', rflds, 'Gas');
+            break;
+        case "Electric":
+            copyFld(uflds, 'Reading', rflds, 'Electric');
+            break;
+        case "Export":
+            copyFld(uflds, 'Reading', rflds, 'Export');
+            break;
+        case "Solar":
+            copyFld(uflds, 'Reading', rflds, 'Solar');
+            break;
     }
-    clearValues(dflds);
-    setHidden('deletefields', true);
 }
 function errorIfValue(id, message) {
     if (trim(getElement(id).value) !== '') {
@@ -58,7 +44,7 @@ function checkOffPeak(prefix) {
     if (trim(getElement(prefix + 'rate').value) === '') {
         return !errorIfValue(prefix + 'start', 'must empty if no off peak rate') && !errorIfValue(prefix + 'end', 'must empty if no off peak rate');
     } else {
-        return getFieldValue(prefix + 'start') !== undefined && getFieldValue(prefix + 'end') !== undefined;
+        return fieldHasValue(prefix + 'start') && fieldHasValue(prefix + 'end');
     }
 }
 function actionTariff(action, fields) {
@@ -77,7 +63,7 @@ function actionTariff(action, fields) {
             if (!checkOffPeak('tgop')) return;
             if (!checkOffPeak('teop')) return;
 
-            hasValues = valuesAllOrNone(flds.get('Gas UnitRate'), flds.get('Gas StandingCharge'), flds.get('CalorificValue'));
+            hasValues = valuesAllOrNone(flds.get('Gas UnitRate'), flds.get('Gas StandingCharge'));
 
             if (hasValues === null)
                 return;
@@ -129,14 +115,46 @@ function actionDerive() {
     function processResponse(response) {
         var json = stringToJSON(response);
         
+        let offset = trim(flds.getValue('Offset'));
         flds = new ScreenFields('derivereading');
-        flds.loadJSON(json, false);
+        
+        setHidden('drvsaddoffset', offset === "" || offset === 0);
+        flds.loadJSON(json, false);        
+        
     }
-    let dt = validateDateTime(flds.get('Timestamp~Date'), flds.get('Timestamp~Time'), {required: true});
+    let fchk = flds.checkValue('From',      true);
+    let tchk = flds.checkValue('To',        false);
+    let rchk = flds.checkValue('ToReading', false);
     
-    if (!dt.valid) return;
+    if (!fchk.valid || !tchk.valid || !rchk.valid) return;
     
+    if (tchk.value !== '' && rchk.value !== '') {
+        displayAlert('Error', 'Only one of To Date and To Reading can have a value');
+        return;
+    } 
+    if (tchk.value === '' && rchk.value === '') {
+        displayAlert('Error', 'To Date or To Reading must have a value');
+        return;
+    }
     ajaxLoggedInCall('Energy', processResponse, pars);
+}
+function applyOffset(element) {
+    let val = element.value;
+    
+    if (val === 'Add Offset') {
+        let pars = createParameters('ModifyReading'); 
+        let flds = new ScreenFields('derivereading');        
+        let rd   = (Number(getElement('drvsoffset').value) + Number(flds.getValue('PriorReading'))).toFixed(3);
+        
+        pars = addParameter(pars, 'Timestamp', dateTimeString(flds.getValue('PriorTimestamp')));
+        pars = addParameter(pars, 'Reading',   rd);
+        
+        function processResponse(response) {
+            flds.setValue('PriorReading', rd);
+            getElement('drvsoffset').value = '';
+        }
+        ajaxLoggedInCall('Energy', processResponse, pars);
+    }
 }
 function actionCalculate() {
     let flds = new ScreenFields('calculatestart');
@@ -157,59 +175,118 @@ function actionCalculate() {
     
     ajaxLoggedInCall('Energy', processResponse, pars);
 }
-function send(action) {
+
+function actionUpdate(action) {
     action = defaultNull(action, event.target.value);
 
-    var parameters = createParameters(action);
-    let flds = null;
+    let flds       = new ScreenFields('updatefields');
+    let parameters = createParameters(action, {fields: flds.getFields()}); 
 
+    function reset() {        
+        flds.clear(); 
+        requestReadings();
+        setHidden('updatefields', true);
+    }
     switch (action) {
-        case "Create":
-            flds = getParameters('detailfields');
-            parameters = createParameters(action, {fields: flds});
-
-            if (!fieldHasValue(flds.get('Date')))
-                return;
-
-            break;
-        case "Delete":
-            flds = getParameters('deletefields');
-            parameters = createParameters(action, {fields: flds});
-
-            if (!fieldHasValue(flds.get('Date')))
-                return;
-            break;
-        case "Cancel":
-            resetDelete(true);
+        case "Copy":
+            copyUpdate();
             return;
             break;
-        case "CancelCreate":
+        case "Modify":
+        case "Delete":
+            if (!fieldHasValue(flds.get('Date'))) return;
+            break;
+        case "Cancel":
             reset();
             return;
             break;
         default:
             throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
     }
-
     function processResponse(response) {
-        if (action === 'Delete')
-            resetDelete(false);
-        else
-            reset();
+        reset();
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function loadFieldsDateTime(fields, dateField, timeField, timestamp) {
-    if (isNull(timeField))
-        fields.get(dateField).value = timestamp;
-    else {
-        var tmflds = timestamp.split(" ");
-
-        if (tmflds.length === 2) {
-            fields.get('Date').value = tmflds[0];
-            fields.get('Time').value = tmflds[1];
-        }        
+function setCalValScreen(mode, setHistory) {
+    let flds = new ScreenFields('calvals');
+    
+    switch (mode) {
+        case 'Create':
+            setHidden('cvcreate', false);
+            setHidden('cvmodify', true);
+            setHidden('cvdelete', true);              
+            setHidden('cvcancel', true);  
+            flds.clear();
+            flds.get('Date').readOnly   = false;
+            break;
+        case 'Update':
+            setHidden('cvcreate', true);
+            setHidden('cvmodify', false);
+            setHidden('cvdelete', false);              
+            setHidden('cvcancel', false);
+            flds.get('Date').readOnly   = true;  
+            break;
     }
+    if (defaultNull(setHistory, true)) requestCalValues();
+}
+function actionCalValue(element) {
+    let action = element.value;
+    let flds   = new ScreenFields('calvals');
+
+    switch (action) {
+        case "Create":
+            if (!fieldHasValue(flds.get('Date'))) return;
+            
+            action = 'create';
+            
+            break;
+        case "Modify":
+            action = 'update';
+            break;
+        case "Delete":
+            action = 'delete';
+            break;
+            break;
+        case "Cancel":
+            setCalValScreen('Create');
+            return;
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
+    }
+    let parameters = createParameters(
+                action + 'TableRow',
+                {fields: getParameters('calval'), initialParams: [{name: 'table', value: 'CalorificValue'}]});
+    function processResponse(response) {
+        requestCalValues();
+    }
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function actionCreate(action) {
+    action = defaultNull(action, event.target.value);
+
+    let flds       = new ScreenFields(action === 'Apply'? 'derivedread' : 'detailfields');
+    let parameters = createParameters(action, {fields: flds.getFields()});
+
+    switch (action) {
+        case "Apply":
+            parameters = addParameter(parameters, 'Source', 'Derived'); 
+        case "Create": 
+            if (!fieldHasValue(flds.get('Timestamp'))) return;            
+            break;
+        case "Cancel":
+            flds.clear('TimeOffset');
+            return;
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
+    }
+    function processResponse(response) {
+        flds.clear('TimeOffset');
+        requestReadings();
+    }
+    ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 /*
  * 
@@ -222,72 +299,61 @@ function loadFieldsDateTime(fields, dateField, timeField, timestamp) {
 function readingsRowClick(row, source) {
     var rdr  = new rowReader(row);
     let src  = row.parentElement.parentElement.getAttribute('name');
-    let flds = getParameters('deletefields');
+    let flds = new ScreenFields('updatefields');
 
     if (src !== 'Meter') {
         displayAlert('Warning', 'Click on row only implemented when readings sourced from Meter');
         return;
     }
-    while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
-
-        switch (rdr.columnName()) {
-            case 'Timestamp':
-            case 'Start':
-                loadFieldsDateTime(flds, 'Date', 'Time', value);
-                break;
-            case 'Meter':
-                flds.get('Meter').value = value;
-                break;
-
-            case 'Type':
-                getElement("labunits").innerHTML = value === 'Gas' ? 'Ft3' : 'Kwh';
-                flds.get('Type').value = value;
-                break;
-            case 'Reading':
-                flds.get('Reading').value = value;
-                break;
-            case 'Status':
-                flds.get('Status').value = value;
-                break;
-            case 'Source':
-                flds.get('Source').value = value;
-                break;
-            case 'Comment':
-                flds.get('Comment').value = value;
-                break;
-        }
-    }
-    flds.get('Copy').checked = false;
-    setHidden('deletefields', false);
+    getElement("labunits").innerHTML = rdr.getColumnValue('Type') === 'Gas' ? 'Ft3' : 'Kwh';
+    
+    rdr.loadScreenFields(flds, {mustExist: false});
+    setHidden('updatefields', false);
+}
+function screenFldsRowClick(row, fieldsId) {
+    if (fieldsId !== 'derivestart') return;
+    
+    let rdr  = new rowReader(row);
+    let flds = new ScreenFields(fieldsId);
+    
+    flds.setValue('From', rdr.getColumnValue('Timestamp'));
+}
+function calValuesRowClick(row) {
+    let rdr  = new rowReader(row);
+    let flds = new ScreenFields('calval');
+    
+    rdr.loadScreenFields(flds, {mustExist: false});
+    setCalValScreen('Update', false);
 }
 function menuClick(option) {
     setHidden('meter',     option !== 'meter');
     setHidden('derive',    option !== 'derive');
     setHidden('calculate', option !== 'calculate');
-    setHidden('rates',     option !== 'rates');
-    
+    setHidden('rates',     option !== 'rates');    
+    setHidden('calvals',   option !== 'calvals');
+
     switch (option) {
         case 'meter':
             requestReadings();
             break;
         case 'derive' :
-            requestMeterReadings('drvrtype', 'meterhistory');
+            requestScreenReadings('derivestart');
             break;
         case 'calculate':
-            requestReadings('cststype', 'meterhistory');
+            requestScreenReadings('calculatestart');
         case 'rates':
             requestTariffs();
+            break;
+        case 'calvals':
+            setCalValScreen('Create');
             break;
     }
 }
 function tariffsRowClick(row) {
     var rdr  = new rowReader(row);
     let flds = new ScreenFields('modifytariff');
-
-    while (rdr.nextColumn()) {
-        flds.setValue(rdr.columnName(), rdr.columnValue());
-    }
+    
+    rdr.loadScreenFields(flds);
     setHidden('modifytariff', false);
 }
 function requestReadings() {
@@ -312,22 +378,27 @@ function requestReadings() {
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function requestMeterReadings(type, table) {
+function requestScreenReadings(fieldsId) {
+    let flds       = new ScreenFields(fieldsId);    
     let parameters = createParameters('readingshistory');
-    let filter = '';
+    let useVer     = flds.get('UseVerified', false);
+    let filter     = '';
     
-    filter = addDBFilterField(filter, getElement(type), 'Type', 'quoted');
+    filter = addDBFilterField(filter, flds.getValue('Type'), 'Type', 'quoted');
+    
+    if (!isNull(useVer) && useVer.checked) filter = addDBFilterField(filter, 'Verified', 'Status', 'quoted');
     
     function processResponse(response) {
-        loadJSONArray(response, table, {maxSize: 19, setTableName: true, setTableTitle: 'Readings History'});
+        let options = {maxSize: 19, setTableName: true, setTableTitle: 'Readings History'};
+        
+        if (fieldsId === 'derivestart') options.onClick = "screenFldsRowClick(this, '" + fieldsId + "')";
+        
+        loadJSONArray(response, 'meterhistory', options);
     }
     parameters = addParameter(parameters, 'readings', 'Meter');
     parameters = addParameter(parameters, 'filter', filter);
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
-}
-function requestDeriveReadings() {
-    requestMeterReadings('drvstype', 'meterhistory');
 }
 function requestTariffs() {
     var parameters = createParameters('tariffs');
@@ -339,6 +410,15 @@ function requestTariffs() {
     }
     parameters = tariffsFilter.addFilterParameter(parameters);
 
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function requestCalValues() {
+    var parameters = createParameters('calvals');
+
+    function processResponse(response) {
+        loadJSONArray(response, 'meterhistory', 
+            {setTableTitle: 'Values History', maxSize: 19, onClick: "calValuesRowClick(this)"});
+    }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function test(elapsed) {
@@ -360,7 +440,10 @@ function initialize(loggedIn) {
     test(100);
     test(1);
     test(20);
-    loadSelect('source', 'Reading,Estimated,Derived', {allowBlank: true});
+    loadSelect('source',  'Bill,Reading,Estimated,Derived,Corrected', {allowBlank: true});
+    loadSelect('usource', getElement('source'),                       {allowBlank: true});
+    loadSelect('status',  'Verified, Ignore',                         {allowBlank: true});
+    loadSelect('ustatus', getElement('status'),                       {allowBlank: true});
     
     getList('Energy', {
         element: 'tariffcode',
@@ -379,11 +462,11 @@ function initialize(loggedIn) {
     readingsFilter.addFilter(
             'Types', {
                 name: 'Type',
-                values: 'Gas,Electric,Solar'});
+                values: 'Gas,Electric,Export,Solar'});
     readingsFilter.addFilter(
             'Status', {
                 name: 'Status',
-                values: ',V,I'});
+                values: getElement('status')});
     readingsFilter.addFilter(
             'Source', {
                 name: 'Source',
@@ -410,7 +493,6 @@ function initialize(loggedIn) {
                 values: 'Gas,Electric'});
     getElement('tariffcode').value = 'SSEStd';
     getElement('menu1').checked = true;
-    requestReadings();
-    requestTariffs();
-    setHidden('deletefields', true);
+    menuClick('meter');
+    setHidden('updatefields', true);
 }

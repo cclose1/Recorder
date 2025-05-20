@@ -3,26 +3,13 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/carusage.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/json.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordenergy.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/EnterMeasure.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/filter.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/css/framework.css</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/CarUsage.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/entermeasure.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/HeartMonitor.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/RecordEnergy.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/csseditor.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Reminder.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordEnergy.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordenergy.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/RecordNutrition.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/CarUsage.html</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/recordreminder.js</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/HTTPRequestHandler.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordNutrition.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/CarUsage.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/web/RecordEnergy.html</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Reminder.java</file>
         </group>
     </open-files>
 </project-private>

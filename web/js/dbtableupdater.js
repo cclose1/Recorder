@@ -372,15 +372,16 @@ class DatabaseTable {
                 return checkTime(elm, required);
                 break;
             default:
-               return fieldHasValue(elm, defaultNull(required, false));          
+                required = defaultNull(required, false);
+                return fieldHasValue(elm, required) || !required;          
         }
     }
     _checkEnteredValue(colName) {
-        let col = this.getColumn(colName);
-        let elm = col.getAttribute('colElement');
-        let val = getFieldValue(elm, col.getAttribute('mandatory'));
+        let col  = this.getColumn(colName);
+        let elm  = col.getAttribute('colElement');
+        let hasv = fieldHasValue(elm, col.getAttribute('mandatory'));
         
-        if (val === undefined) return false;
+        if (!hasv) return false;
         
         switch (col.getAttribute('type').toLowerCase()) {
             case 'datetime':

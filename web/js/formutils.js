@@ -449,20 +449,25 @@ class ScreenFields {
     get(field, mustExist) {
         let elm = this.#fields.get(field);
         
+        if (elm === undefined) elm = this.#fields.get(field + '~Date');
+        
         if (defaultNull(mustExist, false) && elm === undefined)
             throw 'Field ' + field + ' not found in screenFields ' + this.#id;
         
         return elm;
     }
     getValue(field) {
-        let elm = this.get(field);
+        let elm = this.#fields.get(field);
         
         if (elm !== undefined) return this.format(true, field, elm.value);
         
-        elm = this.get(field + '~Date');
+        elm = this.get(field + '~Date');        
         
-        if (elm !== undefined) return toDate(elm.value + ' ' + this.get(field + '~Time').value);
-        
+        if (elm !== undefined) {
+            let tme = this.get(field + '~Time');            
+            
+            return elm.value === '' && tme.value === '' ? '' : toDate(elm.value + ' ' + tme.value);
+        }        
         return undefined;
     }
     setValue(field, value, mustExist) {
@@ -479,7 +484,7 @@ class ScreenFields {
         function loadTime(obj, date, time, value) {
             let dVal   = '';
             let tVal   = '';
-            let fields = value.split(" ");
+            let fields = (value instanceof Date? dateTimeString(value) : value).split(" ");
             
             switch (fields.length) {
                 case 1:
@@ -513,6 +518,33 @@ class ScreenFields {
     }
     clear(exclude) {
         clearValues(this.#fields, exclude);
+    }
+    /*
+     * name     Screen field name to ba checked.
+     * required If true or undefined the field must have a none space value.
+     * 
+     * The check for most fields is that the field satifisfies the required setting. 
+     * For the date time paired fields the validity of the date time value is checked.
+     * 
+     * It may make sense the validity of other fields, e.g. a number should be a valid number. This would
+     * could be done by using the element type. However, I don't like the behaviour associcate with type, 
+     * e.g. setting type to number sets the increment arrows to right of field and does not allow you
+     * to set the field size. In any event on events are generally used to check characters on entry.
+     * 
+     * Returns a structure with the fields valid and value. 
+     *      valid is true if the field has a non space value or is not required.
+     *      value is the field value.
+     */
+    checkValue(name, required) {
+        let elm   = this.get(name, true);
+        let valid = fieldHasValue(this.get(name), required) || !required;
+        let value = this.getValue(name);
+        
+        if (elm !== undefined) {            
+            if (this.#fields.get(name + '~Date') !== undefined)
+                valid = validateDateTime(this.get(name + '~Date'), this.get(name + '~Time'));
+        }
+        return {valid: valid, value: value};
     }
     hasValue(name, required) {
         return fieldHasValue(this.get(name), required);
@@ -3195,6 +3227,9 @@ function getFieldValue(elm, required) {
 
     if (value === "" && (required === undefined || required)) {
         displayAlert('Field Validation', "Enter a value for " + getElementLabel(elm), {focus: elm});
+        /*
+         * Probably should remove the following and just return the valus.
+         */
         return undefined;
     }
     return value;
@@ -3219,7 +3254,7 @@ function fieldHasValue(elm, required) {
      */
     var value = getFieldValue(elm, required);
 
-    return value !== undefined;
+    return value !== '' && value !== undefined;
 }
 /*
  * Executes a none blocking AJAX call.

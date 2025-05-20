@@ -667,7 +667,7 @@ function test(tab) {
     
     let cols = csTab.getColumns();
     let col = csTab.getColumn('CarReg');
-    let man = col.getAttribute('mandatory');
+    let man = col.getAttribute('mdatory');
   //  col.setAttribute('mandatory', false);
     col = csTab.getColumn('CarRegX', false);
     col = csTab.getColumn('CarRegX');

@@ -15,10 +15,16 @@ package org.cbc;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.sql.CallableStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Types;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.OffsetTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -54,6 +60,7 @@ import org.cbc.utils.data.DatabaseSession;
 import org.cbc.utils.system.DateFormatter;
 import org.cbc.utils.system.Environment;
 import org.cbc.utils.system.SecurityConfiguration;
+import org.cbc.utils.system.TimeWithDate;
 
 /**
  * k
@@ -62,6 +69,7 @@ import org.cbc.utils.system.SecurityConfiguration;
  */
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
+    protected TimeWithDate timeWithDate = new TimeWithDate("Europe/London");
 
     public enum Severity {
         Validation, Error, ApplicationError
@@ -164,6 +172,7 @@ public abstract class ApplicationServer extends HttpServlet {
     }
     protected Reminder reminder = null;
 
+    
     /*
      * Describes a table field.
      */
@@ -812,9 +821,10 @@ public abstract class ApplicationServer extends HttpServlet {
      * For a table enables the records surrounding the key of an existing or new record.
      */
     protected class EnclosingRecords {
+        private DatabaseSession session;
 
         private final ArrayList<Field> fields = new ArrayList<>();
-        private final Context ctx;
+//        private final Context ctx;
 
         private class Field {
 
@@ -890,20 +900,23 @@ public abstract class ApplicationServer extends HttpServlet {
                 sel.addOrderByField(fld.name, desc);
             }
             sel.setMaxRows(1);
-
-            rs = updateQuery(ctx, sel);
+            rs = session.updateQuery(sel.build());
+//            rs = updateQuery(ctx, sel);
 
             return rs.next() ? rs : null;
+        }
+        public EnclosingRecords(DatabaseSession session, String table) {
+            this.session = session;
+            this.table   = table;
+            this.sel     = new SQLSelectBuilder(this.table, session.getProtocol());
+            this.sel.addField("*");
         }
         /*
          * ctx   Application context.
          * table Database table to be searched.
          */
         public EnclosingRecords(Context ctx, String table) {
-            this.ctx   = ctx;
-            this.table = table;
-            this.sel   = ctx.getSelectBuilder(this.table);
-            this.sel.addField("*");
+            this(ctx.getAppDb(), table);
         }
         /*
          * See definition of Field for how the parameters are used.
@@ -1784,26 +1797,77 @@ public abstract class ApplicationServer extends HttpServlet {
     public String getServletInfo() {
         return "Short description";
     }// </editor-fold>
+    public void setCalorificValue(DatabaseSession session, Date date, double value, String comment) throws SQLException {
+        ResultSet rs;
+        SQLBuilder sql = new SQLSelectBuilder("BoundedCalorificValue", session.getProtocol());
 
+        sql.addField("*");
+        sql.addAndStart(date);
+
+        rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
+
+        if (rs.next()) {
+            Date start = rs.getDate("Start");
+
+            if (value == rs.getDouble("value")) {
+                return;
+            }
+            if (start.equals(date)) {
+                /*
+                  * Update the. existing value. Perhaps should regard this as an error.
+                 */
+                sql = new SQLUpdateBuilder("CalorificValue", session.getProtocol());
+                sql.addAnd("Date", "=", date);
+            } else {
+                sql = new SQLInsertBuilder("CalorificValue", session.getProtocol());
+
+                sql.addField("Date", date);
+            }
+            sql.addField("Value", value);
+
+            if (comment != null) {
+                sql.addField("Comment", comment);
+            }
+
+            session.executeUpdate(sql.build());
+        }
+    }
+    public double getCalorificValue(DatabaseSession session, Date date) throws SQLException {
+        CallableStatement cstmt = session.getConnection().prepareCall("{? = CALL GetCalorificValue(?)}");
+        
+        cstmt.registerOutParameter(1, Types.DOUBLE);
+        cstmt.setDate(2, new java.sql.Date(date.getTime()));
+        cstmt.executeUpdate();
+        return cstmt.getDouble(1);
+    }
     public class Tariff {
         private Date            start;
         private Date            end;
         private String          opStart;
         private String          opEnd;
         private String          type;
+        private String          code;
         private double          unitRate;
         private double          opRate;
         private double          standingCharge;
         private double          calorificValue;
         private Date            loadDate;
         private DatabaseSession session;
-
+        private boolean         opLocal = true;   // True of defined using local time.
+        
+        public Date setOpTime(Date timestamp) {
+            if (opLocal) {
+                timeWithDate.setInstantFromLocal(timestamp);
+                return timeWithDate.getDate();
+            } else
+                return new Date(timestamp.getTime());
+        }
         /*
          * Loads the tariff data, if not already loaded, or if day has changed since the last load.
          */
         public final void load(Date day) throws SQLException {
             ResultSet rs;
-           Date      loadDay = new Date(day.getTime());
+            Date      loadDay = new Date(day.getTime());
             
             Utils.zeroTime(loadDay);
             
@@ -1820,15 +1884,29 @@ public abstract class ApplicationServer extends HttpServlet {
                 if (rs.next()) {
                     start          = rs.getTimestamp("Start");
                     end            = rs.getTimestamp("End");
+                    code           = rs.getString("Code");
                     opStart        = rs.getString("OffPeakStart");
                     opEnd          = rs.getString("OffPeakEnd");
                     unitRate       = rs.getDouble("UnitRate");
                     opRate         = rs.getDouble("OffPeakRate");
-                    calorificValue = rs.getDouble("CalorificValue");
                     standingCharge = rs.getDouble("StandingCharge");
+                    calorificValue = getCalorificValue(session, day);
+                    
+                    if (code.equals("SSEVSv")) {
+                        /*
+                         * Normally you would expect the offpeak hour boundaries are local time, eg. starts at
+                         * 00 hours irrespective of if its BST or not. In the case of Scottish power it is GMT, i.e.
+                         * when BST it starts at 01, but at 00 if not.
+                         *
+                         * This is a stopgap measure and a more flexible approach if other providers have hour
+                         * bounderies defined by GMT.
+                         */
+                        opLocal = false;
+                    }
                 } else {
                     start          = null;
                     end            = null;
+                    code           = null;
                     opStart        = null;
                     opEnd          = null;
                     unitRate       = -1;
@@ -1851,11 +1929,16 @@ public abstract class ApplicationServer extends HttpServlet {
                 start = new Date(timestamp.getTime());
                 Utils.setTime(start, opStart);
                 end = new Date(timestamp.getTime());
+                Utils.setTime(end, opEnd); 
                 
                 if (Utils.toSeconds(opStart) > Utils.toSeconds(opEnd)) {
                     Utils.addDays(end, 1);
                 }
-                Utils.setTime(end, opEnd);                
+                /*
+                 * Normalise to GMT if necessary.
+                 */
+                start = setOpTime(start);
+                end   = setOpTime(end);
             }
             public boolean isOffPeak(Date timestamp) throws SQLException, ParseException {
                 setTimestamp(timestamp);
@@ -1867,7 +1950,6 @@ public abstract class ApplicationServer extends HttpServlet {
                     return true;
                 }
                 return timestamp.getTime() == start.getTime();
- //             return timestamp.equals(start);
             }
             /*
              * Derives the off peak boundaries
@@ -1893,19 +1975,6 @@ public abstract class ApplicationServer extends HttpServlet {
         public Date getEnd() {
             return end;
         }
-        public void setOpStart(String time) {
-            opStart = time;
-        }
-        public String getOpStart() {
-            return opStart;
-        }
-        public void setOpEnd(String time) {
-            opEnd = time;
-        }
-        public String getOpEnd() {
-            return opEnd;
-        }
-
         public String getType() {
             return type;
         }
@@ -1917,6 +1986,9 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public double getStandingCharge() {
             return standingCharge;
+        }
+        public double getCalValue() {
+            return calorificValue;
         }
         public double readingToKwh(double reading) {
             return type.equals("Gas")? 1.02264 * reading * calorificValue / 3.6 :reading;
