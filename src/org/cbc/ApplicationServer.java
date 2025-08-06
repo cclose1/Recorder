@@ -13,6 +13,8 @@
  */
 package org.cbc;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.CallableStatement;
@@ -60,6 +62,7 @@ import org.cbc.utils.data.DatabaseSession;
 import org.cbc.utils.system.DateFormatter;
 import org.cbc.utils.system.Environment;
 import org.cbc.utils.system.SecurityConfiguration;
+import org.cbc.utils.system.StringFormatter;
 import org.cbc.utils.system.TimeWithDate;
 
 /**
@@ -149,6 +152,152 @@ public abstract class ApplicationServer extends HttpServlet {
     public void checkExit(boolean test, String message) throws ErrorExit {
         if (test) {
             throw new ErrorExit(message);
+        }
+    }       
+    public class FileOutput {
+        private class Column {
+            private String id;
+            private String title;
+            private int    width     = -1;
+            /*
+             * Id    The column identifier. Currently there is no use for this.
+             * Title The column title sent to the output file. If empty string it is set to Id.
+             * Width The column width. If the column value length is smaller than it is space padded to this
+             *       width. If Width is negative it is spaced to the right, otherwise it is spaced padded
+             *       to the left.
+            */
+            private Column(String id, String title, int width) {
+                this.id    = id;
+                this.title = title.isEmpty()? id : title;
+                this.width = width;
+                columns.add(this);
+            }
+        }
+        private int               fldIndex;
+        private boolean           hdrOutput = false;
+        private ArrayList<Column> columns   = new ArrayList<>();
+        private StringFormatter  sf;
+        private String           root       = System.getenv("AR_ROOT");
+        private FileWriter       writer;        
+        /*
+         * Adds field to the line string. 
+         *
+         * If columns have been defined, the field string will be padded according to the column width.
+         *
+         * If columns are defined and fldIndex is beyond the last column, errorExit occurs.
+         */
+        private void append(String field) {
+            if (!columns.isEmpty()) {
+                if (fldIndex >= columns.size()) errorExit("FileOutput field " + field + " exceeds maximum line fields " + columns.size());                
+           
+                Column fld = columns.get(fldIndex++);
+            
+                if (fld.width < 0) 
+                    field = Utils.rpad(field, -fld.width);
+                else
+                    field = Utils.lpad(field, fld.width);                
+            }
+            sf.add(field);
+        }
+        /*
+         * If there are columns and they have not already output i.e hdrOutput is false, they are
+         * output and hdrOutput is set to false.
+         */
+        private void outputHeader() throws IOException {
+            if (hdrOutput || columns.isEmpty()) return;
+            
+            fldIndex  = 0;
+            hdrOutput = true; // Set here to prevent append causing a recursive loop as it call this method.
+            
+            for (Column col : columns) {
+                append(col.title);
+            }
+            writeLine();
+        }
+        /*
+         * Sets StringFormatter separator. 
+         *
+         * Setting separator to the empty strung is allowed, but possibly not useful. It can be more than one
+         * character, but again probably not useful.
+         */
+        public FileOutput(String separator) {
+            sf = new StringFormatter(separator);
+        }
+        /*
+         * Defaults StringFormatter separator to ,
+         */
+        public FileOutput() {
+            this(",");
+        }
+        /*
+         * The root directory to path for the expansion relative files. If path is the empty string the
+         * root is the default working directory.
+         *
+         * This defaults to the environment variable AR_ROOT.
+         */
+        public void setRoot(String path) {
+            this.root = path;
+        }
+        /*
+         * Creates a file using path. If path contains the string !Date it is replaced timestamp
+         * formatted as ddMMMyy't'HHmmss.
+         *
+         * If path is not absolute and root is not "", path is appended to it.
+         *
+         * The writer is opened with the absolute path resulting from the above. Thid is also returned to
+         * the caller.        
+         */
+        public String openFile(String path, Date timestamp) throws IOException {
+            File file = new File(path.replace("!Date", DateFormatter.format(timestamp, "ddMMMyy't'HHmmss")));
+            
+            if (!file.isAbsolute() && !"".equals(root)) file = new File(root, file.getPath());
+            
+            writer = new FileWriter(file.getAbsolutePath(), true);
+            
+            return file.getAbsolutePath();
+        }
+        /*
+         * As above with timestamp set the current time.
+         */
+        public String openFile(String path) throws IOException {
+            return openFile(path, new Date());
+        }
+        /*
+         * See comment on constructor for private class Columm for explanation of parameters.
+         */
+        public void addColumn(String id, String title, int width) {
+            Column col = new Column(id, title, width);
+        }
+        public void addColumn(String id, int width) {
+            addColumn(id, "", width);
+        }
+        /*
+         * Create column for id, left justified to length of id.
+         */
+        public void addColumn(String id) {
+            addColumn(id, "", -id.length());
+        }
+        public void add(String field) throws IOException {
+            outputHeader();
+            append(field);
+        }
+        public void add(Date field, String format) throws IOException {
+            add(DateFormatter.format(field, format));
+        }
+        public void add(Date field) throws IOException {
+            add(field, "dd-MMM-yyy HH:mm");
+        }
+        public void add(double field, int places) throws IOException {
+            add(Utils.format(field, places));
+        }
+        public void writeLine() throws IOException {            
+            writer.append(sf.getString() + "\n");
+            writer.flush();
+            sf.clear();
+            fldIndex = 0;
+        }
+        public void close() throws IOException {
+            writer.close();
         }
     }
     /*
@@ -630,25 +779,42 @@ public abstract class ApplicationServer extends HttpServlet {
 
             return value == null ? nullDefault : value;
         }
-
         public String[] getParameters(String name) {
             return handler.getRequest().getParameterValues(name);
         }
+        public boolean getBoolean(String name, boolean nullDefault) {
+            String value = getParameter(name);
 
+            if (value.length() == 0) {
+                return nullDefault;
+            }
+            switch (value.toLowerCase()) {
+                case "true":
+                case "t":
+                case "yes":
+                case "y":
+                    return true;
+                case "false":
+                case "f":
+                case "no":
+                case "n":
+                    return false;
+                default:
+                    throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to boolean");
+            }
+        }
         public int getInt(String name, int nullDefault) {
             String value = getParameter(name);
 
             if (value.length() == 0) {
                 return nullDefault;
             }
-
             try {
                 return Integer.parseInt(value);
             } catch (NumberFormatException e) {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to integer");
             }
         }
-
         public double getDouble(String name, int nullDefault) {
             String value = getParameter(name);
 
@@ -1847,14 +2013,48 @@ public abstract class ApplicationServer extends HttpServlet {
         private String          opEnd;
         private String          type;
         private String          code;
+        private boolean         removeVAT  = false;
+        private float           vatMult    = 1.05f;
         private double          unitRate;
         private double          opRate;
         private double          standingCharge;
         private double          calorificValue;
         private Date            loadDate;
         private DatabaseSession session;
-        private boolean         opLocal = true;   // True of defined using local time.
-        
+        private boolean         opLocal = true;   // True if off peak boundaries defined using local time.
+    
+        private double autoRemoveVat(double value) {
+            return removeVAT? removeVat(value) : value;
+        }
+        /*
+         * Sets the vat percentage to percent.
+         *
+         * The default is 5%.
+         */
+        public void setVatPercent(float percent) {
+            vatMult = 1 + percent / 100;
+        }
+        public float getVatPercent() {
+            return 100 * (vatMult - 1);
+        }
+        /*
+         * If on sets automatic removal of Vat when returning rate and cost values.
+         */
+        public void setRemoveVat(boolean on) {
+            removeVAT = on;
+        }
+        /*
+         * Remove Vat from rate and return it.
+         */
+        public double removeVat(double rate) {
+            return rate / vatMult;
+        }
+        /*
+         * Adds Vat to rate and returns it.
+         */
+        public double addVat(double rate) {
+            return rate * vatMult;
+        }  
         public Date setOpTime(Date timestamp) {
             if (opLocal) {
                 timeWithDate.setInstantFromLocal(timestamp);
@@ -1862,23 +2062,37 @@ public abstract class ApplicationServer extends HttpServlet {
             } else
                 return new Date(timestamp.getTime());
         }
+        private Date getOffPeakBoundary(Date timestamp, String boundary) throws ParseException {
+            Date bound = new Date(timestamp.getTime());
+            
+            Utils.setTime(bound, boundary);
+            bound = setOpTime(bound);
+            
+            return bound;
+        }
+        public Date getLoaDate() {
+            return this.loadDate;
+        }
         /*
          * Loads the tariff data, if not already loaded, or if day has changed since the last load.
          */
         public final void load(Date day) throws SQLException {
             ResultSet rs;
-            Date      loadDay = new Date(day.getTime());
+            Date      local   = timeWithDate.toLocal(day);
+            Date      loadDay = new Date(local.getTime());
             
             Utils.zeroTime(loadDay);
             
             if (this.loadDate != null && this.loadDate.equals(loadDay)) {
                 return;
             }
-            if (getStart() == null || day.before(getStart()) || (getEnd() != null && day.after(getEnd()))) {
+            if (getStart() == null || 
+                    local.before(getStart()) || 
+                    (getEnd() != null && local.compareTo(loadDate) >= 0)) {
                 SQLSelectBuilder sql = new SQLSelectBuilder("Tariff", session.getProtocol());
                 sql.addField("*");
                 sql.addAnd("Type", "=", getType());
-                sql.addAndStart(day);
+                sql.addAndStart(local);
                 rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
                 
                 if (rs.next()) {
@@ -1890,7 +2104,7 @@ public abstract class ApplicationServer extends HttpServlet {
                     unitRate       = rs.getDouble("UnitRate");
                     opRate         = rs.getDouble("OffPeakRate");
                     standingCharge = rs.getDouble("StandingCharge");
-                    calorificValue = getCalorificValue(session, day);
+                    calorificValue = getCalorificValue(session, local);
                     
                     if (code.equals("SSEVSv")) {
                         /*
@@ -1902,7 +2116,8 @@ public abstract class ApplicationServer extends HttpServlet {
                          * bounderies defined by GMT.
                          */
                         opLocal = false;
-                    }
+                    } else
+                        opLocal = true;
                 } else {
                     start          = null;
                     end            = null;
@@ -1917,28 +2132,126 @@ public abstract class ApplicationServer extends HttpServlet {
             this.loadDate = loadDay;
         }
         public final class OffPeak {
-            Date start;
-            Date end;
+            Date    start;
+            Date    end;
+            boolean forceOffPeak;
 
+            public boolean isForceOffPeak() {
+                return forceOffPeak;
+            }
+            private boolean isForceOffPeak(Date timestamp) throws SQLException {
+                ResultSet  rs;
+                SQLBuilder sql = new SQLSelectBuilder("PeakTariffOverride", session.getProtocol());
+                
+                sql.addField("*");
+                sql.addAnd("Start", "<=", timestamp);
+                sql.addAnd("End",    ">", timestamp);
+                sql.addAnd("Type",   "=",  type);
+                
+                rs           = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
+                forceOffPeak = rs.next();
+                
+                return forceOffPeak;
+            }
+            public class Accumulator {
+                private float reading;
+                private float kwh;
+                private float pkKwh;
+                private float opKwh;
+                private float fOpKwh;
+                private float pkCost;
+                private float opCost;
+                private int   increments;
+
+                public void reset() {
+                    kwh        = 0;
+                    pkKwh      = 0;
+                    opKwh      = 0;
+                    fOpKwh     = 0;
+                    pkCost     = 0;
+                    opCost     = 0;
+                    increments = 0;
+                    reading    = 0;
+                }
+                public Accumulator() {
+                    reset();
+                }
+                /**
+                 * @return the pkKwh
+                 */
+                public float getPkKwh() {
+                    return pkKwh;
+                }
+                /**
+                 * @return the opKwh
+                 */
+                public float getOpKwh() {
+                    return opKwh;
+                }
+                /**
+                 * @return the opKwh
+                 */
+                public float getFOpKwh() {
+                    return fOpKwh;
+                }
+                /**
+                 * @return the pkCost
+                 */
+                public float getPkCost() {
+                    return pkCost;
+                }
+                /**
+                 * @return the opCost
+                 */
+                public float getOpCost() {
+                    return opCost;
+                }
+                public float getReadingChange() {
+                    return reading;
+                }
+                public void add(Date time, float reading) throws SQLException, ParseException {
+                    double kwhl = readingToKwh(reading);
+                    
+                    this.reading    += reading;
+                    this.kwh        += kwhl;
+                    this.increments += 1;
+                    
+                    if (isOffPeak(time)) {
+                        opKwh  += kwhl;
+                        opCost += kwhl * getOpRate();
+                        
+                        if (isForceOffPeak()) fOpKwh += kwhl;
+                    } else {
+                        pkKwh  += kwhl;
+                        pkCost += kwhl * getUnitRate();
+                    }
+                }
+                /**
+                 * @return the kwh
+                 */
+                public float getKwh() {
+                    return kwh;
+                }
+                /**
+                 * @return the increments
+                 */
+                public int getIncrements() {
+                    return increments;
+                }
+            }
             public void setTimestamp(Date timestamp) throws SQLException, ParseException {
                 load(timestamp);
                 
                 if (opStart == null || opEnd == null) {
                     return;
                 }
-                start = new Date(timestamp.getTime());
-                Utils.setTime(start, opStart);
-                end = new Date(timestamp.getTime());
-                Utils.setTime(end, opEnd); 
+                start = getOffPeakBoundary(timestamp, opStart);
                 
-                if (Utils.toSeconds(opStart) > Utils.toSeconds(opEnd)) {
-                    Utils.addDays(end, 1);
-                }
-                /*
-                 * Normalise to GMT if necessary.
-                 */
-                start = setOpTime(start);
-                end   = setOpTime(end);
+                if (start.after(timestamp)) Utils.addDays(start, -1);                
+                
+                end = getOffPeakBoundary(timestamp, opEnd);
+                
+                if (start.after(end)) Utils.addDays(end, 1);
             }
             public boolean isOffPeak(Date timestamp) throws SQLException, ParseException {
                 setTimestamp(timestamp);
@@ -1946,10 +2259,11 @@ public abstract class ApplicationServer extends HttpServlet {
                 if (start == null) {
                     return false;
                 }
-                if (timestamp.after(start) && timestamp.before(end)) {
+                if (timestamp.after(start) && timestamp.before(end) || timestamp.getTime() == start.getTime()) {
+                    forceOffPeak = false;
                     return true;
                 }
-                return timestamp.getTime() == start.getTime();
+                return isForceOffPeak(timestamp);
             }
             /*
              * Derives the off peak boundaries
@@ -1963,6 +2277,7 @@ public abstract class ApplicationServer extends HttpServlet {
         public Tariff(DatabaseSession session, String type, Date timestamp) throws SQLException {
             this.session = session;
             this.type   = type;
+            
             load(timestamp);
             
         }
@@ -1979,13 +2294,13 @@ public abstract class ApplicationServer extends HttpServlet {
             return type;
         }
         public double getUnitRate() {
-            return unitRate;
+            return autoRemoveVat(unitRate);
         }
         public double getOpRate() {
-            return opRate;
+            return autoRemoveVat(opRate);
         }
         public double getStandingCharge() {
-            return standingCharge;
+            return autoRemoveVat(standingCharge);
         }
         public double getCalValue() {
             return calorificValue;

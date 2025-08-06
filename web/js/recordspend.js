@@ -186,6 +186,8 @@ function loadOption(options, type, defaultValue) {
     return response;
 }
 function initialize(loggedIn) {    
+    var paymentList;
+    
     if (!loggedIn) return;
     
     reporter.setFatalAction('error');
@@ -197,9 +199,17 @@ function initialize(loggedIn) {
         forceGap:        '4px',
         popup:           true});
     
+    paymentList = getList('Spend', {
+        table:        'PaymentSource',
+        name:         'payment',
+        field:        'Code',
+        keepValue:    true,
+        defaultValue: 'Cash',
+        async:        false},
+        true);
     hstFilter.addFilter('Categories',  {name: 'Category',  values: loadOption('category', 'Category', 'Discretionary')});
     hstFilter.addFilter('Types',       {name: 'Type',      values: loadOption('type',     'Type',     'Food')});
-    hstFilter.addFilter('Payments',    {name: 'Payment',   values: loadOption('payment',  'Payment',  'Cash')});
+    hstFilter.addFilter('Payments',    {name: 'Payment',   values: paymentList});
     hstFilter.addFilter('Weekdays',    {name: 'Weekday',   values: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'});
     hstFilter.addFilter('Description', {name: 'Description'});
     hstFilter.addFilter('Location',    {name: 'Location', type: 'text'});
@@ -207,7 +217,7 @@ function initialize(loggedIn) {
     /*
      * The remaining calls can execute asynchronously.
      */
-    loadOption('payment', 'Payment', 'Cash');
+    // loadOption('payment', 'Payment', 'Cash');
     updateFilteredLists();
     requestHistory();
     requestSummary();

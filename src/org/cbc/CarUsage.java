@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.TimeZone;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
@@ -223,7 +224,6 @@ public class CarUsage extends ApplicationServer {
         public OffPeakUsage(Context ctx) throws SQLException, ParseException {            
             SQLSelectBuilder sql     = ctx.getSelectBuilder("ChargerLocation"); 
             EnclosingRecords er      = new EnclosingRecords(ctx, "MeterReading");
-            String           chDuration;
             ResultSet        rs;
             
             this.ctx     = ctx;
@@ -256,18 +256,21 @@ public class CarUsage extends ApplicationServer {
                 credit         = rs.getDouble("Credit");
                 supportsCredit = !rs.wasNull();
                 return;
-            }                        
-            chDuration = ctx.getParameter("ChargeDuration");
-            
-            if (chDuration.length() == 0)
-                ssEnd = ctx.getTimestamp("End");
-            else {
-                ssEnd = new Date(ssStart.getTime());
-                Utils.addSeconds(ssEnd, Utils.toSeconds(chDuration));
             }
+            ssEnd = ctx.getTimestamp("End");
+            
             tf = new Tariff(ctx.getAppDb(), "Electric", ssStart);
             
-            op      = tf.new OffPeak(ssStart);
+            /*
+             * Convert ssStart and ssEnd to GMT to match the op settings that are defined as GMT
+             */
+            ssStart = tf.setOpTime(ssStart);
+            ssEnd   = tf.setOpTime(ssEnd);
+            
+            Date opTime = new Date(ssEnd.getTime());
+            
+            Utils.zeroTime(opTime);
+            op = tf.new OffPeak(opTime);
             
             if (tf.getStart() == null) errorExit("Tariff not found for " + ctx.getParameter("Start"));
             
@@ -282,11 +285,6 @@ public class CarUsage extends ApplicationServer {
              */
             if (DateFormatter.dateDiff(ssStart, ssEnd, DateFormatter.TimeUnits.Days) > 0) return;
             
-            /*
-             * Convert ssStart and ssEnd to GMT to match the op settings that are defined as GMT
-             */
-            ssStart = tf.setOpTime(ssStart);
-            ssEnd   = tf.setOpTime(ssEnd);
             
             if (!(ssEnd.after(op.start) && ssStart.before(op.end))) return;
 
@@ -299,13 +297,13 @@ public class CarUsage extends ApplicationServer {
              * charging so the offpeak usage for billing can be estimated. This is not directly recorded by
              * the smart meter. The most part of the offpeak usage will be due to charging the car.
              */
-            if (!ssStart.before(op.start) && !ssEnd.after(op.end) || ctx.getDouble("EndPerCent", 0) < 96) {
+            if (opKwhFromCost > -1) {
+                setOpKwh(opKwhFromCost, "FromCost");  
+            } else if (!ssStart.before(op.start) && !ssEnd.after(op.end) || ctx.getDouble("EndPerCent", 0) < 96) {
                 /*
                  * This will be the majority of cases, as most of the charging takes place in the off peak.
                  */
                 setOpKwh(opKwhFromRatio, "FromRatio");
-            } else if (opKwhFromCost > -1) {
-                setOpKwh(opKwhFromCost, "FromCost");  
             } else {
                 setOpKwh(opKwhFromApprox, "FromApprox");
             }
@@ -510,6 +508,7 @@ public class CarUsage extends ApplicationServer {
         String schema  = ctx.getAppDb().getProtocol().equals("sqlserver")? "dbo" : "BloodPressure";
         String endName = ctx.getAppDb().delimitName("End");
 
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
         switch (action) {
             case "getchargeparameters": {
                     JSONObject       data = new JSONObject();

@@ -108,6 +108,14 @@ function actionTariff(action, fields) {
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
+function actionClear() {
+    let flds = new ScreenFields('derivestart');
+    
+    flds.setValue("From",      "");
+    flds.setValue("To",        "");
+    flds.setValue("ToReading", "");
+    
+}
 function actionDerive() {
     let flds = new ScreenFields('derivestart');
     let pars = createParameters('deriveReading', {fields: flds.getFields()}); 
@@ -230,6 +238,28 @@ function setCalValScreen(mode, setHistory) {
     }
     if (defaultNull(setHistory, true)) requestCalValues();
 }
+function setPeakOverridesScreen(mode) {
+    let flds = new ScreenFields('pkovrrride');
+    
+    switch (mode) {
+        case 'Create':
+            setHidden('ovrcreate', false);
+            setHidden('ovrmodify', true);
+            setHidden('ovrdelete', true);              
+            setHidden('ovrcancel', true);  
+            flds.clear();
+            flds.setReadOnly('Start', false);
+            break;
+        case 'Update':
+            setHidden('ovrcreate', true);
+            setHidden('ovrmodify', false);
+            setHidden('ovrdelete', false);              
+            setHidden('ovrcancel', false);
+            flds.setReadOnly('Start', true);  
+            break;
+    }
+    requestPeakOverrides();
+}
 function actionCalValue(element) {
     let action = element.value;
     let flds   = new ScreenFields('calvals');
@@ -260,6 +290,41 @@ function actionCalValue(element) {
                 {fields: getParameters('calval'), initialParams: [{name: 'table', value: 'CalorificValue'}]});
     function processResponse(response) {
         requestCalValues();
+    }
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function actionPeakOverride(element) {
+    let action = element.value;
+    let flds   = new ScreenFields('pkovrrride');
+
+    switch (action) {
+        case "Create":
+            if (!fieldHasValue(flds.get('Date'))) return;
+            
+            action = 'create';
+            
+            break;
+        case "Modify":
+            action = 'update';
+            break;
+        case "Delete":
+            action = 'delete';
+            break;
+        case "Cancel":
+            setPeakOverridesScreen('Create');
+            return;
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
+    }
+    let parameters = createParameters(
+                action + 'TableRow',
+                {fields:        getParameters('pkovrrride'),                    
+                 initialParams: [
+                     {name: 'table', value: 'peaktariffoverride'}, 
+                     {name: 'Type',  value: 'Electric'}]});
+    function processResponse(response) {
+        setPeakOverridesScreen(action === 'modify'? 'Modify' : 'Create');
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
@@ -316,7 +381,7 @@ function screenFldsRowClick(row, fieldsId) {
     let rdr  = new rowReader(row);
     let flds = new ScreenFields(fieldsId);
     
-    flds.setValue('From', rdr.getColumnValue('Timestamp'));
+    flds.setValue(flds.hasValue('From', false)? 'To' : 'From', rdr.getColumnValue('Timestamp'));
 }
 function calValuesRowClick(row) {
     let rdr  = new rowReader(row);
@@ -325,12 +390,25 @@ function calValuesRowClick(row) {
     rdr.loadScreenFields(flds, {mustExist: false});
     setCalValScreen('Update', false);
 }
+function peakOverridesRowClick(row) {
+    let rdr  = new rowReader(row);
+    let flds = new ScreenFields('pkovrrride');
+    
+    rdr.loadScreenFields(flds, {mustExist: false});
+    setPeakOverridesScreen('Update');
+}
+function clearFields(id) {
+    let flds = new ScreenFields(defaultNull(id, 'costs'));
+    
+    flds.clear();
+}
 function menuClick(option) {
     setHidden('meter',     option !== 'meter');
     setHidden('derive',    option !== 'derive');
     setHidden('calculate', option !== 'calculate');
     setHidden('rates',     option !== 'rates');    
-    setHidden('calvals',   option !== 'calvals');
+    setHidden('calvals',   option !== 'calvals'); 
+    setHidden('pkover',    option !== 'pkover');
 
     switch (option) {
         case 'meter':
@@ -340,12 +418,20 @@ function menuClick(option) {
             requestScreenReadings('derivestart');
             break;
         case 'calculate':
+            getElement('cstswvat').checked = false;
+            getElement('cstvat').value = 'Remove';
+            setVatMode(getElement('cstvat'));
+            getElement('cststime').value   = '00:00:00';
+            getElement('cstendtime').value = '00:00:00';
             requestScreenReadings('calculatestart');
         case 'rates':
             requestTariffs();
             break;
         case 'calvals':
             setCalValScreen('Create');
+            break;
+        case 'pkover':
+            setPeakOverridesScreen('Create');
             break;
     }
 }
@@ -377,6 +463,43 @@ function requestReadings() {
     parameters = readingsFilter.addFilterParameter(parameters);
 
     ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function checkMeterIncrementTimestamp(flds, name, required) {
+    let elm = flds.get(name + '~Date');
+    
+    if (!checkDate(elm, required, true)) return false;
+    
+    elm = flds.get(name + '~Time');
+    
+    if (elm.value === '') {
+        elm.value = '00:00:00';
+        return true;
+    }
+    if (!checkTime(elm)) return false;
+    
+    let min = Number(elm.value.substring(3, 5));
+    
+    if (min === 0 || min === 30) return true;
+    
+    displayAlert('Validation Error', 'Minutes must be 0 or 30', {focus: elm});
+    
+    return false;
+}
+function setVatMode(element) {
+    var mode = element.value;
+    // getSelectedOption(element.id);
+    clearFields();
+    setHidden(getElement('cstswvat'), mode === 'Included');
+}
+function checkPeakOverride(element) {
+    let name  = element.getAttribute('name').split('~');
+    let flds  = new ScreenFields('pkovrrride');
+    
+    if (name[0] === 'Start') return checkMeterIncrementTimestamp(flds, name[0], true);
+    
+    if(!flds.hasValue('End~Date')) flds.setValue('End', incrementDateTime(flds.getValue('Start'), 'Minutes', 30)); 
+    
+    return checkMeterIncrementTimestamp(flds, name[0], false);
 }
 function requestScreenReadings(fieldsId) {
     let flds       = new ScreenFields(fieldsId);    
@@ -418,6 +541,15 @@ function requestCalValues() {
     function processResponse(response) {
         loadJSONArray(response, 'meterhistory', 
             {setTableTitle: 'Values History', maxSize: 19, onClick: "calValuesRowClick(this)"});
+    }
+    ajaxLoggedInCall('Energy', processResponse, parameters);
+}
+function requestPeakOverrides() {
+    var parameters = createParameters('pkover');
+    
+    function processResponse(response) {
+        loadJSONArray(response, 'meterhistory', 
+            {setTableTitle: 'Peak Override', maxSize: 19, onClick: "peakOverridesRowClick(this)"});
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }

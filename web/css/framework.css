@@ -122,6 +122,21 @@ label, .label {
     width: 10px;
     text-align: left;
 }
+.gap30ar {    
+    display: inline-block;
+    width: 30px;
+    text-align: right;
+}
+.gap40ar {    
+    display: inline-block;
+    width: 40px;
+    text-align: right;
+}
+.gap57ar {    
+    display: inline-block;
+    width: 57px;
+    text-align: right;
+}
 .gap61ar {    
     display: inline-block;
     width: 61px;

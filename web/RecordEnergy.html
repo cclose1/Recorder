@@ -45,7 +45,11 @@
                     </div>
                     <div>
                         <input type="radio" id="menu5" name="menu" value="calvals" onclick="menuClick(this.value)"/>
-                        <label for="menu4" class="left largelab">Calorific Value</label>
+                        <label for="menu5" class="left largelab">Calorific Value</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="menu6" name="menu" value="pkover" onclick="menuClick(this.value)"/>
+                        <label for="menu6" class="left largelab">Peak Override</label>
                     </div>
                 </div>
             </fieldset>
@@ -74,6 +78,10 @@
                             <div>
                                 <label for="drvsusever">Use Verified</label>
                                 <input type= "checkbox" name="UseVerified" id="drvsusever" onclick="requestScreenReadings('derivestart')">
+                            </div>
+                            <div>
+                                <label for="drvlog">Log</label>
+                                <input type= "checkbox" name="Log" id="drvlog">
                             </div>                            
                             <div>
                                 <label for="drvsoffset">Offset</label>
@@ -83,12 +91,14 @@
                                 <label for="drvstype">Type</label>
                                 <select id="drvstype" name='Type' class='optlist' onclick="requestScreenReadings('derivestart')">
                                     <option>Electric</option>
+                                    <option>Export</option>
                                     <option>Gas</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="drvssave"></label>
                                 <input id="drvssave" class="notparam" name="save"   type="button" value="Derive" onclick="actionDerive();">
+                                <input id="drvsclear" class="notparam" name="save"   type="button" value="Clear" onclick="actionClear();">
                              </div>
                         </fieldset>                        
                         <fieldset id="derivereading">
@@ -145,7 +155,7 @@
                             <legend>Period</legend>
                             <div>
                                 <label for="cststdate">Start Date</label>
-                                <input type="text" name="Start~Date" id="cststdate" class='date' maxlength="11" onchange="checkDate()">
+                                <input type="text" name="Start~Date" id="cststdate" class='date' maxlength="11" onfocus="clearFields()" onchange="checkDate()">
                                 <label for="cststime" class="nogap">Time</label>
                                 <input type="text" name="Start~Time" size="8" id="cststime" class='time' maxlength="8" onchange="checkTime()">
                             </div>
@@ -157,10 +167,22 @@
                             </div>
                             <div>
                                 <label for="cststype">Type</label>
-                                <select id="cststype" name='Type' class='optlist' onclick="requestScreenReadings('calculatestart')">
+                                <select id="cststype" name='Type' class='optlist' onchange="clearFields(); requestScreenReadings('calculatestart')">
                                     <option>Electric</option>
                                     <option>Gas</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label for='cstvat'>Vat</label>
+                                <select id=cstvat name='VatMode' class='optlist' onchange='setVatMode(this)'>
+                                    <option>Add</option>
+                                    <option>Included</option>
+                                    <option>Remove</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for='cstlgday'>Log Daily</label>
+                                <input type= "checkbox" name="LogDaily" id='cstlgday'>
                             </div>
                             <div>
                                 <label for="cstscalc"></label>
@@ -176,42 +198,38 @@
                             <div>
                                 <label class='largelab' for='cstspkkwh'>Peak Kwh</label>
                                 <input class='right' type="text" name="PeakKwh" id="cstspkkwh" size="3" readonly>
-                            </div>
-                            <div>
-                                <label class='largelab' for='cstsopkcost'>Peak Cost</label>
+                                <label class='gap57ar' for='cstsunitrt'>Rate</label>
+                                <input class='right' type="text" name="UnitRate" id="cstsunitrt" size="3" readonly>                     
+                                <label class = 'gap30ar' for='cstsopkcost'>Cost</label>
                                 <input class='right' type="text" name="PeakCost" id="cstspkcost" size="3" readonly>
                             </div>
                             <div>
                                 <label class='largelab' for='cstsopkkwh'>Off Peak Kwh</label>
                                 <input class='right' type="text" name="OffPeakKwh" id="cstsopkkwh" size="3" readonly>
-                            </div>
-                            <div>
-                                <label class='largelab' for='cstsopkcost'>Off Peak Cost</label>
+                                <label class='gap57ar' for='cstsoprt'>Rate</label>
+                                <input class='right' type="text" name="OffPeakRate" id="cstsoprt" size="3" readonly>
+                                <label class='gap30ar' for='cstsopkcost'>Cost</label>
                                 <input class='right' type="text" name="OffPeakCost" id="cstsopkcost" size="3" readonly>
                             </div>
                             <div>
-                                <label class='largelab' for='cstsstdcst'>Standing Cost</label>
+                                <label class='largelab' for='cstsstdcst'>Standing Charge</label>
+                                <input class='right' type="text" name="StandingCharge" id="cstsstdch" size="3" readonly>
+                                <label class='gap57ar' for='cstsdays'>Days</label>
+                                <input class='right' type="text" name="Days" id="cstsdays" size="3" readonly>
+                                <label class='gap30ar' for='cstsstdch'>Cost</label>
                                 <input class='right' type="text" name="StandingCost" id="cstsstdcst" size="3" readonly>
                             </div>
                             <div>
                                 <label class='largelab' for='cststot'>Total Cost</label>
                                 <input class='right' type="text" name="TotalCost" id="cststot" size="3" readonly>
+                                <span id='cstswvat'>
+                                    <label class='gap57ar' for='cststvat'>With Vat</label>
+                                    <input class='right' type="text" name="TotalWithVat" id="cststvat" size="3" readonly>
+                                </span>
                             </div>
                             <div>
                                 <label class='largelab' for='cstsvalusd'>Values Used</label>
                                 <input class='right' type="text" name="ValuesUsed" id="cstsvalusd" size="3" readonly>
-                            </div>
-                            <div>
-                                <label class='largelab' for='cstsstdch'>Standing Charge</label>
-                                <input class='right' type="text" name="StandingCharge" id="cstsstdch" size="3" readonly>
-                            </div>
-                            <div>
-                                <label class='largelab' for='cstsunitrt'>Unit Rate</label>
-                                <input class='right' type="text" name="UnitRate" id="cstsunitrt" size="3" readonly>
-                            </div>
-                            <div>
-                                <label class='largelab' for='cstsoprt'>Off Peak Rate</label>
-                                <input class='right' type="text" name="OffPeakRate" id="cstsoprt" size="3" readonly>
                             </div>
                             <div>
                                 <label class='largelab' for='cstscval'>Calorific Value</label>
@@ -398,9 +416,9 @@
                                 <label for="teoprate">Off Peak</label>
                                 <input type= "text" name="Electric OffPeakRate" id="teoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                                 <label for="teopstart" class="nogap">Start</label>
-                                <input type= "text" name="Electric OffPeakStart" id="teopstart" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <input type= "text" name="Electric OffPeakStart" id="teopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
                                 <label for="teopend" class="nogap">End</label>
-                                <input type= "text" name="Electric OffPeakEnd" id="teopend" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                <input type= "text" name="Electric OffPeakEnd" id="teopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
                                </div>
                             </fieldset>
                             <div>
@@ -471,8 +489,7 @@
                             </div>
                         </div>
                     </fieldset>        
-                </div>
-                
+                </div>                
                 <div id="calvals" class="floatleft" hidden>
                     <fieldset id="calval" class='centreminwidth form'>                        
                         <legend>Calorific Value</legend>
@@ -495,6 +512,36 @@
                                 <input id="cvmodify" name="cvmodify" class='notparam' type="button" value="Modify" onclick="actionCalValue(this);">
                                 <input id="cvdelete" name="cpdelete" class='notparam' type="button" value="Delete" onclick="actionCalValue(this);">
                                 <input id="cvcancel" name="cvcancel" class='notparam' type="button" value="Cancel" onclick="actionCalValue(this);">
+                            </div>
+                        </div>
+                    </fieldset> 
+                </div>
+                <div id="pkover" class="floatleft" hidden>
+                    <fieldset id="pkovrrride" class='centreminwidth form'>                        
+                        <legend>Peak Override</legend>
+                        <div>
+                            <div>
+                                <label for="ovrsdate">From Date</label>
+                                <input type="text" name="Start~Date" id="ovrsdate" class='date' maxlength="11" onchange="checkPeakOverride(this)">
+                                <label for="ovrstime" class="nogap">Time</label>
+                                <input type="text" name="Start~Time" size="8" id="ovrstime" class='time' maxlength="8" onchange="checkPeakOverride(this)">
+                            </div>
+                            <div>
+                                <label for="ovredate">To Date</label>
+                                <input type="text" name="End~Date" id="ovredate" class='date' maxlength="11" onFocus="checkPeakOverride(this)" onchange="checkPeakOverride(this)">
+                                <label for="ovretime" class="nogap">Time</label>
+                                <input type="text" name="End~Time" size="8" id="ovretime" class='time' maxlength="8" onchange="checkPeakOverride(this)">
+                            </div> 
+                            <div>
+                                <label for="pkovrcomment">Comment</label>
+                                <textarea id='pkovrcomment' name='Comment' rows='2'></textarea>
+                            </div>  
+                            <div>
+                                <label for="ovrcreate"></label>
+                                <input id="ovrcreate" name="ovrcreate" class='notparam' type="button" value="Create" onclick="actionPeakOverride(this);">
+                                <input id="ovrmodify" name="ovrmodify" class='notparam' type="button" value="Modify" onclick="actionPeakOverride(this);">
+                                <input id="ovrdelete" name="ovrdelete" class='notparam' type="button" value="Delete" onclick="actionPeakOverride(this);">
+                                <input id="ovrcancel" name="ovrcancel" class='notparam' type="button" value="Cancel" onclick="actionPeakOverride(this);">
                             </div>
                         </div>
                     </fieldset> 

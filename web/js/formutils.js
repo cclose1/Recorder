@@ -470,6 +470,24 @@ class ScreenFields {
         }        
         return undefined;
     }
+    setReadOnly(field, on) {
+        let elm = this.#fields.get(field);
+        
+        if (elm !== undefined) {
+            elm.readOnly = on;
+        } else {
+            elm = this.get(field + '~Date');
+            
+            if (elm !== undefined) {
+                elm.readOnly = on;
+                
+                let telm = this.get(field + '~Time');
+                
+                if (telm !== undefined) telm.readOnly = on;
+            }
+        }
+        if (elm === undefined) throw 'Field ' + field + ' passed to setReadOnly does not exist';;
+    }
     setValue(field, value, mustExist) {
         let found = false;
 
@@ -980,9 +998,9 @@ function toDate(timestamp, notime) {
     if (timestamp instanceof Date)
         return timestamp;
 
-    let months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-    let date = timestamp.split(new RegExp("[/\-]"));
-    let time = new Array(0, 0, 0);
+    let months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+    let date    = timestamp.split(new RegExp("[/\-]"));
+    let time    = new Array(0, 0, 0);
     let errName = "Date";
 
     try {
@@ -1076,9 +1094,9 @@ function validateDateTimeOptions(pOptions) {
     BaseOptions.call(this, false);
 
     setObjectName(this, 'validateDateTime');
-    this.addSpec({name: 'required', type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'normalise', type: 'boolean', default: true, mandatory: false});
-    this.addSpec({name: 'notime', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'required',  type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'normalise', type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'notime',    type: 'boolean', default: false, mandatory: false});
 
     this.clear();
     this.load(pOptions, false);
@@ -1143,6 +1161,38 @@ function validateDateTime(did, tid, options) {
         displayAlert('Field Error', e.message + " on " + getElementLabel(elm), {focus: elm});
     }
     return result;
+}
+/*
+ * 
+ * Date    timestamp The date to be incremented.
+ * String  interval  The increment interval can be Days, Hours, Minutes or Sceonds.
+ * Integer increment The number of increments to be added or subtracted from timedtamp.
+ * 
+ * @returns timestamp
+ * 
+ * 
+ */
+function incrementDateTime(timestamp, interval, increment) {
+    let mult = 1000;
+    
+    if (typeof timestamp === 'string' || typeof timestamp === 'number') timestamp = new Date(timestamp);
+    
+    switch (interval.toLowerCase()) {
+        case "days":
+            mult *= 24;
+        case "hours":
+            mult *= 60;      
+        case "minutes":
+            mult *= 60;
+        case "seconds":
+            mult *= 1;
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'Interval ' + interval + ' is invalid');
+    }
+    timestamp.setTime(timestamp.getTime() + mult * increment);
+    
+    return timestamp;
 }
 function secondsToTime(seconds) {
     var div = 24 * 60 * 60;
@@ -1318,7 +1368,25 @@ function valuesAllOrNone(...args) {
     }
     return null;
 }
-function checkDate(elm, required) {
+/*
+ * elm      Html element containing the date to be checked.
+ * required If true a field error is reported if the element value is empty.
+ * setYear  If true or undefinded and the elm.value does not have a year field, i.e. only has day and month, the current
+ *          year is appended separated by /.
+ *          
+ * Returns true and element value is a valid date, otherwise, a field error is reported and false is reported.
+ * 
+ *          If the value is valid, it is normalised to dd-mmm-yyyy.         
+ */
+function checkDate(elm, required, setYear) {
+    if (defaultNull(setYear, true)) {
+        elm = getElement(elm);
+        let flds = elm.value.split(new RegExp("[/\-]"));
+        
+        if (flds.length === 2) {
+            elm.value += '/' + (new Date()).getFullYear();
+        }
+    }
     return validateDateTime(elm, null, {required: required, notime: true}).valid;
 }
 function checkTime(elm, required) {
