@@ -13,6 +13,8 @@
         <script src="js/filter.js"></script>
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+        <script src="js/chartbuilder.js"></script>
         <script src="js/recordenergy.js"></script>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Energy</title>
@@ -50,6 +52,10 @@
                     <div>
                         <input type="radio" id="menu6" name="menu" value="pkover" onclick="menuClick(this.value)"/>
                         <label for="menu6" class="left largelab">Peak Override</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="menu7" name="menu" value="chartdv" onclick="menuClick(this.value)"/>
+                        <label for="menu7" class="left largelab">Chart</label>
                     </div>
                 </div>
             </fieldset>
@@ -99,7 +105,7 @@
                                 <label for="drvssave"></label>
                                 <input id="drvssave" class="notparam" name="save"   type="button" value="Derive" onclick="actionDerive();">
                                 <input id="drvsclear" class="notparam" name="save"   type="button" value="Clear" onclick="actionClear();">
-                             </div>
+                            </div>
                         </fieldset>                        
                         <fieldset id="derivereading">
                             <legend>Derived</legend>
@@ -187,7 +193,7 @@
                             <div>
                                 <label for="cstscalc"></label>
                                 <input id="cstscalc" class="notparam" name="save"   type="button" value="Calculate" onclick="actionCalculate();">
-                             </div>
+                            </div>
                         </fieldset> 
                         <fieldset id="costs">
                             <legend>Costs</legend>
@@ -372,54 +378,54 @@
                         <legend>Tariff</legend>
                         <div>
                             <fieldset style='border: none'>
-                            <div>
-                                <label for="tdate">Date</label>
-                                <input type="text" name="Date" id="tdate" class='date' maxlength="11" onchange="checkDate()"  tabindex="-1">                             
-                            </div>
-                            <div>
-                                <label for="tariffcode" >Tariff</label>
-                                <select id="tariffcode" name="Code"  tabindex="0">
-                                    <option></option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="tcomment">Comment</label>
-                                <textarea id='tcomment' name="Comment" rows='2'></textarea>
-                            </div>
-                        </fieldset>
+                                <div>
+                                    <label for="tdate">Date</label>
+                                    <input type="text" name="Date" id="tdate" class='date' maxlength="11" onchange="checkDate()"  tabindex="-1">                             
+                                </div>
+                                <div>
+                                    <label for="tariffcode" >Tariff</label>
+                                    <select id="tariffcode" name="Code"  tabindex="0">
+                                        <option></option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="tcomment">Comment</label>
+                                    <textarea id='tcomment' name="Comment" rows='2'></textarea>
+                                </div>
+                            </fieldset>
                             <fieldset>
                                 <legend>Gas</legend>
                                 <div>
-                                <label for="tgstanding">Standing</label>
-                                <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="tgrate" class="nogap">Rate</label>
-                                <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                    <label for="tgstanding">Standing</label>
+                                    <input type="text" name="Gas StandingCharge" id="tgstanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                    <label for="tgrate" class="nogap">Rate</label>
+                                    <input type= "text" name="Gas UnitRate" id="tgrate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
                                 </div>
                                 <div>
-                                <label for="tgoprate">Off Peak</label>
-                                <input type= "text" name="Gas OffPeakRate" id="tgoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="tgopstart" class="nogap">Start</label>
-                                <input type= "text" name="Gas OffPeakStart" id="tgopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
-                                <label for="tgopend" class="nogap">End</label>
-                                <input type= "text" name="Gas OffPeakEnd" id="tgopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                    <label for="tgoprate">Off Peak</label>
+                                    <input type= "text" name="Gas OffPeakRate" id="tgoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                    <label for="tgopstart" class="nogap">Start</label>
+                                    <input type= "text" name="Gas OffPeakStart" id="tgopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                    <label for="tgopend" class="nogap">End</label>
+                                    <input type= "text" name="Gas OffPeakEnd" id="tgopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
                                 </div>
                             </fieldset>
                             <fieldset>
                                 <legend>Electric</legend>
                                 <div>
-                                <label for="testanding">Standing</label>
-                                <input type="text" name="Electric StandingCharge" id="testanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
-                                <label for="terate" class="nogap">Rate</label>
-                                <input type="text" name="Electric UnitRate" id="terate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
+                                    <label for="testanding">Standing</label>
+                                    <input type="text" name="Electric StandingCharge" id="testanding" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
+                                    <label for="terate" class="nogap">Rate</label>
+                                    <input type="text" name="Electric UnitRate" id="terate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();" >
                                 </div>
                                 <div>
-                                <label for="teoprate">Off Peak</label>
-                                <input type= "text" name="Electric OffPeakRate" id="teoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
-                                <label for="teopstart" class="nogap">Start</label>
-                                <input type= "text" name="Electric OffPeakStart" id="teopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
-                                <label for="teopend" class="nogap">End</label>
-                                <input type= "text" name="Electric OffPeakEnd" id="teopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
-                               </div>
+                                    <label for="teoprate">Off Peak</label>
+                                    <input type= "text" name="Electric OffPeakRate" id="teoprate" size='2' oninput="setDate('tdate');" onkeypress="allowedInNumberField();">
+                                    <label for="teopstart" class="nogap">Start</label>
+                                    <input type= "text" name="Electric OffPeakStart" id="teopstart" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                    <label for="teopend" class="nogap">End</label>
+                                    <input type= "text" name="Electric OffPeakEnd" id="teopend" size='2' oninput="setDate('tdate');" onchange="checkTime();">
+                                </div>
                             </fieldset>
                             <div>
                                 <label for="tsave"></label>
@@ -448,31 +454,31 @@
                             <div>
                                 <label for="mtcode" class="largelab">Tariff</label>
                                 <input type="text" name="Code" id="mtcode" size='2' readonly />
-                             </div>                     
+                            </div>                     
                             <div>
                                 <label for="mttype" class="largelab">Type</label>
                                 <input type="text" name="Type" id="mttype" size='2' readonly />
-                             </div>                     
+                            </div>                     
                             <div>
                                 <label for="mtrate" class="largelab">Unit Rate</label>
                                 <input type="text" name="UnitRate" id="mtrate" size='2' onkeypress="allowedInNumberField();" >
-                             </div>                    
+                            </div>                    
                             <div>
                                 <label for="mtoprate" class="largelab">Off Peak Rate</label>
                                 <input type="text" name="OffPeakRate" id="mtoprate" size='2' onkeypress="allowedInNumberField();" >
-                             </div>                   
+                            </div>                   
                             <div>
                                 <label for="mtopstart" class="largelab">Off Peak Start</label>
                                 <input type="text" name="OffPeakStart" id="mtopstart" size='4' onchange="checkTime()">
-                             </div>                   
+                            </div>                   
                             <div>
                                 <label for="mtopend" class="largelab">Off Peak End</label>
                                 <input type="text" name="OffPeakEnd" id="mtopend" size='4' onchange="checkTime()">
-                             </div>                    
+                            </div>                    
                             <div>
                                 <label for="mtstchrg" class="largelab">Standing Charge</label>
                                 <input type="text" name="StandingCharge" id="mtstchrg" size='2' onkeypress="allowedInNumberField();" >
-                             </div>                    
+                            </div>                    
                             <div>
                                 <label for="mtcalval" class="largelab">Calorific Value</label>
                                 <input type="text" name="CalorificValue" id="mtcalval" size='2' onkeypress="allowedInNumberField();" >
@@ -483,9 +489,9 @@
                             </div>                            
                             <div>
                                 <label for="trdelete"></label>
-                                <input id="trdelete" name="delete"   class='notparam' type="button" value="Delete" onclick="actionTariff('Delete',       'modifytariff');">
+                                <input id="trdelete" name="delete"   class='notparam' type="button" value="Delete" onclick="actionTariff('Delete', 'modifytariff');">
                                 <input id="trcancel" name="trcancel" class='notparam' type="button" value="Cancel" onclick="actionTariff('CancelModify', 'modifytariff');"> 
-                                <input id="trmodify" name="trmodify" class='notparam' type="button" value="Modify" onclick="actionTariff('Modify',       'modifytariff');">
+                                <input id="trmodify" name="trmodify" class='notparam' type="button" value="Modify" onclick="actionTariff('Modify', 'modifytariff');">
                             </div>
                         </div>
                     </fieldset>        
@@ -501,7 +507,7 @@
                             <div>
                                 <label for="cvalue" class="largelab">Value</label>
                                 <input type="text" name="Value" id="cvalue" size='2' onkeypress="allowedInNumberField();" >
-                             </div> 
+                            </div> 
                             <div>
                                 <label for="cvalcomment" class="largelab">Comment</label>
                                 <textarea id='cvalcomment' name='Comment' rows='2'></textarea>
@@ -546,7 +552,54 @@
                         </div>
                     </fieldset> 
                 </div>
+                <div id="chartdv" class="floatleft" hidden>
+                    <fieldset id="chrperiod" class='centreminwidth form'>
+                        <legend>Period</legend>
+                        <div>
+                            <label for="chrstdat">Start Date</label>
+                            <input type="text" name="Start~Date" id="chrstdat" class='date' maxlength="11" onfocus="clearFields()" onchange="checkDate(this, null, null, 'chrstwkd')">
+                            <label for="chrsttim" class="nogap">Time</label>
+                            <input type="text" name="Start~Time" size="8" id="chrsttim" class='time' maxlength="8" onchange="checkTime()">
+                            <input readonly type="text" name="StartWday"  size="1" id="chrstwkd" class='notparam'>
+                        </div>
+                        <div>
+                            <label for="chrenddat">End Date</label>
+                            <input type="text" name="End~Date" id="chrenddat" class='date' maxlength="11" onchange="checkDate(this, null, null, 'chrendwkd')">
+                            <label for="chrendtim" class="nogap">Time</label>
+                            <input type="text" name="End~Time" size="8" id="chrendtim" class='time' maxlength="8" onchange="checkTime()">                            
+                            <input readonly type="text" name="EndWday"  size="1" id="chrendwkd" class='notparam'>
+
+                        </div>
+                        <div>
+                            <label for="chrtype">Type</label>
+                            <select id="chrtype" name='Type' class='optlist'>
+                                <option>Electric</option>
+                                <option>Gas</option>
+                                <option>Export</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="chrtgrp">Group</label>
+                            <select id="chrtgrp" name='GroupBy' class='optlist'>
+                            </select>
+                        </div>                       
+                        <div>
+                            <label for="crtmxy">MaxY</label>
+                            <input type="text" name="MaxY" id="crtmxy" size='2' onkeypress="allowedInNumberField();" >
+                        </div> 
+                        <div>
+                            <label for="chrdis"></label>
+                            <input id="chrdis" class="notparam" name="display"   type="button" value="Display" onclick="displayChart();">
+                        </div>
+                    </fieldset> 
+                </div>
             </div> 
+            <fieldset id="chart" class='centreminwidth form'>                        
+                <legend>Chart</legend>
+                <div id='chartcnt' class='chartcontainer' style="position: relative; height: 100vh; width:80vw">
+                    <canvas id="myChart" style="width:100%"></canvas>
+                </div>
+            </fieldset> 
             <table id="meterhistory">
                 <caption>Recent Readings</caption>
                 <thead>
@@ -556,4 +609,4 @@
             </table>
         </form>
     </body>
-</html>
+

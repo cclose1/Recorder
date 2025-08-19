@@ -19,6 +19,10 @@ textarea {
 .test {
     width: 4em;
 }
+.chartcontainer {
+   width: 1000px;
+   height:600px
+}
 @media screen and (max-width: 900px) {
     .optional {
         display: none;

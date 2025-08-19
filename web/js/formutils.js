@@ -6,6 +6,7 @@
  * function or global scope, whereas let creates a variable that has block scope. Usually block scope is what is needed.
  */
 
+var months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");    
 /*
  * Not sure about this. Need to investigate further.
  */
@@ -46,7 +47,7 @@ function globalError(message, file, line, column, error) {
         location = file.split("/");
         location = location[location.length - 1] + '(' + line + ')';
     }
-    if (error.constructor.name === 'ErrorObject') {
+    if (error !== null && error.constructor.name === 'ErrorObject') {
         cause = error.getName();
         message = error.getMessage();
     }
@@ -998,7 +999,6 @@ function toDate(timestamp, notime) {
     if (timestamp instanceof Date)
         return timestamp;
 
-    let months  = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
     let date    = timestamp.split(new RegExp("[/\-]"));
     let time    = new Array(0, 0, 0);
     let errName = "Date";
@@ -1281,9 +1281,10 @@ function getDateTime(date) {
     return dateTimeString(toDate(date));
 }
 function getDayText(date, long) {
-    var value = 'Invalid';
+    let value = 'Invalid';
+    let day   = typeof date !== 'number'? toDate(date).getDay() : date;
 
-    switch (toDate(date).getDay()) {
+    switch (day) {
         case 0:
             value = 'Sunday';
             break;
@@ -1312,6 +1313,99 @@ function getDayText(date, long) {
         return value.substring(0, 3);
 
     return value;
+}
+/*
+ * timestamp as either a Date or a String. If a string, it is converted to a Date object.
+ * 
+ * Returns an object containing the date parts.
+ */
+function unpackDate(timestamp) {
+    if (typeof timestamp === 'string') timestamp = toDate(timestamp);
+    
+    return {
+        year:    timestamp.getFullYear(),
+        month:   timestamp.getMonth() + 1,
+        day:     timestamp.getDay(),
+        date:    timestamp.getDate(),
+        hours:   timestamp.getHours(),
+        minutes: timestamp.getMinutes(),
+        seconds: timestamp.getSeconds()};
+}
+/*
+ * 
+ * date   The date object or string to be formatted. If a string it is converted to a date object
+ * @param The format specification of the way date is to be converted to a string. This is a subset of 
+ *        the Java SimpleDateFormat format specifiers, in particular y, M, d, E, H, m amd s.
+ *        
+ * @returns String with date formatted as to specifiers.
+ */
+function formatDate(date, format) {
+    let fdate = '';
+    let udate = unpackDate(date);
+    let i     = 0;
+    let fdesc = '';
+    
+    function addField() {
+        let fd = fdesc.charAt(0);
+        let sz = fdesc.length;
+        let dfld;
+        
+        switch (fd) {
+            case 'y':
+                dfld = udate.year;
+                
+                if (sz <= 2) {
+                    dfld = dfld % 100;
+                    sz   = 2;
+                }
+                break;
+            case 'M':
+                dfld = sz === 3? months[udate.month - 1] : udate.month;
+                break;
+            case 'd':
+                dfld = udate.date;
+                break;
+            case 'E':
+                dfld = getDayText(udate.day, false);
+                break;
+            case 'H':
+                dfld = udate.hours;
+                break;
+            case 'm':
+                dfld = udate.minutes;
+                sz = 2;
+                break;
+            case 's':
+                dfld = udate.seconds;
+                sz = 2;
+                break;
+            default:
+                throw new ErrorObject('Code Error', 'Date format descriptor ' + fd + ' is invalid');                
+        }
+        if (typeof dfld === 'number') dfld = lpad(dfld, sz, '0');
+        
+        fdate += dfld;
+        fdesc = '';
+    }
+    while (i < format.length) {
+        let ch = format.charAt(i);
+        let rex = /[a-z]/i;
+        
+        if (rex.test(ch)) {
+            if (fdesc.length !== 0 && fdesc.charAt(0) !== ch) {
+                addField();
+                fdesc += ch;
+            } else
+                fdesc += ch;
+        } else {
+            addField();
+            fdate += ch;            
+        }
+        i++;
+    }
+    addField();
+    
+    return fdate;
 }
 function displayFieldError(elm, message) {
     elm = getElement(elm);
@@ -1369,16 +1463,18 @@ function valuesAllOrNone(...args) {
     return null;
 }
 /*
- * elm      Html element containing the date to be checked.
- * required If true a field error is reported if the element value is empty.
- * setYear  If true or undefinded and the elm.value does not have a year field, i.e. only has day and month, the current
- *          year is appended separated by /.
+ * elm       Html element containing the date to be checked.
+ * required  If true a field error is reported if the element value is empty.
+ * setYear   If true or undefinded and the elm.value does not have a year field, i.e. only has day and month, the current
+ *           year is appended separated by /.
+ * weekdayId If not undefined identified an element the value of which is set the 3 character weekday name
+ *           the of the validated elm.
  *          
  * Returns true and element value is a valid date, otherwise, a field error is reported and false is reported.
  * 
  *          If the value is valid, it is normalised to dd-mmm-yyyy.         
  */
-function checkDate(elm, required, setYear) {
+function checkDate(elm, required, setYear, weekdayId) {
     if (defaultNull(setYear, true)) {
         elm = getElement(elm);
         let flds = elm.value.split(new RegExp("[/\-]"));
@@ -1387,7 +1483,13 @@ function checkDate(elm, required, setYear) {
             elm.value += '/' + (new Date()).getFullYear();
         }
     }
-    return validateDateTime(elm, null, {required: required, notime: true}).valid;
+    if (validateDateTime(elm, null, {required: required, notime: true}).valid) {        
+        if (!isNull(weekdayId)) {
+            getElement(weekdayId).value = formatDate(elm.value, 'E');            
+        }
+        return true;
+    }
+    return false;
 }
 function checkTime(elm, required) {
     var ok = false;
@@ -2744,8 +2846,8 @@ function arrayToJSONTable(name) {
     };
     this.getJSON = function (data) {
         var i = 0;
-        var result = new JSON();
-        var arr = new JSON('array');
+        var result = new JSONcbc();
+        var arr = new JSONcbc('array');
         var row;
         var col;
 
@@ -2754,7 +2856,7 @@ function arrayToJSONTable(name) {
 
         for (i = 0; i < this.columns.length; i++) {
             col = this.columns[i];
-            row = new JSON('object');
+            row = new JSONcbc('object');
             arr.addElement(row);
 
             for (name in col) {
@@ -2762,13 +2864,13 @@ function arrayToJSONTable(name) {
                     row.addMember(name, col[name]);
             }
         }
-        arr = new JSON('array');
+        arr = new JSONcbc('array');
         result.addMember('Data', arr);
 
         for (i = 0; i < data.length; i++) {
             var dr = data[i];
             var cl;
-            var jcols = new JSON('array');
+            var jcols = new JSONcbc('array');
 
             arr.addElement(jcols);
 

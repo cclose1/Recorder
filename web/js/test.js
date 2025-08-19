@@ -106,7 +106,7 @@ function testCSSEdit() {
 function testAction(action) {
     switch (action) {
         case 'addItem':
-            var row  = new JSON('object');
+            var row  = new JSONcbc('object');
             var rows = data.getMember('Data', true).value;
             row.addMember('Item', document.getElementById('item').value);
             row.addMember('Available', true);
@@ -138,7 +138,7 @@ function testJSON() {
     var jval;
     var jval2;
     var text2;
-    var json = new JSON();
+    var json = new JSONcbc();
     
     testTable();
     
@@ -168,10 +168,10 @@ function testJSON() {
     json.addMember("Name1", true);
     json.addMember("Name2", null);
     json.addMember("Name3", 'Value1');
-    jval = new JSON('array');
+    jval = new JSONcbc('array');
     json.addMember('Array1', jval);
     jval.addElement('Elem1');
-    jval2 = new JSON('object');
+    jval2 = new JSONcbc('object');
     jval.addElement(jval2);
     jval2.addMember('Ename1', 12);
     jval2.addMember('Ename2', 'Fred');

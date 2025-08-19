@@ -638,14 +638,14 @@ public class RecordEnergy extends ApplicationServer {
 
                 sql.addField("*");
                 sql.addAnd("Type", "=", type);
-                sql.addAnd("Timestamp", up ? ">" : "<=", start.getTimestamp());
-                sql.addOrderByField("Timestamp", !up);
+                sql.addAnd("End",  up ? ">" : "<=", start.getTimestamp());
+                sql.addOrderByField("End", !up);
 
                 rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
 
                 while (rs.next()) {
                     double increment = rs.getDouble("Reading");
-                    Date   usageTime = rs.getTimestamp("Timestamp");
+                    Date   usageTime = rs.getTimestamp("End");
                     
                     complete = true;
 
@@ -925,11 +925,39 @@ public class RecordEnergy extends ApplicationServer {
         }
         return reading;
     }
-
+    private void getSMData(Context ctx) throws SQLException, ParseException, JSONException, IOException {
+        SQLSelectBuilder sql  = ctx.getSelectBuilder("SmartMeterUsageKwh");        
+        JSONObject       data = new JSONObject();
+        String           group = ctx.getParameter("GroupBy", "");
+        ResultSet        rs;
+        
+        if (group.length() == 0) {
+            sql.addField("Start");
+            sql.addField("Kwh");
+        } else {
+            sql.addField("Start", "Min(Start)");
+            sql.addField("Kwh",   "Sum(Kwh)");            
+        }
+        sql.addAnd("!Type",   "=", ctx.getParameter("Type"));
+        sql.addAnd("!Start", ">=", ctx.getTimestamp("Start"));
+        sql.addAnd("!Start",  "<", ctx.getTimestamp("End"));
+        sql.addOrderByField("Start", false);
+        
+        if (group.length() != 0) {
+            sql.addGroupByField("Year");
+            
+            if (group.equalsIgnoreCase("hour")) sql.addGroupByField("Day");
+            
+            sql.addGroupByField(group);
+        }
+        rs = ctx.getAppDb().executeQuery(sql.build());
+        data.add("SMData", rs);
+        data.append(ctx.getReplyBuffer());
+    }
     private boolean addReading(Context ctx, String type) throws SQLException, ParseException {
-        String meterId = (new Meter(ctx.getAppDb(), ctx.getTimestamp("Timestamp"), type)).getIdentifier();
+        String meterId    = (new Meter(ctx.getAppDb(), ctx.getTimestamp("Timestamp"), type)).getIdentifier();
         String timeOffset = ctx.getParameter("TimeOffset");
-        Date timestamp = ctx.getTimestamp("Timestamp");
+        Date timestamp    = ctx.getTimestamp("Timestamp");
 
         if (timeOffset.equalsIgnoreCase("Local")) {
             /*
@@ -966,6 +994,7 @@ public class RecordEnergy extends ApplicationServer {
         MeterReading     reading;
         String           readings;
         ResultSet        rs;
+        int              sec;
         /*
          * The following is necessary as the default appears to be BST. 
          *
@@ -975,7 +1004,7 @@ public class RecordEnergy extends ApplicationServer {
          *
          * However, this code takes action on when the day changes, e.g. when 19-Aug-24 23:30:00 changes to
          * 20-Aug-24 00:30:00. Without the following, day change is only triggered on the date 20-Aug-24 01:00:00.
-         */
+         */        
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
         switch (action) {
@@ -992,7 +1021,6 @@ public class RecordEnergy extends ApplicationServer {
                 if (addReading(ctx, "Solar")) {
                     commit = true;
                 }
-
                 if (!commit) {
                     throw new ErrorExit("At least 1 reading is required");
                 }
@@ -1075,6 +1103,9 @@ public class RecordEnergy extends ApplicationServer {
                 break;
             case "calculateCosts":
                 calculateCosts(ctx);
+                break;
+            case "getSMData":
+                getSMData(ctx);
                 break;
             default:
                 invalidAction();

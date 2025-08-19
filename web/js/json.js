@@ -154,7 +154,7 @@ function JSONReader(text) {
      * type should be omitted on first call or be set to 'object'
      */
     this.getJSON = function(type) {
-        var result = new JSON(type === 'undefined'? 'object' : type);
+        var result = new JSONcbc(type === 'undefined'? 'object' : type);
         var exit   = false;
         var symbol;
         
@@ -169,7 +169,7 @@ function JSONReader(text) {
                      * the enclosing {}.
                      */
                     if (symbol.first)
-                        result = new JSON('array');
+                        result = new JSONcbc('array');
                     else
                         symbol.value = this.getJSON('array');
                     break;
@@ -189,8 +189,11 @@ function JSONReader(text) {
         return result;
     };
 };
-
-function JSON(type) {
+/*
+ * Was called JSON. However, this caused a problem as there is an existing class called JSON which is
+ * used by other packages such as Chart js.
+ */
+function JSONcbc(type) {
     this.json   = '';
     this.type   = type === undefined? 'object' : type;
     this.values = [];

@@ -4,6 +4,7 @@
 
 var readingsFilter;
 var tariffsFilter;
+var chart;
 
 function copyFld(fromFlds, fromName, toFlds, toName) {
     toName = defaultNull(toName, fromName);
@@ -13,6 +14,7 @@ function copyFld(fromFlds, fromName, toFlds, toName) {
 function copyUpdate() {
     let uflds = new ScreenFields('updatefields');
     let rflds = new ScreenFields('detailfields');
+    
     copyFld(uflds, 'Timestamp', rflds);
     copyFld(uflds, 'Status',    rflds);
     copyFld(uflds, 'Source',    rflds);
@@ -402,13 +404,67 @@ function clearFields(id) {
     
     flds.clear();
 }
+
+var xyValues = [
+  {x:50, y:7},
+  {x:60, y:8},
+  {x:70, y:8},
+  {x:80, y:9},
+  {x:90, y:9},
+  {x:100, y:9},
+  {x:110, y:10},
+  {x:120, y:11},
+  {x:130, y:14},
+  {x:140, y:14},
+  {x:150, y:15}
+];
+
+function drawChart() {
+    chart.setType('scatter');
+    
+ //   ch.setData(xyValues);
+    chart.addDataValue(50,7);
+    chart.addDataValue(60,8);
+    chart.addDataValue(70,8);
+    chart.addDataValue(80,9);
+    chart.addDataValue(90,9);
+    chart.addDataValue(100,9);
+    chart.addDataValue(110,10);
+    chart.addDataValue(120,11);
+    chart.addDataValue(130,14);
+    chart.addDataValue(140,14);
+    chart.addDataValue(150,5);
+    chart.draw();
+}
+function displayChart(element) {
+    
+    let flds = new ScreenFields('chrperiod');
+    let pars = createParameters('getSMData', {fields: flds.getFields()}); 
+    
+    function processResponse(response) {
+        let json = stringToJSON(response);
+        chart.setType('line');
+        chart.setMaxY(flds.getValue("MaxY"));
+        chart.addJSONData(json);
+        chart.setTitle(flds.getValue('Type') + (flds.getValue('GroupBy') === ''? '' : ' by ' + flds.getValue('GroupBy')));
+        chart.draw();
+        
+    }
+    if (!fieldHasValue(flds.get('Start'))) return;
+    if (!fieldHasValue(flds.get('End')))   return;
+    
+    ajaxLoggedInCall('Energy', processResponse, pars);
+}
 function menuClick(option) {
-    setHidden('meter',     option !== 'meter');
-    setHidden('derive',    option !== 'derive');
-    setHidden('calculate', option !== 'calculate');
-    setHidden('rates',     option !== 'rates');    
-    setHidden('calvals',   option !== 'calvals'); 
-    setHidden('pkover',    option !== 'pkover');
+    setHidden('chart',        true);
+    setHidden('meterhistory', false);
+    setHidden('meter',        option !== 'meter');
+    setHidden('derive',       option !== 'derive');
+    setHidden('calculate',    option !== 'calculate');
+    setHidden('rates',        option !== 'rates');    
+    setHidden('calvals',      option !== 'calvals'); 
+    setHidden('pkover',       option !== 'pkover'); 
+    setHidden('chartdv',      option !== 'chartdv');
 
     switch (option) {
         case 'meter':
@@ -432,6 +488,11 @@ function menuClick(option) {
             break;
         case 'pkover':
             setPeakOverridesScreen('Create');
+            break;
+        case 'chartdv':
+            setHidden('chart',        false);
+            setHidden('meterhistory', true);
+        //    drawChart();
             break;
     }
 }
@@ -553,29 +614,27 @@ function requestPeakOverrides() {
     }
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
-function test(elapsed) {
-    let sec = Math.trunc(elapsed / 1000);
-    let msec = elapsed % 1000;
-
-    let res = lpad(sec, 2, ' ') + '.' + lpad(msec, 3, '0');
-
-    return res;
-}
 function initialize(loggedIn) {
+    let unpdt = unpackDate('2025-07-02');
+    let tdate = '2025-06-01 9:1:2';
+    let fdate = '';
+   
+    fdate = formatDate(tdate, 'yy-M-d H:m:s');
+    fdate = formatDate(tdate, 'yyyy-MM-dd H:mm:ss E');
+    fdate = formatDate(tdate, 'yyyyMMMddHmmss');
+    fdate = formatDate(tdate, 'H');
+    
     if (!loggedIn)
         return;
 
     reporter.setFatalAction('error');
+    chart = new Charter('myChart');
 
-    test(900);
-    test(1100);
-    test(100);
-    test(1);
-    test(20);
     loadSelect('source',  'Bill,Reading,Estimated,Derived,Corrected', {allowBlank: true});
     loadSelect('usource', getElement('source'),                       {allowBlank: true});
     loadSelect('status',  'Verified, Ignore',                         {allowBlank: true});
     loadSelect('ustatus', getElement('status'),                       {allowBlank: true});
+    loadSelect('chrtgrp', 'Hour,Day,Week,Month',                      {allowBlank: true});
     
     getList('Energy', {
         element: 'tariffcode',
