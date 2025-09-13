@@ -14,7 +14,6 @@ import java.util.TimeZone;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import org.cbc.application.reporting.Report;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLBuilder;
@@ -926,32 +925,65 @@ public class RecordEnergy extends ApplicationServer {
         return reading;
     }
     private void getSMData(Context ctx) throws SQLException, ParseException, JSONException, IOException {
-        SQLSelectBuilder sql  = ctx.getSelectBuilder("SmartMeterUsageKwh");        
-        JSONObject       data = new JSONObject();
-        String           group = ctx.getParameter("GroupBy", "");
+        String           type      = ctx.getParameter("Type");
+        SQLSelectBuilder sql;
+        Date             start     = ctx.getTimestamp("Start");  
+        Date             end       = ctx.getTimestamp("End");
+        String           table;
+        JSONObject       data      = new JSONObject();
+        String           group     = ctx.getParameter("GroupBy", "");
+        boolean          timeLocal = group.equals("") || group.equalsIgnoreCase("hour");
         ResultSet        rs;
         
-        if (group.length() == 0) {
-            sql.addField("Start");
-            sql.addField("Kwh");
-        } else {
-            sql.addField("Start", "Min(Start)");
-            sql.addField("Kwh",   "Sum(Kwh)");            
+        switch (type) {
+            case "Solar":
+                table = "SolarReadings";
+                break;
+            case "SolarExport":
+                table = "SolarExportData";
+                break;
+            default:
+                table = "SmartMeterUsageKwh"; 
+                break;
         }
-        sql.addAnd("!Type",   "=", ctx.getParameter("Type"));
-        sql.addAnd("!Start", ">=", ctx.getTimestamp("Start"));
-        sql.addAnd("!Start",  "<", ctx.getTimestamp("End"));
+        sql = ctx.getSelectBuilder(table);
+        
+        if (timeLocal) {            
+            start = timeWithDate.toGMT(start);
+            end   = timeWithDate.toGMT(end);
+        }
+        sql.addAnd("!Start", ">=", start);
+        sql.addAnd("!Start",  "<", end);
         sql.addOrderByField("Start", false);
         
-        if (group.length() != 0) {
-            sql.addGroupByField("Year");
-            
-            if (group.equalsIgnoreCase("hour")) sql.addGroupByField("Day");
-            
-            sql.addGroupByField(group);
+        if (type.equals("SolarExport")) {
+                sql.addField("Start");
+                sql.addField("KwhPerDay");
+                sql.addField("KwhExportedPerDay");
+                sql.addField("%Exported");
+        } else {
+            if (group.length() == 0) {
+                sql.addField("Start");
+                sql.addField("Kwh");
+            } else {
+                sql.addField("Start", "Min(Start)");
+                sql.addField("Kwh", "Sum(Kwh)");
+            }
+
+            sql.addAnd("!Type", "=", ctx.getParameter("Type"));
+
+            if (group.length() != 0) {
+                sql.addGroupByField("Year");
+
+                if (group.equalsIgnoreCase("hour")) {
+                    sql.addGroupByField("Day");
+                }
+
+                sql.addGroupByField(group);
+            }
         }
         rs = ctx.getAppDb().executeQuery(sql.build());
-        data.add("SMData", rs);
+        data.add("SMData", rs, timeLocal);
         data.append(ctx.getReplyBuffer());
     }
     private boolean addReading(Context ctx, String type) throws SQLException, ParseException {
@@ -978,7 +1010,6 @@ public class RecordEnergy extends ApplicationServer {
         if (meterReading.getReading() <= -2) {
             return false;
         }
-
         meterReading.validate();
         meterReading.create();
         return true;
@@ -987,14 +1018,13 @@ public class RecordEnergy extends ApplicationServer {
     @Override
     public void processAction(
             Context ctx,
-            String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
+            String action) throws ServletException, IOException, SQLException, JSONException, ParseException {        
         SQLSelectBuilder sel;
         JSONObject       data   = new JSONObject();
         boolean          commit = false;
         MeterReading     reading;
         String           readings;
         ResultSet        rs;
-        int              sec;
         /*
          * The following is necessary as the default appears to be BST. 
          *

@@ -21,7 +21,8 @@ textarea {
 }
 .chartcontainer {
    width: 1000px;
-   height:600px
+   height:600px;
+   background-color: floralwhite;
 }
 @media screen and (max-width: 900px) {
     .optional {

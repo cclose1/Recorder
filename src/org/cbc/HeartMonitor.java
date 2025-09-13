@@ -144,7 +144,7 @@ public class HeartMonitor extends ApplicationServer {
                 sql.setFrom("Measure AS M LEFT JOIN MeasureOrientation AS O ON M.Orientation = O.Id");
                 sql.addAnd("Individual", "=", ctx.getParameter("identifier"));
                 rs = executeQuery(ctx, sql);
-                data.add("PressureHistory", rs, super.config.getProperty("bpoptionalcolumns"), false);
+                data.add("PressureHistory", rs, super.config.getProperty("bpoptionalcolumns"));
                 data.append(ctx.getReplyBuffer());
                 ctx.setStatus(200);
                 break;

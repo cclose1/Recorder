@@ -147,7 +147,7 @@ public class RecordBankTransaction extends ApplicationServer {
             
             ResultSet rs = executeQuery(ctx, sql);
             
-            data.add("Transactions", rs, super.config.getProperty("bpoptionalcolumns"), false);
+            data.add("Transactions", rs, super.config.getProperty("bpoptionalcolumns"));
             data.append(ctx.getReplyBuffer(), "");
 
             ctx.setStatus(200);
@@ -166,7 +166,7 @@ public class RecordBankTransaction extends ApplicationServer {
             sql.setOrderBy("A.Code");
             ResultSet rs = executeQuery(ctx, sql);
             
-            data.add("Accounts", rs, super.config.getProperty("bpoptionalcolumns"), false);
+            data.add("Accounts", rs, super.config.getProperty("bpoptionalcolumns"));
             data.append(ctx.getReplyBuffer());
 
             ctx.setStatus(200);

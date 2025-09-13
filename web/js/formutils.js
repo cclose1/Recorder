@@ -3376,7 +3376,7 @@ function getElementLabel(elm) {
     elm = getElement(elm);
     prelm = elm.previousElementSibling;
 
-    if (prelm.tagName === "LABEL" && prelm.htmlFor === elm.id)
+    if (!isNull(prelm) && prelm.tagName === "LABEL" && prelm.htmlFor === elm.id)
         return prelm.innerHTML;
 
     return elm.name;

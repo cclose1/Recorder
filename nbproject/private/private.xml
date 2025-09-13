@@ -12,12 +12,13 @@
             <file>file:/C:/MyFiles/Java/Recorder/web/js/chartbuilder.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/Reminder.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordEnergy.java</file>
-            <file>file:/C:/MyFiles/Java/Recorder/web/js/unitsconverter.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/formutils.js</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordSpend.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordReminder.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/web/js/login.js</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/HTTPRequestHandler.java</file>
             <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/ApplicationServer.java</file>
+            <file>file:/C:/MyFiles/Java/Recorder/src/org/cbc/RecordNutrition.java</file>
         </group>
     </open-files>
 </project-private>

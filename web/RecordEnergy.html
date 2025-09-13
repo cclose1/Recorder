@@ -5,7 +5,6 @@
         <link href="css/alert.css" rel="stylesheet" type="text/css">
         <link href="css/login.css" rel="stylesheet" type="text/css">
         <link href="css/framework.css" rel="stylesheet" type="text/css">
-        <link href="css/recordspend.css" rel="stylesheet" type="text/css">
         <script src="js/platform.js"></script>
         <script src="js/json.js"></script>
         <script src="js/formutils.js"></script>
@@ -568,15 +567,6 @@
                             <label for="chrendtim" class="nogap">Time</label>
                             <input type="text" name="End~Time" size="8" id="chrendtim" class='time' maxlength="8" onchange="checkTime()">                            
                             <input readonly type="text" name="EndWday"  size="1" id="chrendwkd" class='notparam'>
-
-                        </div>
-                        <div>
-                            <label for="chrtype">Type</label>
-                            <select id="chrtype" name='Type' class='optlist'>
-                                <option>Electric</option>
-                                <option>Gas</option>
-                                <option>Export</option>
-                            </select>
                         </div>
                         <div>
                             <label for="chrtgrp">Group</label>
@@ -584,19 +574,59 @@
                             </select>
                         </div>                       
                         <div>
-                            <label for="crtmxy">MaxY</label>
+                            <label for="crtmxy">Max Y</label>
                             <input type="text" name="MaxY" id="crtmxy" size='2' onkeypress="allowedInNumberField();" >
-                        </div> 
+                        </div>                       
                         <div>
-                            <label for="chrdis"></label>
-                            <input id="chrdis" class="notparam" name="display"   type="button" value="Display" onclick="displayChart();">
+                            <label for="crttsk">Tick Skip</label>
+                            <input type="text" name="TickSkip" id="crttsk" size='2' onkeypress="allowedInNumberField();" >
+                        </div>
+                        <div>
+                            <fieldset class='centreminwidth'>             
+                                <legend>Select Data</legend>
+                                <div>
+                                    <input type="checkbox" id="chrdel" value="Electric" />
+                                    <label for="chrdel" class='left'>Electric</label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="chrdgs" value="Gas" />
+                                    <label for="chrdgs" class='left'>Gas</label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="chrdex" value="Export" />
+                                    <label for="chrdex" class='left'>Export</label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="chrdsl" value="Solar" />
+                                    <label for="chrdsl" class='left'>Solar</label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="chrdslex" value="SolarExport" />
+                                    <label for="chrdslex" class='left'>Solar Export</label>
+                                </div> 
+                                <div>
+                                    <input id="chrdis" class="notparam" name="display" type="button" value="Display" onclick="displayChart(this);">
+                                </div>
+                            </fieldset>
+                            <fieldset class='centreminwidth'>             
+                                <legend>Step Data</legend>
+                                <div>
+                                    Step 
+                                    <input type="text" name="Step" id="chrstsz" size='2' onkeypress="allowedInNumberField();" >
+                                     Days
+                                     <div>
+                                         <input class="notparam" name="StepForward" type="button" value='Forward' onclick="displayChart(this);">                          
+                                         <input class="notparam" name="StepBack"    type="button" value='Back'    onclick="displayChart(this);">
+                                     </div>
+                                </div>
+                            </fieldset>
                         </div>
                     </fieldset> 
                 </div>
             </div> 
-            <fieldset id="chart" class='centreminwidth form'>                        
+            <fieldset id="chart" class='centreminwidth chartcontainer'>                        
                 <legend>Chart</legend>
-                <div id='chartcnt' class='chartcontainer' style="position: relative; height: 100vh; width:80vw">
+                <div id='chartcnt' style="position: relative; height: 100vh; width:80vw">
                     <canvas id="myChart" style="width:100%"></canvas>
                 </div>
             </fieldset> 

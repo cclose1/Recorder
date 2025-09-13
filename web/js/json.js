@@ -257,14 +257,22 @@ function JSONcbc(type) {
         
         return getValue(this.values[++this.index], true);
     };
+    this.valueByIndex = function(index) {        
+        checkIndex(this, index, false, true);
+        
+        return getValue(this.values[index], true);
+    };
     this.addMember = function(name, value) {
         if (this.type === 'array') reporter.fatalError('JSON addMember is not valid for an array');
         
         this.values.push({name: name, value: value});      
     };
     this.getMemberCount = function() {
+        /*
+         * Don't why this check was made as it is meaningful for an array. Perhaps the name could
+         * be misleading as an array is a list of objects
         if (this.type === 'array') reporter.fatalError('JSON getMemberCount is not valid for an array');
-        
+        */
         return this.values.length;
     };
     this.getMember = function(name, mustExist) {

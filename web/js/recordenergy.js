@@ -436,24 +436,101 @@ function drawChart() {
     chart.addDataValue(150,5);
     chart.draw();
 }
-function displayChart(element) {
-    
-    let flds = new ScreenFields('chrperiod');
-    let pars = createParameters('getSMData', {fields: flds.getFields()}); 
+function displayChart(element) {    
+    let flds     = new ScreenFields('chrperiod');
+    let pars     = '';
+    let step     = 0;
+    let isData   = false;
+    let setTitle = {};
     
     function processResponse(response) {
         let json = stringToJSON(response);
         chart.setType('line');
-        chart.setMaxY(flds.getValue("MaxY"));
-        chart.addJSONData(json);
-        chart.setTitle(flds.getValue('Type') + (flds.getValue('GroupBy') === ''? '' : ' by ' + flds.getValue('GroupBy')));
-        chart.draw();
-        
+        chart.setMaxY(flds.getValue('MaxY'));
+        chart.setTickSkip(flds.getValue('TickSkip'));
+        chart.setTitle(
+                chart.getDataType() + ' Data' + 
+                (flds.getValue('GroupBy') === ''? '' : ' by ' + flds.getValue('GroupBy')) +
+                ' starting ' + formatDate(flds.getValue('Start'), 'dd-MMM-yy'));
+        if (setTitle.type === 'SolarExport') {
+            setTitle.type   = 'KwhPerDay';
+            setTitle.colour = 'Green';
+            chart.addJSONData(json, setTitle, 1);
+            setTitle.type   = 'KwhExportedPerDay';
+            setTitle.colour = 'Red';
+            chart.addJSONData(json, setTitle, 2);
+            setTitle.type   = '%Exported';
+            setTitle.colour = 'Blue';
+            chart.addJSONData(json, setTitle, 3);
+        } else
+            chart.addJSONData(json, setTitle, 1);        
     }
     if (!fieldHasValue(flds.get('Start'))) return;
     if (!fieldHasValue(flds.get('End')))   return;
     
-    ajaxLoggedInCall('Energy', processResponse, pars);
+    function addData(setId) {
+        let opt = getElement(setId);
+        
+        if (isNull(opt) || !opt.checked) return;
+        
+        setTitle.type = opt.value;
+        
+        switch (setTitle.type) {
+            case 'Electric':
+                setTitle.colour = 'Blue';
+                chart.setDataType('Usage');
+                break;
+            case 'Gas':
+                setTitle.colour = 'Yellow';
+                chart.setDataType('Usage');
+                break;
+            case 'Export':
+                setTitle.colour = 'Red';
+                chart.setDataType('Usage');
+                break;
+            case 'Solar':
+                setTitle.colour = 'Yellow';                
+                chart.setDataType('Solar');
+                break;
+            case 'SolarExport':
+                setTitle.colour = 'Yellow';                
+                chart.setDataType('Solar');
+                break;
+            default:
+                throw new ErrorObject('Code Error', 'Data type ' + opt.value + ' is invalid');
+        }
+        isData = true;
+        pars   = createParameters('getSMData', {fields: flds.getFields()}); 
+        pars   = addParameter(pars, 'Type', opt.value);
+        ajaxLoggedInCall('Energy', processResponse, pars, false);
+    }
+    switch (element.value) {
+        case 'Forward':
+            step = 1;
+            break;
+        case 'Back':
+            step = -1;
+            break;
+    }
+    if (step !== 0) {
+        if (!fieldHasValue(flds.get('Step'))) return;
+        
+        step = step * flds.get('Step').value;
+        flds.setValue('Start', incrementDateTime(flds.getValue('Start'), 'Days', step)); 
+        flds.setValue('End',   incrementDateTime(flds.getValue('End'),   'Days', step)); 
+    }
+    chart.deleteData();
+    addData('chrdel');
+    addData('chrdgs');
+    addData('chrdex');
+    addData('chrdsl');
+    addData('chrdslex');
+
+    if (!isData) {        
+        displayAlert('Error', 'Must select at least one data source');
+        return;
+    }
+    chart.draw();
 }
 function menuClick(option) {
     setHidden('chart',        true);

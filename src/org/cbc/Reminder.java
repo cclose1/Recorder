@@ -135,7 +135,7 @@ public class Reminder {
         this.alertFrequency = alertFrequency;
         this.immediateDays  = immediateDays;
     }
-    public JSONObject getReminders(String filter, boolean showall) throws SQLException, JSONException {
+    public JSONObject getReminders(String filter, boolean showall) throws SQLException, JSONException, ParseException {
         JSONObject       data = new JSONObject();
         SQLSelectBuilder  sql = new SQLSelectBuilder("Reminder", db.getProtocol());
         
