@@ -6,7 +6,7 @@
 'use strict';
 
 class Charter {
-    __canvId;
+    #canvId;
     __type     = 'line';
     __xvals    = [];
     __yvals    = [];
@@ -56,7 +56,7 @@ class Charter {
         }
     };
     constructor(canvasId) {
-        this.__canvId = canvasId;
+        this.#canvId = canvasId;
         this.__addPlugin(this.chartAreaBorder);
     }
     deleteData() {
@@ -161,7 +161,7 @@ class Charter {
         for (let i = 0; i < this.__xvals.length; i++) {
             data.push({x: this.__xvals[i], y: this.__yvals[i]});
         }
-        this.__chart = new Chart(getElement(this.__canvId), {
+        this.__chart = new Chart(getElement(this.#canvId), {
             type: this.__type,
             data: {
                 datasets: [{
@@ -244,7 +244,7 @@ class Charter {
         this.__addPlugin(chartAreaBorder); // To verify that repeat adds are ignored.
         this.deleteChart();
         
-        this.__chart = new Chart(getElement(this.__canvId), {
+        this.__chart = new Chart(getElement(this.#canvId), {
             type: this.__type,
             data: this.__data,
             options: {

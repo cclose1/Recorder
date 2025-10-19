@@ -90,10 +90,10 @@ function requestReminders(filter) {
     ajaxLoggedInCall('Reminder', processResponse, parameters);
 }
 function rowClick(row) {
-    var rdr  = new rowReader(row);
+    var tab  = new Table(row);
     
-    while (rdr.nextColumn()) {        
-        if (rdr.columnName() !== 'Weekday') snFlds.setValue(rdr.columnName(), rdr.columnValue());
+    while (tab.nextColumn()) {        
+        if (tab.columnName() !== 'Weekday') snFlds.setValue(tab.columnName(), tab.columnValue());
     }
     getElement("save").value = "Update";
     setHidden("clone",  false);

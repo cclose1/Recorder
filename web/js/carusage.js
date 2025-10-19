@@ -607,11 +607,11 @@ function send(action) {
 function btChargeSessionsRowClick(row) {    
     if (isDisabled(row)) return;
     
-    let rdr = new rowReader(row);
+    let tab = new Table(row);
     
-    rdr.loadScreenFields(snFlds, {mustExist:false});
+    tab.loadScreenFields(snFlds, {mustExist:false});
     
-    sesClosed = rdr.getColumnValue('Closed') === 'Y';
+    sesClosed = tab.getColumnValue('Closed') === 'Y';
     setSessionLog(false);
     setLogFilter();
     getElement("setstartchange").checked = false;
@@ -624,23 +624,23 @@ function btSessionLogRowClick(row) {
     
     if (isDisabled(row)) return;
     
-    let rdr  = new rowReader(row);
+    let tab  = new Table(row);
     
-    rdr.loadScreenFields(flds, {mustExist:false});
+    tab.loadScreenFields(flds, {mustExist:false});
     setHidden('updatelog', false);
 }
 function btChargersRowClick(row) {
     if (isDisabled(row)) return;
     
-    let rdr = new rowReader(row);
+    let tab = new Table(row);
     
-    while (rdr.nextColumn()) {
-        switch (rdr.columnName()) {
+    while (tab.nextColumn()) {
+        switch (tab.columnName()) {
             case 'Name':
-                document.getElementById('chargesource').value  = rdr.columnValue();
+                document.getElementById('chargesource').value  = tab.columnValue();
                 break;
             case 'Unit':
-                document.getElementById('chargeunit').value  = rdr.columnValue();
+                document.getElementById('chargeunit').value  = tab.columnValue();
                 break;
         }
     }

@@ -52,23 +52,23 @@ function ValidateItem() {
         return true;
     }
     function addRowToSum(obj, row, quantity, item, source) {
-        var rdr     = new rowReader(row);
+        let tab     = new Table(row);
         var name    = null;
         var scale   = quantity;
-        var rItem   = rdr.getColumnValue('Item');
-        var rSource = rdr.getColumnValue('Source');
+        var rItem   = tab.columnValue('Item');
+        var rSource = tab.columnValue('Source');
         
         if (item !== undefined) {
             /*
              * This is an update, so we have to set scale depending on if current table item matches the input item.
              */
             if (rItem === item && rSource === source)
-                scale = quantity / rdr.getColumnValue('Quantity');
+                scale = quantity / tab.columnValue('Quantity');
             else
                 scale = 1;
         }
-        while (rdr.nextColumn()){
-            name = rdr.valueAttribute('name');
+        while (tab.nextColumn()){
+            name = tab.columnName();
 
             switch (name) {
                 case 'Item':
@@ -78,7 +78,7 @@ function ValidateItem() {
                 case 'DefaultSize':
                     break; //Ignore these.                        
                 default:
-                    if (!addValueToSum(obj, name, scale, rdr.columnValue()))  throw new ErrorObject('Validation Error', 'Item ' + rItem + ' results in overflow of ' + name);
+                    if (!addValueToSum(obj, name, scale, tab.columnValue()))  throw new ErrorObject('Validation Error', 'Item ' + rItem + ' results in overflow of ' + name);
             }
         }
     }
@@ -400,7 +400,7 @@ function Server(fldDate, fldTime) {
     return valid;
 }
 function detailsRowClick(row, operation) {
-    var rdr      = new rowReader(row);
+    var tab      = new Table(row);
     var simple   = false;
     var isVolume = false;
     var abv      = '';
@@ -414,10 +414,10 @@ function detailsRowClick(row, operation) {
     }
     itemRow = row;
     
-    while (rdr.nextColumn()) {
-        var colValue = rdr.columnValue();
+    while (tab.nextColumn()) {
+        var colValue = tab.columnValue();
         
-        switch (rdr.columnName()) {
+        switch (tab.columnName()) {
             case 'Item':
                 item = colValue;
                 
@@ -740,26 +740,26 @@ function updateFilteredLists() {
 }
 function rowEventHistoryClick(row) {
     try {
-        var rdr = new rowReader(row, true);
+        var tab = new Table(row, true);
 
         if (document.getElementById('item').value !== '') {
             displayAlert('Error', 'Complete or cancel item');
-            return;''
+            return;
         }
-        while (rdr.nextColumn()) {
-            switch (rdr.columnName()) {
+        while (tab.nextColumn()) {
+            switch (tab.columnName()) {
                 case 'Timestamp':
-                    var fields = rdr.columnValue().split(' ');
+                    var fields = tab.columnValue().split(' ');
 
                     if (fields.length === 2) {
                         setEventTime(fields[0], fields[1]);
                     }
                     break;
                 case 'Description':
-                    document.getElementById('description').value = rdr.columnValue();
+                    document.getElementById('description').value = tab.columnValue();
                     break;
                 case 'Comment':
-                    document.getElementById('comment').value = rdr.columnValue();
+                    document.getElementById('comment').value = tab.columnValue();
                     break;
             }
         }

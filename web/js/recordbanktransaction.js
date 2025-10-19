@@ -261,12 +261,12 @@ function deleteData() {
     ajaxLoggedInCall('BankTransaction', resetTxn, parameters);
 }
 function btTransactionsRowClick(row) {
-    var rdr = new rowReader(row);
+    var tab = new Table(row);
     
-    while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
+    while (tab.nextColumn()) {
+        var value = tab.columnValue();
 
-        switch (rdr.columnName()) {
+        switch (tab.columnName()) {
             case 'TXN Id':
                 document.getElementById('txnid').value  = value;
                 break;
@@ -322,22 +322,22 @@ function btTransactionsRowClick(row) {
 }
 function btAccountsRowClick(row) {
     var primary = selectedAccount === 'paccount';
-    var rdr     = new rowReader(row);
+    var tab     = new Table(row);
     
-    while (rdr.nextColumn()) {
-        switch (rdr.columnName()) {
+    while (tab.nextColumn()) {
+        switch (tab.columnName()) {
             case 'Account':
                 setDateTime();
 
                 switch (document.getElementById('action').value) {
                     case 'Transfer':
-                        if (document.getElementById(primary ? 'saccount' : 'paccount').value === rdr.columnValue()) {
+                        if (document.getElementById(primary ? 'saccount' : 'paccount').value === tab.columnValue()) {
                             displayAlert('Validation Error', 'Must be different from ' + (primary ? 'Secondary' : 'Primay') + ' Account', {focus: document.getElementById(selectedAccount)});
                             return false;
                         }
                         break;
                 }
-                document.getElementById(selectedAccount).value = rdr.columnValue();
+                document.getElementById(selectedAccount).value = tab.columnValue();
                 checkCurrencyField(selectedAccount);
                 break;
         }

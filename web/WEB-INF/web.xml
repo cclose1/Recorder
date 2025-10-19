@@ -3,19 +3,19 @@
     <servlet>
         <servlet-name>Blood</servlet-name>
         <servlet-class>org.cbc.HeartMonitor</servlet-class>
-    </servlet>    
+    </servlet>
     <servlet>
         <servlet-name>Spend</servlet-name>
         <servlet-class>org.cbc.RecordSpend</servlet-class>
-    </servlet>  
+    </servlet>
     <servlet>
         <servlet-name>Energy</servlet-name>
         <servlet-class>org.cbc.RecordEnergy</servlet-class>
-    </servlet> 
+    </servlet>
     <servlet>
         <servlet-name>Nutrition</servlet-name>
         <servlet-class>org.cbc.RecordNutrition</servlet-class>
-    </servlet> 
+    </servlet>
     <servlet>
         <servlet-name>BankTransaction</servlet-name>
         <servlet-class>org.cbc.RecordBankTransaction</servlet-class>
@@ -28,6 +28,14 @@
         <servlet-name>Reminder</servlet-name>
         <servlet-class>org.cbc.RecordReminder</servlet-class>
     </servlet>
+    <servlet>
+        <servlet-name>Chart</servlet-name>
+        <servlet-class>org.cbc.ChartBuilder</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>Chart</servlet-name>
+        <url-pattern>/Chart</url-pattern>
+    </servlet-mapping>
     <servlet-mapping>
         <servlet-name>Blood</servlet-name>
         <url-pattern>/Record</url-pattern>

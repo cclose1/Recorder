@@ -358,45 +358,40 @@ function actionCreate(action) {
 /*
  * 
  * row    Clicked row.
- * source Database source providing the html table data.
- * 
- * source is not actually used. The loadJSONArray option setTableName means it's the name property of the html
- * table. Hence source will have the same value as src.
  */
-function readingsRowClick(row, source) {
-    var rdr  = new rowReader(row);
-    let src  = row.parentElement.parentElement.getAttribute('name');
+function readingsRowClick(row) {
+    var tab  = new Table(row);
     let flds = new ScreenFields('updatefields');
 
-    if (src !== 'Meter') {
+    if (tab.tableName() !== 'Meter') {
         displayAlert('Warning', 'Click on row only implemented when readings sourced from Meter');
         return;
     }
-    getElement("labunits").innerHTML = rdr.getColumnValue('Type') === 'Gas' ? 'Ft3' : 'Kwh';
+    getElement("labunits").innerHTML = tab.getColumnValue('Type') === 'Gas' ? 'Ft3' : 'Kwh';
     
-    rdr.loadScreenFields(flds, {mustExist: false});
+    tab.loadScreenFields(flds, {mustExist: false});
     setHidden('updatefields', false);
 }
 function screenFldsRowClick(row, fieldsId) {
     if (fieldsId !== 'derivestart') return;
     
-    let rdr  = new rowReader(row);
+    let tab  = new Table(row);
     let flds = new ScreenFields(fieldsId);
     
-    flds.setValue(flds.hasValue('From', false)? 'To' : 'From', rdr.getColumnValue('Timestamp'));
+    flds.setValue(flds.hasValue('From', false)? 'To' : 'From', tab.getColumnValue('Timestamp'));
 }
 function calValuesRowClick(row) {
-    let rdr  = new rowReader(row);
+    let tab  = new Table(row);
     let flds = new ScreenFields('calval');
     
-    rdr.loadScreenFields(flds, {mustExist: false});
+    tab.loadScreenFields(flds, {mustExist: false});
     setCalValScreen('Update', false);
 }
 function peakOverridesRowClick(row) {
-    let rdr  = new rowReader(row);
+    let tab  = new Table(row);
     let flds = new ScreenFields('pkovrrride');
     
-    rdr.loadScreenFields(flds, {mustExist: false});
+    tab.loadScreenFields(flds, {mustExist: false});
     setPeakOverridesScreen('Update');
 }
 function clearFields(id) {
@@ -436,12 +431,49 @@ function drawChart() {
     chart.addDataValue(150,5);
     chart.draw();
 }
-function displayChart(element) {    
+function chartClickValidate(element){
+    if (element.id === 'chrtgrp' && (getElement('chrdsl').checked || getElement('chrdslex').checked)) {
+        displayAlert('Error',  'Group cannot be selected for either Solar or Solar Export');
+        element.value = '';
+        return;
+    }
+    if (!element.checked) return;
+    
+    switch (element.value) {
+        case 'Electric':
+        case 'Gas':
+        case 'Export':
+            if (getElement('chrdsl').checked || getElement('chrdslex').checked) {
+                displayAlert('Error',  element.value + ' cannot be selected with either Solar or Solar Export');
+                element.checked = false;
+                return;
+            }
+            break;
+        default:
+            let selected = 0;
+            
+            if (getElement('chrdel').checked)   selected++;
+            if (getElement('chrdgs').checked)   selected++;
+            if (getElement('chrdex').checked)   selected++;
+            if (getElement('chrdsl').checked)   selected++;
+            if (getElement('chrdslex').checked) selected++;
+            
+            if (selected > 1) {
+                displayAlert('Error', element.value + ' cannot be selected with other data types');
+                element.checked = false;
+            } else if (getElement('chrtgrp').value !== '') {
+                displayAlert('Error', 'Group by is not supported for ' + element.value);
+                element.checked = false;                    
+            }
+    }
+}
+function displayChartOld(element) {    
     let flds     = new ScreenFields('chrperiod');
     let pars     = '';
     let step     = 0;
     let isData   = false;
     let setTitle = {};
+    let local    = 'Y';
     
     function processResponse(response) {
         let json = stringToJSON(response);
@@ -469,7 +501,9 @@ function displayChart(element) {
     if (!fieldHasValue(flds.get('End')))   return;
     
     function addData(setId) {
-        let opt = getElement(setId);
+        let local = 'Y';
+        let opt   = getElement(setId);
+        let grp   = getElement('chrtgrp').value;
         
         if (isNull(opt) || !opt.checked) return;
         
@@ -499,9 +533,56 @@ function displayChart(element) {
             default:
                 throw new ErrorObject('Code Error', 'Data type ' + opt.value + ' is invalid');
         }
+        let filter     = '';
+        
+        filter = addDBFilterField(filter, opt.value, 'Type', 'quoted');
+    
         isData = true;
-        pars   = createParameters('getSMData', {fields: flds.getFields()}); 
-        pars   = addParameter(pars, 'Type', opt.value);
+        pars   = createParameters('getSMData', {fields: flds.getFields()});
+        
+        switch (opt.value) {
+            case 'Electric':
+            case 'Gas':
+            case 'Export':
+                pars   = addParameter(pars, 'Table',  'SmartMeterUsageKwh'); 
+                pars   = addParameter(pars, 'Fields', 'Start,Kwh');
+
+                switch (grp) {
+                    case 'Hour':
+                        grp = 'Year,Day,Hour';
+                        break;
+                    case 'Day':
+                        grp = 'Year,Day';
+                        local = 'N';
+                        break;
+                    case 'Week':
+                        grp = 'Year,Week';
+                        local = 'N';
+                        break;
+                    case 'Month':
+                        grp   = 'Year,Month';
+                        local = 'N';
+                        break;
+                } 
+                pars = addParameter(pars, 'GroupBy',   grp);
+                pars = addParameter(pars, 'TimeLocal', local);
+                break;
+            case 'Solar':
+                pars = addParameter(pars, 'Table',     'SolarReadings');
+                pars = addParameter(pars, 'Fields',    'Start,Kwh');
+                pars = addParameter(pars, 'GroupBy',   '');
+                pars = addParameter(pars, 'TimeLocal', 'N');
+                break;
+            case 'SolarExport':
+                pars   = addParameter(pars, 'Table',     'SolarExportData');
+                pars   = addParameter(pars, 'Fields',    'Start,KwhPerDay,KwhExportedPerDay,%Exported');
+                pars   = addParameter(pars, 'GroupBy',   '');
+                pars   = addParameter(pars, 'TimeLocal', 'N');
+                filter = '';
+                break;
+        }
+        if (filter !== '') pars = addParameter(pars, 'filter', filter);
+        
         ajaxLoggedInCall('Energy', processResponse, pars, false);
     }
     switch (element.value) {
@@ -574,10 +655,10 @@ function menuClick(option) {
     }
 }
 function tariffsRowClick(row) {
-    var rdr  = new rowReader(row);
+    var tab  = new Table(row);
     let flds = new ScreenFields('modifytariff');
     
-    rdr.loadScreenFields(flds);
+    tab.loadScreenFields(flds);
     setHidden('modifytariff', false);
 }
 function requestReadings() {
@@ -594,7 +675,11 @@ function requestReadings() {
          * Note: For a variable to be included in the processResponse closure, it must be referenced.
          *       Hence readings is included but parameters is not.
          */
-        loadJSONArray(response, "meterhistory", {setTableTitle: 'Meter History', maxSize: 19, onClick: "readingsRowClick(this, '" + readings + "')", setTableName: true});
+        loadJSONArray(response, "meterhistory", {
+            setTableTitle: 'Meter History', 
+            maxSize:       19, 
+            onClick:       'readingsRowClick(this)', 
+            setTableName:  true});
     }
     parameters = addParameter(parameters, 'readings', readings);
 
@@ -625,7 +710,7 @@ function checkMeterIncrementTimestamp(flds, name, required) {
 }
 function setVatMode(element) {
     var mode = element.value;
-    // getSelectedOption(element.id);
+    
     clearFields();
     setHidden(getElement('cstswvat'), mode === 'Included');
 }
@@ -695,7 +780,10 @@ function initialize(loggedIn) {
     let unpdt = unpackDate('2025-07-02');
     let tdate = '2025-06-01 9:1:2';
     let fdate = '';
-   
+    let filter;
+    
+    filter = addDBFilterField(filter, 'Solar', 'Type');
+    filter = addDBFilterField(filter, '123',  'Number1', 'numeric');
     fdate = formatDate(tdate, 'yy-M-d H:m:s');
     fdate = formatDate(tdate, 'yyyy-MM-dd H:mm:ss E');
     fdate = formatDate(tdate, 'yyyyMMMddHmmss');

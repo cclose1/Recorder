@@ -59,12 +59,12 @@ function setSheet(sheet) {
     }
 };
 function ruleClick(row) {
-    var rdr = new rowReader(row);
+    var tab = new Table(row);
     
-    while (rdr.nextColumn()) {
-        var value = rdr.columnValue();
+    while (tab.nextColumn()) {
+        var value = tab.columnValue();
 
-        switch (rdr.columnName()) {
+        switch (tab.columnName()) {
             case 'Index':
                 document.getElementById('index').value = value;
                 break;

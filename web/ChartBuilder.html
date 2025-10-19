@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<!--
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit this template
+-->
+<html>
+    <head>   <link href="css/alert.css" rel="stylesheet" type="text/css">
+        <link href="css/login.css" rel="stylesheet" type="text/css">
+        <link href="css/framework.css" rel="stylesheet" type="text/css">
+        <script src="js/platform.js"></script>
+        <script src="js/json.js"></script>
+        <script src="js/formutils.js"></script>
+        <script src="js/filter.js"></script>
+        <script src="js/alert.js"></script>
+        <script src="js/login.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+        <script src="js/chartwrapper.js"></script>
+        <script src="js/chartbuild.js"></script>
+        <title>Chart Builder</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body onload="configureAlert(); connectToServer('Chart', 'loginframe', initialize)"> 
+        <div id="loginfields" hidden >
+            <iframe id="loginframe" src="Login.html">
+            </iframe>
+        </div>        
+        <form class="frame" id="appframe" autocomplete="off">            
+            <h1>Chart Handler</h1>
+            <fieldset class='centreminwidth form innerfields'>
+                <legend>Select Function</legend>
+                <div>
+                    <div>
+                        <input type="radio" id="mendsch" name="menu" value="displaychart" onclick="menuChartBuild(this)" />
+                        <label for="mendsch" class="left largelab">Display Chart</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="mencrch" name="menu" value="createchart" onclick="menuChartBuild(this)" />
+                        <label for="mencrch" class="left largelab">Create Chart</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="menupchr" name="menu" value="updatechart" onclick="menuChartBuild(this)" />
+                        <label for="menupchr" class="left largelab">Update Chart</label>
+                    </div>
+                    <div id="mysqldiv" class='label' hidden>Using MySQL</div>
+                    <div id="logoff" class='centredtext' hidden>
+                        <input id="logoffbtn" name="logoffbtn" class='notparam' type="button" value="Logoff" onclick="logOff();">
+                    </div>
+                </div>
+            </fieldset>
+            <div class="innerfields">
+                <fieldset id='displaychart' class='centreminwidth form'>
+                    <legend>Display Chart</legend>
+                    <div>
+                        <label for="dscharts" >Charts</label>
+                        <select id="dscharts" name="Code"  tabindex="0" onchange='loadChart(this, "displaychart")'>
+                            <option></option>
+                        </select>
+                    </div>   
+                    <div>
+                        <label for='dstitle'>Title</label>
+                        <input type= "text" name='Title' id='dstitle' size="8" readonly>
+                    </div>  
+                    <div>
+                        <label for='dsdatabase'>Database</label>
+                        <input type= "text" name='Database' id='dsdatabase' size="8" readonly>
+                    </div>
+                    <div>
+                        <label for='dssource'>Source</label>
+                        <input type= "text" name='Source' id='dssource' size="8" readonly>
+                    </div>
+                    <div>
+                        <label for='dsxcol'>X Column</label>
+                        <input type= "text" name='XColumn' id='dsxcol' size="8" readonly>
+                    </div>
+                    <div>
+                        <label>Show Def</label>
+                        <input name='ShowDef' id='dsshdef' type='checkbox' onclick='onHandler(this)' class='notparam'>                            
+                    </div>
+                    <div id="dschart" class="floatleft">
+                        <fieldset id="dsparams" class='centreminwidth form'>
+                            <legend>Parameters</legend>
+                            <div>
+                                <label for="dsstdat">Start Date</label>
+                                <input type="text" name="Start~Date" id="dsstdat" class='date' maxlength="11" onchange="checkDate(this, null, null, 'dsstwkd')">
+                                <label for="dssttim" class="nogap">Time</label>
+                                <input type="text" name="Start~Time" size="8" id="dssttim" class='time' maxlength="8" onchange="checkTime()">
+                                <input readonly type="text" name="StartWday"  size="1" id="dsstwkd" class='notparam'>
+                            </div>
+                            <div>
+                                <label for="dsenddat">End Date</label>
+                                <input type="text" name="End~Date" id="dsenddat" class='date' maxlength="11" onchange="checkDate(this, null, null, 'dsendwkd')">
+                                <label for="dsendtim" class="nogap">Time</label>
+                                <input type="text" name="End~Time" size="8" id="dsendtim" class='time' maxlength="8" onchange="checkTime()">                            
+                                <input readonly type="text" name="EndWday"  size="1" id="dsendwkd" class='notparam'>
+                            </div>
+                            <div>
+                                <label for="dsgrp">Group</label>
+                                <select id="dsgrp" name='GroupBy' class='optlist' onchange='onHandler(this)'>
+                                </select>
+                            </div>                       
+                            <div>
+                                <label for="dsmxy">Max Y</label>
+                                <input type="text" name="MaxY" id="dsmxy" size='2' onkeypress="allowedInNumberField();" >
+                            </div>                       
+                            <div>
+                                <label for="dstsk">Tick Skip</label>
+                                <input type="text" name="TickSkip" id="dstsk" size='2' onkeypress="allowedInNumberField();" >
+                            </div>
+                            <fieldset class='centreminwidth'> 
+                                <legend>Select Data</legend>
+                                <div id = 'dssellines'>
+                                </div>
+                            </fieldset>
+                            <div class='centredtext'>
+                                <input id="chrdis" class="notparam" name="display" type="button" value="Display" onclick="displayChart(this);">
+                            </div>
+                            <fieldset class='centreminwidth'>             
+                                <legend>Step Data</legend>
+                                <div>
+                                    Step 
+                                    <input type="text" name="Step" id="dsstsz" size='2' onkeypress="allowedInNumberField();" >
+                                     Days
+                                     <div>
+                                         <input class="notparam" name="StepForward" type="button" value='Forward' onclick="displayChart(this);">                          
+                                         <input class="notparam" name="StepBack"    type="button" value='Back'    onclick="displayChart(this);">
+                                     </div>
+                                </div>
+                            </fieldset>
+                        </fieldset>
+                    </div> 
+                </fieldset>
+                <fieldset id='createchart' class='centreminwidth form'>
+                    <legend>Create Chart</legend>
+                    <div>
+                        <div>
+                            <label for='crname'>Name</label>
+                            <input type= "text" name='Name' id='crname' size="8">
+                        </div>
+                        <div>
+                            <label for='crdatabase'>Database</label>
+                            <select id='crdatabase' name='Database' class='optlist'>
+                                <option>Expenditure</option>
+                                <option>BloodPressure</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for='crsource'>Source</label>
+                            <input type= "text" name='Source' id='crsource' size="8">
+                        </div>
+                        <div>
+                            <label for='crxcol'>X Column</label>
+                            <input type= "text" name='XColumn' id='crxcol' size="8">
+                        </div>
+                        <div>
+                            <label>Store</label>
+                            <input name='Store' id='crst' type="checkbox">
+                            
+                        </div>
+                        <div class='centredtext'>
+                            <input id='create' name='create' class='notparam' type="button" value='Create' onclick='chartAction(this);'>                        
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset id='updatechart' class='centreminwidth form'>
+                    <legend>Update Chart</legend>
+                    <div>
+                        <div>
+                            <label for='upname'>Name</label>
+                            <input type= "text" name='Database' id='upname' size="8">
+                        </div>
+                        <div class='centredtext'>
+                            <input id='update' name='update' class='notparam' type="button" value='update' onclick='chartAction(this);'>                        
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+        
+            <table id="chartdefinition">
+                <caption>Chart Definition</caption>
+                <thead>
+                    <tr><th></th></tr>
+                </thead>
+                <tr><th></th></tr>
+            </table>
+            <table id="source">
+                <caption>Chart Source</caption>
+                <thead>
+                    <tr><th></th></tr>
+                </thead>
+                <tr><th></th></tr>
+            </table>
+            <fieldset id="chart" class='centreminwidth chartcontainer'>                        
+                <legend>Chart</legend>
+                <div id='chartcnt' style="position: relative; height: 100vh; width:80vw">
+                    <canvas id="myChart" style="width:100%"></canvas>
+                </div>
+            </fieldset> 
+        </form>
+
+    </body>
+</html>

@@ -10,7 +10,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
-import java.util.TimeZone;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -72,7 +71,6 @@ public class RecordEnergy extends ApplicationServer {
     }
 
     private class Meter {
-
         private String identifier;
         private String type;
         private String deviceId;
@@ -352,7 +350,6 @@ public class RecordEnergy extends ApplicationServer {
         private int                        days    = 0;
         private Date                       smStart = null;        
         private Date                       smEnd   = null;
-        private Date                       smPrev  = null;
         private long                       hours   = 0;
         private Tariff                     tf;
         private Tariff.OffPeak.Accumulator tac;
@@ -363,33 +360,26 @@ public class RecordEnergy extends ApplicationServer {
 
             return mins >= 60 * 22 + 30 || mins < 60 * 4 + 30;
         }
-        private String getLocalDate(Date timestamp) {
-            return DateFormatter.format(timeWithDate.toLocal(timestamp), "dd-MMM-yy");
-        }
-        public EnergyCost(
-                DatabaseSession session, 
-                Date            from, 
-                Date            to, 
-                String          type, 
-                String          vatMode, 
-                boolean         logDay) throws SQLException, ParseException, IOException {
-            Tariff.OffPeak             op;
-            Tariff.OffPeak.Accumulator dac;
-            ResultSet                  rs;
-            FileOutput                 fo     = null;
-            boolean                    first  = true;
-            Date                       smTime = new Date();
-            boolean                    log    = false;
-            String                     date;
-            SQLSelectBuilder           sql    = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
-
-            smStart = from;
-            smEnd   = to;
-            tf      = new Tariff(session, type);
-            tf.setRemoveVat(vatMode.equalsIgnoreCase("Remove"));
+        /*
+         * Writes the totals to the log if dac is not null.
+         *
+         * If fo is not open the log file is created and the column headers are written.
+         *
+         * The new data is written to dac after the log is written, which will be if the timestamp
+         * date is not the same as the date of the last added value.
+         *
+         * A timestamp of null is used to indicate completion. In this case, the current data is written to
+         * the log and the files is closed.
+         */
+        private void updateDayLog(
+                FileOutput                 fo,
+                Tariff.OffPeak.Accumulator dac,
+                String                     type,
+                Date                       timestamp,
+                float                      reading) throws IOException, SQLException, ParseException {
+            if (dac == null) return;
             
-            if (logDay) {
-                fo = new FileOutput(",");
+            if (!fo.isFileOpen()) {
                 fo.addColumn("Day", 18);
                 fo.addColumn("Total",     10);
                 fo.addColumn("PkKwh",     8);
@@ -400,9 +390,50 @@ public class RecordEnergy extends ApplicationServer {
                 fo.openFile("RecEnergy\\DayCosts" + type + "!Date.log");
                 fo.writeLine();
             }
+            if (timestamp == null || dac.hasDateChanged(timestamp)) {
+                fo.add(dac.getDate());
+                fo.add(dac.getKwh(),    3);
+                fo.add(dac.getPkKwh(),  3);
+                fo.add(dac.getPkCost(), 2);
+                fo.add(dac.getOpKwh(),  3);
+                fo.add(dac.getOpCost(), 2);
+                fo.add(dac.getFOpKwh(), 3);
+                fo.writeLine();
+                dac.reset();
+                
+                if (timestamp == null) {
+                    fo.close();
+                    return;
+                }
+            }
+            dac.add(timestamp, reading);
+        }
+        public EnergyCost( 
+                DatabaseSession session, 
+                Date            from, 
+                Date            to, 
+                String          type, 
+                String          vatMode, 
+                boolean         logDay) throws SQLException, ParseException, IOException {
+            Tariff.OffPeak             op;
+            Tariff.OffPeak.Accumulator dac = null;
+            ResultSet                  rs;
+            FileOutput                 fo         = new FileOutput(",");
+            boolean                    first      = true;
+            Date                       smTime     = new Date();
+            SQLSelectBuilder           sql        = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
+            boolean                    logOpTimes = false; // This is for trouble shooting
+
+            smStart = from;
+            smEnd   = to;
+            tf      = new Tariff(session, type);
+            tf.setRemoveVat(vatMode.equalsIgnoreCase("Remove"));
+            
             op  = tf.new OffPeak(new Date());
             tac = op.new Accumulator();
-            dac = op.new Accumulator();
+            
+            if (logDay) dac = op.new Accumulator();
+            
             sql.addField("*");
             sql.addAnd("Type",  "=",  type);
             sql.addAnd("Start", ">=", from);
@@ -413,56 +444,43 @@ public class RecordEnergy extends ApplicationServer {
             while (rs.next()) {
                 float  reading = rs.getFloat("Reading");
                 
-                smTime = rs.getTimestamp("Start");                
-                date   = getLocalDate(rs.getTimestamp("Start"));
+                smTime = rs.getTimestamp("Start");              
                 
                 if (first && !Utils.compare(smTime, "=", from)) throw new ErrorExit("Missing Smart Meter data before " + from);
-                                
-                first  = false;
-                
+                                              
                 tf.load(smTime);
-                if (smPrev == null || getElapsedDays(smPrev, tf.getLoaDate()) == 1) {
-                    stdCost += tf.getStandingCharge();
-                }
-                tac.add(smTime, reading);
-                dac.add(smTime, reading);
                 
-                if (logDay && smPrev != null && !date.equals(getLocalDate(rs.getTimestamp("Timestamp")))) {
-                    fo.add(smPrev, "dd-MMM-yy");
-                    fo.add(dac.getKwh(),    3);
-                    fo.add(dac.getPkKwh(),  3);
-                    fo.add(dac.getPkCost(), 2);
-                    fo.add(dac.getOpKwh(),  3);
-                    fo.add(dac.getOpCost(), 2);
-                    fo.add(dac.getFOpKwh(), 3);
-                    fo.writeLine();
-                    dac.reset();
-                }
-                smPrev = tf.getLoaDate();
+                if (first || tac.hasDateChanged(smTime)) {
+                    stdCost += tf.getStandingCharge();
+                } 
+                first  = false;
+                tac.add(smTime, reading);
+                updateDayLog(fo, dac, type, smTime, reading);
+                
+                if (dac != null && op.isOffPeak(smTime) && logOpTimes) {
+                    fo.add(getLocalDate(smTime, "dd-MMM-yy HH:mm"));
+                    fo.add(reading, 3);
+                    fo.writeLine(); 
+                }   
             }
             if (DateFormatter.dateDiff(to, smTime, DateFormatter.TimeUnits.Minutes) > 30) throw new ErrorExit("Missing Smart Meter data before " + to);
             
             hours   = DateFormatter.dateDiff(smStart, smTime, DateFormatter.TimeUnits.Hours);
             days    = getElapsedDays(smStart, smTime);
-            
-            if (logDay) fo.close();
+            updateDayLog(fo, dac, type, null, 0);
         }
         public float getMeterChange() {
             return tac.getReadingChange();
         }
-
         public float getOpCost() {
             return tac.getOpCost();
         }
-
         public float getOpKwh() {
             return tac.getOpKwh();
         }
-
         public float getPeakCost() {
             return tac.getPkCost();
         }
-
         public float getPeakKwh() {
             return tac.getPkKwh();
         }
@@ -786,7 +804,6 @@ public class RecordEnergy extends ApplicationServer {
                 super.config.getProperty("endatabase"),
                 super.config.getProperty("enuser"),
                 super.config.getProperty("enpassword"));
-
     }
 
     @Override
@@ -924,6 +941,69 @@ public class RecordEnergy extends ApplicationServer {
         }
         return reading;
     }
+    private void getChartData(Context ctx) throws ParseException, SQLException, JSONException  {
+        SQLSelectBuilder sql;
+        Date       start     = ctx.getTimestamp("Start");  
+        Date       end       = ctx.getTimestamp("End");
+        String     table     = ctx.getParameter("Table");
+        JSONObject data      = new JSONObject();
+        String     group     = ctx.getParameter("GroupByN", "");
+        boolean    isGroup   = !group.equals("");
+        boolean    timeLocal = ctx.getBoolean("TimeLocal", false);
+        ResultSet  rs;
+        String[]   fields   = ctx.getParameter("Fields").split(",");
+        
+        sql = ctx.getSelectBuilder(table);
+        
+        if (timeLocal) {            
+            start = timeWithDate.toGMT(start);
+            end   = timeWithDate.toGMT(end);
+        }
+        sql.addAnd("!" + fields[0], ">=", start);
+        sql.addAnd("!" + fields[0],  "<", end);            
+        sql.addAnd(ctx.getParameter("filter"));
+        sql.addOrderByField(fields[0], false);
+        
+        if (isGroup) {
+            String[] grflds = group.split(",");
+            
+            for (String grfld : grflds) {
+                sql.addGroupByField(grfld);
+            }
+        }
+        for (int fld = 0; fld < fields.length; fld++) {
+            String[] attributes = fields[fld].split(":");
+            String name  = "";
+            String alias = "";
+            String aggr  = isGroup? fld == 0? "Min" : "Sum" : "";
+            
+            switch (attributes.length) {
+                case 1:
+                    name  = attributes[0];
+                    alias = name;                    
+                    break;
+                case 2:
+                    name  = attributes[0];
+                    alias = attributes[1];                    
+                    break;
+                case 3:
+                    name  = attributes[0];
+                    alias = attributes[1];
+                    aggr  = attributes[2];     
+                    
+                    if (isGroup) errorExit("Field " + name + " Aggregate requires group by");
+                    break;
+                default:
+                    errorExit("Fields-" + ctx.getParameter("Fields") + "-incorrectly formatted");
+            }
+            if (!aggr.equals("")) name = aggr + "(" + name + ")"; 
+            
+            sql.addField(alias, name);
+        }
+        rs = ctx.getAppDb().executeQuery(sql.build());
+        data.add("ChartData", rs, timeLocal);
+        data.append(ctx.getReplyBuffer());
+    }
     private void getSMData(Context ctx) throws SQLException, ParseException, JSONException, IOException {
         String           type      = ctx.getParameter("Type");
         SQLSelectBuilder sql;
@@ -969,8 +1049,7 @@ public class RecordEnergy extends ApplicationServer {
                 sql.addField("Start", "Min(Start)");
                 sql.addField("Kwh", "Sum(Kwh)");
             }
-
-            sql.addAnd("!Type", "=", ctx.getParameter("Type"));
+            sql.addAnd(ctx.getParameter("filter"));
 
             if (group.length() != 0) {
                 sql.addGroupByField("Year");
@@ -978,7 +1057,6 @@ public class RecordEnergy extends ApplicationServer {
                 if (group.equalsIgnoreCase("hour")) {
                     sql.addGroupByField("Day");
                 }
-
                 sql.addGroupByField(group);
             }
         }
@@ -1014,7 +1092,6 @@ public class RecordEnergy extends ApplicationServer {
         meterReading.create();
         return true;
     }
-
     @Override
     public void processAction(
             Context ctx,
@@ -1025,18 +1102,7 @@ public class RecordEnergy extends ApplicationServer {
         MeterReading     reading;
         String           readings;
         ResultSet        rs;
-        /*
-         * The following is necessary as the default appears to be BST. 
-         *
-         * Without this date strings are converted to GMT when creating the Date object, so 20-Aug-24 00:30:00 
-         * becomes 19-Aug-24 23:30:00. Usually this does not matter as on output is converted to BST format and
-         * the result is consistent the front end or the database point of view.
-         *
-         * However, this code takes action on when the day changes, e.g. when 19-Aug-24 23:30:00 changes to
-         * 20-Aug-24 00:30:00. Without the following, day change is only triggered on the date 20-Aug-24 01:00:00.
-         */        
-        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
-
+        
         switch (action) {
             case "Create":
                 if (addReading(ctx, "Gas")) {
@@ -1097,6 +1163,7 @@ public class RecordEnergy extends ApplicationServer {
 
                 sel.addField("Start");
                 sel.addField("End");
+                sel.addField("Status");
                 sel.addField("Comment");
                 sel.addOrderByField("Start", true);
                 sel.addAnd("Type", "=", "Electric");
@@ -1135,7 +1202,10 @@ public class RecordEnergy extends ApplicationServer {
                 calculateCosts(ctx);
                 break;
             case "getSMData":
-                getSMData(ctx);
+                if (ctx.existsParameter("Fields"))
+                    getChartData(ctx);
+                else
+                    getSMData(ctx);
                 break;
             default:
                 invalidAction();

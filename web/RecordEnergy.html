@@ -13,7 +13,7 @@
         <script src="js/alert.js"></script>
         <script src="js/login.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
-        <script src="js/chartbuilder.js"></script>
+        <script src="js/chartwrapper.js"></script>
         <script src="js/recordenergy.js"></script>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Record Energy</title>
@@ -25,7 +25,7 @@
         </div>        
         <form class="frame" id="appframe" autocomplete="off">
             <h1>Record Energy Usage</h1>
-            <fieldset class='centreminwidth form'>
+            <fieldset class='centreminwidth form innerfields'>
                 <legend>Select Function</legend>
                 <div>
                     <div>
@@ -55,6 +55,10 @@
                     <div>
                         <input type="radio" id="menu7" name="menu" value="chartdv" onclick="menuClick(this.value)"/>
                         <label for="menu7" class="left largelab">Chart</label>
+                    </div>
+                    <div id="mysqldiv" class='label' hidden>Using MySQL</div>
+                    <div id="logoff" class='centredtext' hidden>
+                        <input id="logoffbtn" name="logoffbtn" class='notparam' type="button" value="Logoff" onclick="logOff();">
                     </div>
                 </div>
             </fieldset>
@@ -308,11 +312,6 @@
                                 <input id="save"   name="save"   class='notparam' type="button" value="Create" onclick="actionCreate();">
                                 <input id="cancel" name="cancel" class='notparam' type="button" value="Cancel" onclick="actionCreate();">
                             </div>
-                            <div id="logoff" hidden>
-                                <label for="logoffbtn"></label>
-                                <input id="logoffbtn" name="logoffbtn" class='notparam' type="button" value="Logoff" onclick="logOff();">
-                            </div>
-                            <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                             <div>
                                 <label>Show Filter</label>
                                 <input name='Show Filter' class='notparam' type="checkbox" onclick="setFilterVisible('readingskey');">
@@ -538,6 +537,14 @@
                                 <input type="text" name="End~Time" size="8" id="ovretime" class='time' maxlength="8" onchange="checkPeakOverride(this)">
                             </div> 
                             <div>
+                                <label for="pkostatus">Status</label>
+                                <select id="pkostatus" Name="Status" class='optlist'>
+                                    <option>Initial</option>
+                                    <option>Used</option>
+                                    <option>Ignore</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label for="pkovrcomment">Comment</label>
                                 <textarea id='pkovrcomment' name='Comment' rows='2'></textarea>
                             </div>  
@@ -570,7 +577,7 @@
                         </div>
                         <div>
                             <label for="chrtgrp">Group</label>
-                            <select id="chrtgrp" name='GroupBy' class='optlist'>
+                            <select id="chrtgrp" name='GroupBy' class='optlist' onchange='chartClickValidate(this)'>
                             </select>
                         </div>                       
                         <div>
@@ -589,23 +596,23 @@
                                     <label for="chrdel" class='left'>Electric</label>
                                 </div>
                                 <div>
-                                    <input type="checkbox" id="chrdgs" value="Gas" />
+                                    <input type="checkbox" id="chrdgs" value="Gas" onclick='chartClickValidate(this)'/>
                                     <label for="chrdgs" class='left'>Gas</label>
                                 </div>
                                 <div>
-                                    <input type="checkbox" id="chrdex" value="Export" />
+                                    <input type="checkbox" id="chrdex" value="Export" onclick='chartClickValidate(this)'/>
                                     <label for="chrdex" class='left'>Export</label>
                                 </div>
                                 <div>
-                                    <input type="checkbox" id="chrdsl" value="Solar" />
+                                    <input type="checkbox" id="chrdsl" value="Solar" onclick='chartClickValidate(this)' />
                                     <label for="chrdsl" class='left'>Solar</label>
                                 </div>
                                 <div>
-                                    <input type="checkbox" id="chrdslex" value="SolarExport" />
+                                    <input type="checkbox" id="chrdslex" value="SolarExport"  onclick='chartClickValidate(this)'/>
                                     <label for="chrdslex" class='left'>Solar Export</label>
                                 </div> 
                                 <div>
-                                    <input id="chrdis" class="notparam" name="display" type="button" value="Display" onclick="displayChart(this);">
+                                    <input id="chrdis" class="notparam" name="display" type="button" value="Display" onclick="displayChartOld(this);">
                                 </div>
                             </fieldset>
                             <fieldset class='centreminwidth'>             
@@ -615,8 +622,8 @@
                                     <input type="text" name="Step" id="chrstsz" size='2' onkeypress="allowedInNumberField();" >
                                      Days
                                      <div>
-                                         <input class="notparam" name="StepForward" type="button" value='Forward' onclick="displayChart(this);">                          
-                                         <input class="notparam" name="StepBack"    type="button" value='Back'    onclick="displayChart(this);">
+                                         <input class="notparam" name="StepForward" type="button" value='Forward' onclick="displayChartOld(this);">                          
+                                         <input class="notparam" name="StepBack"    type="button" value='Back'    onclick="displayChartOld(this);">
                                      </div>
                                 </div>
                             </fieldset>

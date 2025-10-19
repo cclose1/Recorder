@@ -63,26 +63,26 @@ function restartSession() {
     var time    = new Date();
     var hist    = getElement("history").rows;
     var session;
-    var row;
+    let tab;
     var side;
     var i = 2;
     
     if (hist.length === 1) return false;
     
-    row     = new rowReader(hist[1]);
-    session = row.getColumnValue("Session");
+    tab     = new Table(hist[1]);
+    session = tab.getColumnValue("Session");
     
     if (dateDiff(session, time, 'seconds') > timer.maxGap) return false;
     
-    time = toDate(row.getColumnValue("Timestamp"));
-    side = row.getColumnValue("Side");
+    time = toDate(tab.getColumnValue("Timestamp"));
+    side = tab.getColumnValue("Side");
         
     setSession(toDate(session));
     
     while (i < hist.length) {
-        row = new rowReader(hist[i]);
+        tab = new Table(hist[i]);
         
-        if (row.getColumnValue("Session") !== session || row.getColumnValue("Side") !== side) break;
+        if (tab.getColumnValue("Session") !== session || tab.getColumnValue("Side") !== side) break;
         
         i++;
     }
@@ -120,9 +120,9 @@ function updateMeasure(action) {
     return true;
 }
 function bpHistoryRowClick(row) {
-    var rdr = new rowReader(row);
+    var tab = new Table(row);
     
-    rdr.loadScreenFields(updFlds, {mustExist:false, setKey:true});
+    tab.loadScreenFields(updFlds, {mustExist:false, setKey:true});
     showUpdate(true);
 }
 function requestHistory(async) { 

@@ -1938,6 +1938,7 @@ function JSONArrayColumnOptions(pOptions) {
  *                 e.g. if the column header is 'Multiple Field Heading', the size is determined by Multiple.
  * - usePrecision  If true, column size is set to the database precision, rather than size of the maximum sized.
  * - setTableName  If true, the table name attribute is set to Table name returned in the json data.
+ * - ignoreColumns Comma seperated list of columns to be ignored in the JSON data.
  */
 function JSONArrayOptions(pOptions) {
     BaseOptions.call(this, false);
@@ -1964,6 +1965,7 @@ function JSONArrayOptions(pOptions) {
     this.addSpec({name: 'usePrecision',  type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'setTableName',  type: 'boolean', default: false,  mandatory: false});
     this.addSpec({name: 'setTableTitle', type: 'string',  default: '',     mandatory: false});
+    this.addSpec({name: 'ignoreColumns', type: 'string',  default: '',     mandatory: false});
 
     this.clear();
     this.load(pOptions);
@@ -2256,8 +2258,16 @@ function getRadioValue(name)
     }
     return "";
 }
+/*
+ * id  Either a select element or the id of one.
+ * 
+ * @returns The label of the selected option or an empty string if no option seleceted.
+ *          By label is meant the string that appears in the drop down list. The value return by the element
+ *          is either the label or the explicitly defined value of the selected option. Usually the element
+ *          value is the most appropriate from a code point of view.
+ */
 function getSelectedOption(id) {
-    var options = document.getElementById(id).options;
+    var options = getElement(id).options;
 
     return (options.selectedIndex < 0) ? "" : options[options.selectedIndex].text;
 }
@@ -2346,21 +2356,18 @@ class ClassProperties {
     }
     hasProperty(key, name) {
         return (name in this.#properties.get(key));
-    }
-    ;
-            setProperty(key, name, value, create) {
+    };
+    setProperty(key, name, value, create) {
         if ((isNull(create) || !create) && !this.hasProperty(key, name))
             reporter.fatalError('Property ' + name + ' not in ' + this.#className + ' and creation not allowed');
         this.#properties.get(key)[name] = value;
-    }
-    ;
-            getProperty(key, name) {
+    };
+    getProperty(key, name) {
         if (!this.hasProperty(key, name))
             reporter.fatalError('Property ' + name + ' not in ' + this.#className);
 
         return this.#properties.get(key)[name];
-    }
-    ;
+    };
 }
 /*
  * This implements the Column class in a way that prevents direct access to the properties. Also user, due to the
@@ -2705,82 +2712,161 @@ function getCaption(element) {
     }
     return element.id;
 }
-function rowReader(row, throwError) {
-    this.row = row;
-    this.index = -1;
-    this.header = getElement(this.row.parentNode.parentNode).rows[0];
-    this.table = this.header.parentNode.parentNode;
-    /* 
-     * This stopped working, need to investigate why. The ne version is a workaround.
-     this.caption    = this.table.caption.innerHTML;
-     */
-
-    this.caption = getCaption(this.table);
-    this.throwError = throwError === undefined ? false : throwError;
-
-    function reportError(obj, message) {
-        if (obj.throwError)
-            throw Error(message);
-        else
-            alert(message);
+/*
+ * This class provides a wrapper for a HTML table. The HTML table is restricted to having a single line header, which may
+ * be absent and a single tBody.
+ * 
+ * All other code that accesses a HTML table will be modified to use this class. 
+ */
+class Table {
+    #table;
+    #caption;
+    #header;
+    #body;
+    #rowIndex;
+    #colIndex
+    
+    #error(message) {
+        throw new ErrorObject('Code Error', 'Table ' + this.#caption + ' ' + message);
     }
-    this.check = function () {
-        if (this.index >= this.header.cells.length)
-            reportError(this, "Attempt to read beyond last column. There are " + this.header.cells.length + " columns");
-    };
-    this.selectColumn = function (name) {
-        for (this.index = 0; this.index < this.header.cells.length; this.index++) {
-            if (this.header.cells[this.index].innerHTML === name)
-                return true;
+    /*
+     * Table a can an HTML element pr a TR row element, an id string of an HTML table element.
+     * 
+     * If Table is a row the owning table element is retreived and the row ind is set to that of the row.
+     */
+    constructor(table) {
+        if (typeof table === 'string') table = getElement(table);
+        
+        this.#colIndex = 0;
+        
+        switch (table.tagName) {
+            case 'TABLE':
+                this.#table    = table;
+                this.#rowIndex = 0;
+                break;
+            case 'TR':
+                if (table.parentNode.tagName !== 'TBODY') throw new ErrorObject('Code Error', 'Element ' + table.localName + ' is not TBODY row');
+                
+                this.#rowIndex = table.sectionRowIndex;
+                this.#colIndex = -1;
+                this.#table    = table.parentNode.parentNode;
+                break;
+            default:
+                throw new ErrorObject('Code Error', 'Element ' + table.localName + ' does not identify a table');
         }
-        reportError(this, "Column " + name + " is not in table " + this.caption);
-        return false;
-    };
-    this.reset = function () {
-        this.index = -1;
-    };
-    this.nextColumn = function () {
-        this.check();
-        this.index += 1;
+        this.#header = null;
+        this.#body   = null;
+        
+        for (let i = 0; i < this.#table.childElementCount; i++) {
+            switch (this.#table.children[i].tagName) {
+                case 'CAPTION':
+                    this.#caption = this.#table.children[i].innerHTML;
+                    break;          
+                case 'THEAD':
+                    this.#header = this.#table.children[i].rows[0];
+                    break;
+                case 'TBODY':
+                    this.#body = this.#table.children[i];
+                    break;                    
+            }
+        }
+        if (this.#body === null) throw new ErrorObject('Code Error', 'Element ' + table.id + ' does not have a body');
+    }
+    #checkRowIndex(index) {
+        if (index < 0 || index >= this.#body.rows.length) this.#error('Row index ' + index + ' invalid');
+    }
+    setRowFirst() {
+        this.#rowIndex = -1;
+    }
+    nextRow() {
+        if (this.#rowIndex >= this.#body.rows.length) throw new ErrorObject('Code Error', 'Attempt to read beyond last row');
+        
+        this.#rowIndex += 1;
 
-        return this.index < this.header.cells.length;
+        return this.#rowIndex < this.#body.rows.length;
+    }
+    tableName() {
+        return this.#table.getAttribute('name');
+    }
+    tableCaption() {
+        return this.#caption;
+    }
+    setColFirst() {
+        this.#colIndex = -1;
+    }
+    nextColumn() {
+        if (this.#colIndex >= this.#header.cells.length) throw new ErrorObject('Code Error', 'Attempt to read beyond last column');
+        
+        this.#colIndex += 1;
+
+        return this.#colIndex < this.#header.cells.length;
     };
-    this.columnTitle = function () {
-        this.check();
-        return this.header.cells[this.index].innerHTML;
-    };
-    this.columnName = function () {
-        this.check();
-        return this.row.cells[this.index].getAttribute('name');
-    };
-    this.valueAttribute = function (name) {
-        return this.row.cells[this.index].getAttribute(name);
-    };
-    this.columnValue = function () {
-        this.check();
+    getColIndex(id, mustExist)  {
+        if (typeof id === 'string') {
+            for (let i = 0; i < this.#header.cells.length; i++) {
+                if (this.#header.cells[i].innerHTML === id) return i;
+            }
+        } else if (id >= 0 && id < this.#header.cells.length) 
+            return id;
+        if (!defaultNull(mustExist, true)) return -1;
+        
+        throw new ErrorObject('Code Error', 'Id ' + id + ' is not a column in ' + this.#caption);
+    }
+    setColumn(id) {        
+        this.#colIndex = this.getColIndex(id);
+    }
+    isColumn(id) {
+        if (typeof id === 'string') return this.getColIndex(id, false) !== -1;
+        
+        return id >= 0 && id < this.#header.cells.length;        
+    }
+    columnValue(name) {
+        let index = isNull(name)? this.#colIndex : this.getColIndex(name);
         /*
          * Needed to go via ta to ensure that escapable characters such as & are not returned in their escaped form i.e. &amp;
          * 
          * Don't know why this is necessary.
          */
         var ta = document.createElement('textarea');
-        ta.innerHTML = trim(this.row.cells[this.index].innerHTML);
+        
+        this.#checkRowIndex(this.#rowIndex);        
+        ta.innerHTML = trim(this.#body.rows[this.#rowIndex].cells[index].innerHTML);
         return ta.value;
-    };
-    this.getColumnValue = function (name) {
-        if (this.selectColumn(name))
-            return this.columnValue();
-    };
-    this.loadScreenFields = function (screen, options) {
+    }
+    /*
+     * The method above should be used instead 
+     * @param {type} name
+     * @returns {undefined}
+     */
+    getColumnValue(name) {
+        console.log('Use columnValue instead');
+        
+        this.columnValue(name);
+    }
+    setRowIndex(index) {
+        this.#checkRowIndex(index);        
+        this.#rowIndex = index;        
+    }
+    getRowIndex() {
+        return this.#rowIndex;
+    }
+    getRowCount() {
+        return this.#body.rows.length;
+    }
+    columnName(id) {
+        let index = isNull(id)? this.#colIndex : this.getColIndex(id);
+        return this.#header.cells[index].innerHTML;
+    }
+    loadScreenFields(screen, options) {
         options = new screenFieldsOptions(options);
-        this.reset();
+        this.setColFirst();
         
         while (this.nextColumn()) {
             screen.setValue(this.columnName(), this.columnValue(), options.mustExist);    
             
             if (options.setKey) screen.setValue('Key!' + this.columnName(), this.columnValue(), false);
         }
-    };
+    }
 }
 /*
  * Returns a width large enough to fit noOfChars.
@@ -2884,7 +2970,7 @@ function arrayToJSONTable(name) {
 function loadJSONFields(jsonData, exact) {
     try {
         var json;
-        var jfld;
+        var jfld;   
         var jattr;
         var field;
         var id;
@@ -2946,8 +3032,12 @@ function loadJSONFields(jsonData, exact) {
 
 /*
  * The json object must be set to the JSON array of column header objects.
+ * 
+ * ignored is an empty array which set to length of the JSON array header. The value of each element is a boolean
+ *    which is set to true if the corresponding column name appears in the option ignoreColumns. This passed to 
+ *    jsonAddData to skip the correspondin data value.
  */
-function jsonAddHeader(json, table, baseId, options) {
+function jsonAddHeader(json, table, baseId, ignored, options) {
     var tableSizer = new TableSizer(table, baseId, options);
     var name;
     var cName;
@@ -2957,6 +3047,7 @@ function jsonAddHeader(json, table, baseId, options) {
     var jcol;
     var col;
     var cell;
+    let igCols = options.ignoreColumns.split(',');
 
     if (options.scroll === 'table')
         header.classList.add('scroll');
@@ -2966,9 +3057,14 @@ function jsonAddHeader(json, table, baseId, options) {
      */
     json.setFirst();
 
-    while (json.isNext()) {
+    while (json.isNext()) {        
         jcol = json.next().value;
         name = jcol.getMember('Name', true).value;
+        
+        ignored.push(igCols.includes(name));
+        
+        if (ignored.slice(-1)[0]) continue;
+        
         col  = tableSizer.addColumn(
                 name,
                 options.addColNoClass ? colNo + 1 : -1,
@@ -3002,11 +3098,12 @@ function jsonAddHeader(json, table, baseId, options) {
 /*
  * The json object must be set to the JSON array of rows the column values array.
  */
-function jsonAddData(json, tableSizer, options) {
+function jsonAddData(json, tableSizer, ignored, options) {
     var body = tableSizer.table().tBodies[0];
     var rowNo = 0;
     var dcol;
     var row;
+    let jindx = 0;
 
     body.classList.remove('scroll');
 
@@ -3021,7 +3118,7 @@ function jsonAddData(json, tableSizer, options) {
         var colNo = 0;
         var drow = json.next().value;
         var cell;
-
+        
         row = body.insertRow(rowNo++);
 
         if (options.onClick !== null)
@@ -3030,9 +3127,13 @@ function jsonAddData(json, tableSizer, options) {
          * Iterate the data columns.
          */
         drow.setFirst();
+        jindx = 0;
 
         while (drow.isNext()) {
             dcol = drow.next();
+            
+            if (ignored[jindx++]) continue;
+            
             cell = row.insertCell();
             tableSizer.column(colNo).loadColumnValue(cell, dcol.value, options.nullToEmpty);
             colNo++;
@@ -3094,6 +3195,7 @@ function loadJSONArray(jsonArray, id, options) {
         var jval;
         var row;
         var svrName = json.getMember('Table').value;
+        let ignored = new Array(0);
         /*
          * If the element is not a table, search for the first child that is a table. If there is no
          * child table, create one and make table the parent.
@@ -3128,9 +3230,9 @@ function loadJSONArray(jsonArray, id, options) {
             table.classList.add('scroll');
 
         jval = json.getMember('Header', true);
-        tableSizer = jsonAddHeader(jval.value, table, id, options);
+        tableSizer = jsonAddHeader(jval.value, table, id, ignored, options);
         jval = json.getMember('Data', true);
-        jsonAddData(jval.value, tableSizer, options);
+        jsonAddData(jval.value, tableSizer, ignored, options);
 
         st.logElapsed("Loading rows");
         st.setStart();
@@ -3182,9 +3284,16 @@ function loadJSONArray(jsonArray, id, options) {
         st.logElapsed("Set table sizes");
     } catch (e) {
         reporter.logThrow(e, true);
-        ;
     }
 }
+/*
+ * 
+ * @param Element select      HTML that has an options list.
+ * @param String  value       Comma separated list of option values. The value can be 2 fields separated by : the 
+ *                            second being optional. The first is string that is displayed and the second the
+ *                            value return as the select list value, which defaults to the first parameter.
+ * @param boolean ignoreBlank Blank value will be ignored.
+ */
 function addOption(select, value, ignoreBlank) {
     value = trim(value);
 
@@ -3195,15 +3304,18 @@ function addOption(select, value, ignoreBlank) {
      */
     if (select.tagName === "DATALIST")
         select.innerHTML += '<option value="' + value + '"/>';
-    else
-        select.options[select.options.length] = new Option(value, value);
+    else {
+        let pars = value.split(":");
+        select.options[select.options.length] = new Option(pars[0], pars.length > 1? pars[1] : pars[0]);
+    }
 }
 /*
  * id          The select element to be loaded. This can be eith the element id string or the element object.
  * values      The select options. The following are the allowed formats:
  *               - A string starting with {. This is the JSON string returned by the server for the getList action.
- *               - A comma seperated list of select option values.
- *               = An array of strings containing the select option values.
+ *               - A comma seperated list of select option values. The value can consist of 2 fields separated
+ *                 by : the second being optional. See addOption for details.
+ *               - An array of strings containing the select option values.
  *               - A select element from which the option values are copied.
  * loadOptions The loadSelectOptions as defined above.
  */

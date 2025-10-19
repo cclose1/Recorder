@@ -123,12 +123,12 @@ function updateFilteredLists() {
     getList('Spend', {name: "descriptionList", table: 'SpendData', field: 'Description', filter: filter});
 }
 function rowClick(row) {
-    var rdr = new rowReader(row);
+    var tab = new Table(row);
     
-    while (rdr.nextColumn()) {
-        var value   = rdr.columnValue();
+    while (tab.nextColumn()) {
+        var value   = tab.columnValue();
         
-        switch (rdr.columnName()) {
+        switch (tab.columnName()) {
             case 'SeqNo':
                 document.getElementById("seqno").value = value;
                 break;

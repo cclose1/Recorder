@@ -28,6 +28,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -69,7 +70,14 @@ import org.cbc.utils.system.TimeWithDate;
 @WebServlet(name = "RecordNutrition", urlPatterns = {"/RecordNutrition"})
 public abstract class ApplicationServer extends HttpServlet {
     protected TimeWithDate timeWithDate = new TimeWithDate("Europe/London");
-
+    private   boolean      useMySql     = true;
+    
+    public String getLocalDate(Date timestamp, String format) {
+        return DateFormatter.format(timeWithDate.toLocal(timestamp), format);
+    }
+    public String getLocalDate(Date timestamp) {
+        return getLocalDate(timestamp, "dd-MMM-yy");
+    }
     public enum Severity {
         Validation, Error, ApplicationError
     };
@@ -91,15 +99,12 @@ public abstract class ApplicationServer extends HttpServlet {
         public Severity getSeverity() {
             return severity;
         }
-
         public void setMessage(String message) {
             this.message = message;
         }
-
         public String getMessage() {
             return message == null ? super.getMessage() : message;
         }
-
         public int getStatus() {
             switch (severity) {
                 case Validation:
@@ -172,9 +177,9 @@ public abstract class ApplicationServer extends HttpServlet {
         private int               fldIndex;
         private boolean           hdrOutput = false;
         private ArrayList<Column> columns   = new ArrayList<>();
-        private StringFormatter  sf;
-        private String           root       = System.getenv("AR_ROOT");
-        private FileWriter       writer;        
+        private StringFormatter   sf;
+        private String            root      = System.getenv("AR_ROOT");
+        private FileWriter        writer    = null;         
         /*
          * Adds field to the line string. 
          *
@@ -210,6 +215,9 @@ public abstract class ApplicationServer extends HttpServlet {
             }
             writeLine();
         }
+        public boolean isFileOpen() {
+            return writer != null;
+        }            
         /*
          * Sets StringFormatter separator. 
          *
@@ -240,7 +248,7 @@ public abstract class ApplicationServer extends HttpServlet {
          *
          * If path is not absolute and root is not "", path is appended to it.
          *
-         * The writer is opened with the absolute path resulting from the above. Thid is also returned to
+         * The writer is opened with the absolute path resulting from the above. This is also returned to
          * the caller.        
          */
         public String openFile(String path, Date timestamp) throws IOException {
@@ -294,6 +302,7 @@ public abstract class ApplicationServer extends HttpServlet {
         }
         public void close() throws IOException {
             writer.close();
+            writer = null;
         }
     }
     /*
@@ -679,14 +688,14 @@ public abstract class ApplicationServer extends HttpServlet {
         public java.sql.Date getSQLDate(Date date) {
             return date == null ? null : new java.sql.Date(date.getTime());
         }
-        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql, boolean startTransaction) throws SQLException {
+        private DatabaseSession openDatabase(String database, String user, String password, boolean startTransaction) throws SQLException {
             Trace t = new Trace("openDatabase");
-            DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), login.name, startTransaction);
+            DatabaseSession session = new DatabaseSession(useMySql ? "mysql" : "sqlserver", config.getDbServer(), database, startTransaction);
 
-            if (login.name != null) {
-                t.report('C', "Database " + login.name);
+            if (database != null) {
+                t.report('C', "Database " + database);
 
-                session.setUser(login.user, login.password);
+                session.setUser(user, password);
 
                 if (useMySql && config.getMysqlUseSSL().length() != 0) {
                     session.addConnectionProperty("useSSL", config.getMysqlUseSSL());
@@ -706,8 +715,11 @@ public abstract class ApplicationServer extends HttpServlet {
             return session;
         }
 
-        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean useMySql) throws SQLException {
-            return openDatabase(login, useMySql, false);
+        private DatabaseSession openDatabase(Configuration.Databases.Login login, boolean startTransaction) throws SQLException {
+            return openDatabase(login.name, login.user, login.password, startTransaction);
+        }
+        private DatabaseSession openDatabase(Configuration.Databases.Login login) throws SQLException {
+            return openDatabase(login, false);
         }            
 
         public DatabaseSession getAppDb() {
@@ -878,27 +890,38 @@ public abstract class ApplicationServer extends HttpServlet {
         public void dumpRequest(String reason) throws ServletException, IOException {
             handler.dumpRequest(reason);
         }
-
-        public void openDatabases(boolean useMySql, boolean startTransaction) throws SQLException {
-            appDb = openDatabase(config.databases.application, useMySql, startTransaction);
+        public void openDatabases(boolean startTransaction) throws SQLException {
+            appDb = openDatabase(config.databases.application, startTransaction);
 
             if (!config.databases.application.equals(config.databases.security)) {
-                secDb = openDatabase(config.databases.security, useMySql);
+                secDb = openDatabase(config.databases.security);
             } else {
                 secDb = null;
             }
 
             if (!config.databases.application.equals(config.databases.reminder)) {
-                remDb = openDatabase(config.databases.reminder, useMySql);
+                remDb = openDatabase(config.databases.reminder);
             } else {
                 remDb = appDb;
             }
+        }        
+        public void openDatabases() throws SQLException {
+            openDatabases(false);
         }
-        
-        public void openDatabases(boolean useMySql) throws SQLException {
-            openDatabases(useMySql, false);
+        public void changeAppDatabase(String database) throws SQLException {
+            if (appDb != null) appDb.close();
+            
+            appDb = openDatabase(
+                    database,
+                    config.databases.application.user, 
+                    config.databases.application.password,
+                    false);     
         }
-
+        public void restoreAppDatabase() throws SQLException {
+            if (appDb != null) appDb.close();
+            
+            appDb = openDatabase(config.databases.application, false);     
+        }
         public SQLSelectBuilder getSelectBuilder(String table) {
             SQLSelectBuilder builder = new SQLSelectBuilder(table, appDb.getProtocol());
 
@@ -1413,7 +1436,7 @@ public abstract class ApplicationServer extends HttpServlet {
     public abstract String getVersion();
 
     public abstract void initApplication(ServletConfig config, Configuration.Databases databases) throws ServletException, IOException;
-
+    
     public abstract void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException;
 
     private void setKeyMessage(Context ctx, String prefix, String table, String key) {
@@ -1676,10 +1699,21 @@ public abstract class ApplicationServer extends HttpServlet {
     }
 
     private void processAction(Context ctx, Security security) throws ServletException, IOException, SQLException, NoSuchAlgorithmException, ParseException, JSONException {
-        Trace t = new Trace("ASProcessAction");
-        String action = ctx.getParameter("action");
+        Trace t          = new Trace("ASProcessAction");
+        String action    = ctx.getParameter("action");
         boolean complete = true;
-
+ 
+        /*
+         * The following is necessary as the default appears to be BST. 
+         *
+         * Without this date strings are converted to GMT when creating the Date object, so 20-Aug-24 00:30:00 
+         * becomes 19-Aug-24 23:30:00. Usually this does not matter as on output is converted to BST format and
+         * the result is consistent the front end or the database point of view.
+         *
+         * However, this code takes action on when the day changes, e.g. when 19-Aug-24 23:30:00 changes to
+         * 20-Aug-24 00:30:00. Without the following, day change is only triggered on the date 20-Aug-24 01:00:00.
+         */        
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
         t.report('C', action);
         /*
          * Start with the actions that don't require the user to be logged in.
@@ -1804,7 +1838,7 @@ public abstract class ApplicationServer extends HttpServlet {
      * This method looks in both places and uses the parameters by preference. Eventually will be changed
      * to use the session data by preference once the client side has been changed to use session data only.
      */
-    protected boolean getMySQL(Context ctx) {
+    protected void setMySQL(Context ctx) {
         Cookie cookie = ctx.getHandler().getCookie("mysql");
         String mysqlp = ctx.getParameter("mysql");
         String mysqlc = cookie == null ? "" : cookie.getValue();
@@ -1816,26 +1850,26 @@ public abstract class ApplicationServer extends HttpServlet {
         } else {
             mysqlp = mysqlc;
         }
-
-        return mysqlp.equalsIgnoreCase("true");
+        useMySql = mysqlp.equalsIgnoreCase("true");
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Thread.attach(config.getAppName());
-        Measurement m = new Measurement();
-        Trace t = new Trace("processRequest");
-        Context ctx = new Context();
+        Measurement   m = new Measurement();
+        Trace         t = new Trace("processRequest");
+        Context     ctx = new Context();
         response.setContentType("text/html;charset=UTF-8");
 
         ctx.handler = new HTTPRequestHandler(request, response);
         ctx.replyBuffer = new StringBuilder();
 
         String action = ctx.getParameter("action");
-        boolean useMySql = getMySQL(ctx);
         int maxRepeats = 5;
         int repeat = 0;
 
         ctx.setTrace(t);
+        setMySQL(ctx);
+        
         try {
             Report.comment(null, "processRequest called with action " + action + " sessionId " + ctx.getHandler().getCookie("sessionid") + " mysql " + useMySql + " default " + System.getProperty("user.dir"));
 
@@ -1845,7 +1879,7 @@ public abstract class ApplicationServer extends HttpServlet {
 
             t.report('C', "action " + action + " server " + config.getDbServer() + " database " + config.databases.application.name + " user " + config.databases.application.user);
 
-            ctx.openDatabases(useMySql || !config.isSqlServerAvailable(), true);
+            ctx.openDatabases(true);
 
             Security security = new Security(ctx.getSecDb(), ctx.handler, config);
 
@@ -1861,7 +1895,6 @@ public abstract class ApplicationServer extends HttpServlet {
             while (repeat <= maxRepeats) {
                 try {
                     security.checkSession(repeat);
-
                     processAction(ctx, security);
                     break;
                 } catch (SQLException ex) {
@@ -2033,21 +2066,12 @@ public abstract class ApplicationServer extends HttpServlet {
         public float getVatPercent() {
             return 100 * (vatMult - 1);
         }
-        /*
-         * If on sets automatic removal of Vat when returning rate and cost values.
-         */
         public void setRemoveVat(boolean on) {
             removeVAT = on;
         }
-        /*
-         * Remove Vat from rate and return it.
-         */
         public double removeVat(double rate) {
             return rate / vatMult;
         }
-        /*
-         * Adds Vat to rate and returns it.
-         */
         public double addVat(double rate) {
             return rate * vatMult;
         }  
@@ -2066,7 +2090,7 @@ public abstract class ApplicationServer extends HttpServlet {
             
             return bound;
         }
-        public Date getLoaDate() {
+        public Date getLoadDate() {
             return this.loadDate;
         }
         /*
@@ -2140,9 +2164,10 @@ public abstract class ApplicationServer extends HttpServlet {
                 SQLBuilder sql = new SQLSelectBuilder("PeakTariffOverride", session.getProtocol());
                 
                 sql.addField("*");
-                sql.addAnd("Start", "<=", timestamp);
-                sql.addAnd("End",    ">", timestamp);
+                sql.addAnd("Start", "<=",  timestamp);
+                sql.addAnd("End",    ">",  timestamp);
                 sql.addAnd("Type",   "=",  type);
+                sql.addAnd("Status", "<>", "Ignore");
                 
                 rs           = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
                 forceOffPeak = rs.next();
@@ -2150,14 +2175,15 @@ public abstract class ApplicationServer extends HttpServlet {
                 return forceOffPeak;
             }
             public class Accumulator {
-                private float reading;
-                private float kwh;
-                private float pkKwh;
-                private float opKwh;
-                private float fOpKwh;
-                private float pkCost;
-                private float opCost;
-                private int   increments;
+                private float  reading;
+                private float  kwh;
+                private float  pkKwh;
+                private float  opKwh;
+                private float  fOpKwh;
+                private float  pkCost;
+                private float  opCost;
+                private int    increments;
+                private String date;
 
                 public void reset() {
                     kwh        = 0;
@@ -2171,43 +2197,36 @@ public abstract class ApplicationServer extends HttpServlet {
                 }
                 public Accumulator() {
                     reset();
+                    date = "";
                 }
-                /**
-                 * @return the pkKwh
-                 */
+                public String getDate() {
+                    return date;
+                }
                 public float getPkKwh() {
                     return pkKwh;
                 }
-                /**
-                 * @return the opKwh
-                 */
                 public float getOpKwh() {
                     return opKwh;
                 }
-                /**
-                 * @return the opKwh
-                 */
                 public float getFOpKwh() {
                     return fOpKwh;
                 }
-                /**
-                 * @return the pkCost
-                 */
                 public float getPkCost() {
                     return pkCost;
                 }
-                /**
-                 * @return the opCost
-                 */
                 public float getOpCost() {
                     return opCost;
                 }
                 public float getReadingChange() {
                     return reading;
                 }
+                public boolean hasDateChanged(Date time) {
+                    return date.length() != 0 && !date.equals(getLocalDate(time));
+                }
                 public void add(Date time, float reading) throws SQLException, ParseException {
                     double kwhl = readingToKwh(reading);
                     
+                    this.date        = getLocalDate(time);                    
                     this.reading    += reading;
                     this.kwh        += kwhl;
                     this.increments += 1;
@@ -2222,15 +2241,9 @@ public abstract class ApplicationServer extends HttpServlet {
                         pkCost += kwhl * getUnitRate();
                     }
                 }
-                /**
-                 * @return the kwh
-                 */
                 public float getKwh() {
                     return kwh;
                 }
-                /**
-                 * @return the increments
-                 */
                 public int getIncrements() {
                     return increments;
                 }
