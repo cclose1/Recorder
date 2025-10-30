@@ -2220,14 +2220,17 @@ function addSectionRow(object, data) {
         }
     }
 }
-function addTableHeader(table, header)
-{
+function addTableHeader(table, header) {
     addSectionRow(table.tHead, header);
 }
-function clearTable(table) {
-    table = getElement(table);
-    deleteRows(table.tHead);
-    deleteRows(table.tBodies[0]);
+function clearTable(table, bodyonly) {
+    let tbelm = getElement(table);
+    
+    deleteRows(tbelm.tBodies[0]);
+    
+    if (defaultNull(bodyonly, false)) return;
+    
+    deleteRows(tbelm.tHead);
 }
 function addTableRow(table, data) {
     addSectionRow(table.tBodies[0], data);
@@ -3478,6 +3481,25 @@ function checkIntegerField(id, low, high) {
     return true;
 }
 /*
+ * 
+ * @param   element for which the label is required.
+ * @returns label element or null if none found.
+ * 
+ * Note: This only works is the label immeadiately precedes or follows the element.
+ */
+function getLabelFor(element) {    
+    element   = getElement(element);
+    let label = element.previousElementSibling;
+
+    if (!isNull(label) && label.tagName === "LABEL" && label.htmlFor === element.id) return label;
+    
+    label = element.nextElementSibling;
+    
+    if (!isNull(label) && label.tagName === "LABEL" && label.htmlFor === element.id) return label;
+    
+    return null;
+}
+/*
  * Returns the label for HTML element elm.
  * 
  * If the preceding element is a label and it is for elm.id return its value, otherwise, return elm.name as label.
@@ -3751,8 +3773,20 @@ function getCookie(name) {
  * It appears that if the attribute hidden is present, irrespective of if its value is true or false, the element is
  * not displayed. The function removes it, if it is present, and adds it with the value true, if yes is true.
  */
+function setElementHidden(id, yes) {
+    let element = getElement(id);
+    var show    = element.type === 'button' ? 'inline-block' : '';
+
+    if (element.hasAttribute("hidden"))
+        element.removeAttribute("hidden");
+    /*
+     * Following added as hidden does not work correctly on IE.
+     */
+    element.style.display = yes ? 'none' : show;
+    
+}
 function setHidden(name, yes) {
-    var element = getElement(name);
+    let element = getElement(name);
     var show = element.type === 'button' ? 'inline-block' : '';
 
     if (element.hasAttribute("hidden"))
@@ -3762,12 +3796,19 @@ function setHidden(name, yes) {
      */
     element.style.display = yes ? 'none' : show;
 }
+function setHiddenNew(name, yes) {
+    let element = getElement(name);
+    let label   = getLabelFor(element);
+    
+    setElementHidden(element, yes);
+    
+    if (!isNull(label)) setElementHidden(label, yes);
+}
 function setReadOnly(name, yes) {
     var element = getElement(name);
 
     element.readOnly = yes;
 }
-
 function setLabel(name, caption) {
     document.getElementById(name).innerHTML = caption;
 }

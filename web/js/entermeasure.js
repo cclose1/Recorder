@@ -74,15 +74,15 @@ function restartSession() {
     
     if (dateDiff(session, time, 'seconds') > timer.maxGap) return false;
     
-    time = toDate(tab.getColumnValue("Timestamp"));
-    side = tab.getColumnValue("Side");
+    time = toDate(tab.columnValue("Timestamp"));
+    side = tab.columnValue("Side");
         
     setSession(toDate(session));
     
     while (i < hist.length) {
         tab = new Table(hist[i]);
         
-        if (tab.getColumnValue("Session") !== session || tab.getColumnValue("Side") !== side) break;
+        if (tab.columnValue("Session") !== session || tab.columnValue("Side") !== side) break;
         
         i++;
     }

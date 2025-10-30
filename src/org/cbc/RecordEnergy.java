@@ -382,22 +382,22 @@ public class RecordEnergy extends ApplicationServer {
             if (!fo.isFileOpen()) {
                 fo.addColumn("Day", 18);
                 fo.addColumn("Total",     10);
-                fo.addColumn("PkKwh",     8);
-                fo.addColumn("PkKwhCost", 10);
                 fo.addColumn("OpKwh",     8);
-                fo.addColumn("OpKwhCost", 10);
+                fo.addColumn("PkKwh",     8);
                 fo.addColumn("FOpKwh",    8);
+                fo.addColumn("PkKwhCost", 10);
+                fo.addColumn("OpKwhCost", 10);
                 fo.openFile("RecEnergy\\DayCosts" + type + "!Date.log");
                 fo.writeLine();
             }
             if (timestamp == null || dac.hasDateChanged(timestamp)) {
                 fo.add(dac.getDate());
                 fo.add(dac.getKwh(),    3);
-                fo.add(dac.getPkKwh(),  3);
-                fo.add(dac.getPkCost(), 2);
                 fo.add(dac.getOpKwh(),  3);
-                fo.add(dac.getOpCost(), 2);
+                fo.add(dac.getPkKwh(),  3);
                 fo.add(dac.getFOpKwh(), 3);
+                fo.add(dac.getPkCost(), 2);
+                fo.add(dac.getOpCost(), 2);
                 fo.writeLine();
                 dac.reset();
                 
@@ -463,7 +463,7 @@ public class RecordEnergy extends ApplicationServer {
                     fo.writeLine(); 
                 }   
             }
-            if (DateFormatter.dateDiff(to, smTime, DateFormatter.TimeUnits.Minutes) > 30) throw new ErrorExit("Missing Smart Meter data before " + to);
+            if (DateFormatter.dateDiff(smTime, to, DateFormatter.TimeUnits.Minutes) > 30) throw new ErrorExit("Missing Smart Meter data after " + smTime);
             
             hours   = DateFormatter.dateDiff(smStart, smTime, DateFormatter.TimeUnits.Hours);
             days    = getElapsedDays(smStart, smTime);

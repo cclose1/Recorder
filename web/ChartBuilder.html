@@ -35,12 +35,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                         <label for="mendsch" class="left largelab">Display Chart</label>
                     </div>
                     <div>
-                        <input type="radio" id="mencrch" name="menu" value="createchart" onclick="menuChartBuild(this)" />
-                        <label for="mencrch" class="left largelab">Create Chart</label>
-                    </div>
-                    <div>
-                        <input type="radio" id="menupchr" name="menu" value="updatechart" onclick="menuChartBuild(this)" />
-                        <label for="menupchr" class="left largelab">Update Chart</label>
+                        <input type="radio" id="mendefchr" name="menu" value="definechart" onclick="menuChartBuild(this)" />
+                        <label for="mendefchr" class="left largelab">Define Chart</label>
                     </div>
                     <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                     <div id="logoff" class='centredtext' hidden>
@@ -53,13 +49,13 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                     <legend>Display Chart</legend>
                     <div>
                         <label for="dscharts" >Charts</label>
-                        <select id="dscharts" name="Code"  tabindex="0" onchange='loadChart(this, "displaychart")'>
+                        <select id="dscharts" name="Chart"  tabindex="0" onchange='loadChart(this, "displaychart")'>
                             <option></option>
                         </select>
                     </div>   
                     <div>
                         <label for='dstitle'>Title</label>
-                        <input type= "text" name='Title' id='dstitle' size="8" readonly>
+                        <input type= "text" name='Title' id='dstitle' size="12" readonly>
                     </div>  
                     <div>
                         <label for='dsdatabase'>Database</label>
@@ -67,7 +63,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                     </div>
                     <div>
                         <label for='dssource'>Source</label>
-                        <input type= "text" name='Source' id='dssource' size="8" readonly>
+                        <input type= "text" name='Source' id='dssource' size="10" readonly>
                     </div>
                     <div>
                         <label for='dsxcol'>X Column</label>
@@ -85,14 +81,14 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                                 <input type="text" name="Start~Date" id="dsstdat" class='date' maxlength="11" onchange="checkDate(this, null, null, 'dsstwkd')">
                                 <label for="dssttim" class="nogap">Time</label>
                                 <input type="text" name="Start~Time" size="8" id="dssttim" class='time' maxlength="8" onchange="checkTime()">
-                                <input readonly type="text" name="StartWday"  size="1" id="dsstwkd" class='notparam'>
+                                <input readonly type="text" name="StartWday"  size="1" id="dsstwkd" class='notparam' tabindex='-1'>
                             </div>
                             <div>
                                 <label for="dsenddat">End Date</label>
                                 <input type="text" name="End~Date" id="dsenddat" class='date' maxlength="11" onchange="checkDate(this, null, null, 'dsendwkd')">
                                 <label for="dsendtim" class="nogap">Time</label>
                                 <input type="text" name="End~Time" size="8" id="dsendtim" class='time' maxlength="8" onchange="checkTime()">                            
-                                <input readonly type="text" name="EndWday"  size="1" id="dsendwkd" class='notparam'>
+                                <input readonly type="text" name="EndWday"  size="1" id='dsendwkd' class='notparam' tabindex='-1'>
                             </div>
                             <div>
                                 <label for="dsgrp">Group</label>
@@ -103,9 +99,17 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                                 <label for="dsmxy">Max Y</label>
                                 <input type="text" name="MaxY" id="dsmxy" size='2' onkeypress="allowedInNumberField();" >
                             </div>                       
-                            <div>
-                                <label for="dstsk">Tick Skip</label>
-                                <input type="text" name="TickSkip" id="dstsk" size='2' onkeypress="allowedInNumberField();" >
+                            <div><label for="dstint">Tick Interval</label>
+                                <select id="dstint" name="TickInterval"  tabindex="0">
+                                    <option></option>
+                                    <option>Day</option>
+                                    <option>Week</option>
+                                    <option>Month</option>
+                                    <option>Year</option>
+                                    <option>Hour</option>
+                                </select>
+                                <label for='dstsk' class='nogap'>Skip</label>
+                                <input type='text'  name='TickSkip' id="dstsk" size='2' onkeypress="allowedInNumberField();" >         
                             </div>
                             <fieldset class='centreminwidth'> 
                                 <legend>Select Data</legend>
@@ -136,7 +140,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                         <div>
                             <label for='crname'>Name</label>
                             <input type= "text" name='Name' id='crname' size="8">
-                        </div>
+                        </div>  
+                        <div>
+                            <label for='crtitle'>Title</label>
+                            <input type= "text" name='Title' id='crtitle' size="12">
+                        </div> 
                         <div>
                             <label for='crdatabase'>Database</label>
                             <select id='crdatabase' name='Database' class='optlist'>
@@ -146,45 +154,77 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                         </div>
                         <div>
                             <label for='crsource'>Source</label>
-                            <input type= "text" name='Source' id='crsource' size="8">
+                            <input type= "text" name='Source' id='crsource' size="10">
                         </div>
                         <div>
                             <label for='crxcol'>X Column</label>
-                            <input type= "text" name='XColumn' id='crxcol' size="8">
-                        </div>
-                        <div>
-                            <label>Store</label>
-                            <input name='Store' id='crst' type="checkbox">
-                            
+                            <input type= "text" name='XColumn' id='crxcol' size="8" readonly>
                         </div>
                         <div class='centredtext'>
-                            <input id='create' name='create' class='notparam' type="button" value='Create' onclick='chartAction(this);'>                        
+                            <input name='LoadSource'  class='notparam' type="button" value='Load Source' onclick='createChart(this);'>
+                            <input name='CreateChart' class='notparam' type="button" value='Create'      onclick='createChart(this);'> 
                         </div>
                     </div>
                 </fieldset>
-                <fieldset id='updatechart' class='centreminwidth form'>
-                    <legend>Update Chart</legend>
+                <div class ='floatleft'>
+                <fieldset id='definechart' class='centreminwidth form'>
+                    <legend>Define Chart</legend>
                     <div>
+                        <div id='dfchhide'>
+                            <label for="dfcharts" >Charts</label>
+                            <select id="dfcharts" name="Chart"  tabindex="0" onchange='loadChart(this, "definechart")'>
+                                <option></option>
+                            </select>
+                        </div>
                         <div>
-                            <label for='upname'>Name</label>
-                            <input type= "text" name='Database' id='upname' size="8">
+                            <label for='dfname'>Name</label>
+                            <input type= "text" name='Name' id='dfname' size="8">
+                        </div> 
+                        <div>
+                            <label for='dftitle'>Title</label>
+                            <input type= "text" name='Title' id='dftitle' size="12" readonly>
+                        </div> 
+                        <div>
+                            <label for='dfdbsel'>Database</label>
+                            <select id='dfdbsel' name='DefineDatabase' class='optlist notparam' onclick='onHandler(this)'>
+                                <option>Expenditure</option>
+                                <option>BloodPressure</option>
+                            </select>
+                        </div> 
+                        <div>
+                            <label for='dfdatabase'>Database</label>
+                            <input type= "text" name='Database' id='dfdatabase' size="8" readonly>
+                        </div>
+                        <div>
+                            <label for='dfsource'>Source</label>
+                            <input type= "text" name='Source' id='dfsource' size='10' onchange='defineChart("LoadSource")' readonly>
+                        </div>
+                        <div>
+                            <label for='dfxcol'>X Column</label>
+                            <input type= "text" name='XColumn' id='dfxcol' size="8" readonly>
                         </div>
                         <div class='centredtext'>
-                            <input id='update' name='update' class='notparam' type="button" value='update' onclick='chartAction(this);'>                        
+                            <input id='dfaction' name='DefineAction' class='notparam' type="button" value='Update' onclick='defineChart(this);'>
+                            <input id='dfnew'    name='DefineNew'    class='notparam' type="button" value='New' onclick='defineChart(this);'>
                         </div>
                     </div>
                 </fieldset>
+                </div>
+                <div class ='floatleft'>
+                    <fieldset id='source' class='centreminwidth form'>
+                        <legend>Source</legend>
+                        <table id='srctab'>
+                            <caption>Data</caption>
+                            <thead>
+                                <tr><th></th></tr>
+                            </thead>
+                        </table>
+                    </fieldset>
+                </div>
             </div>
         
             <table id="chartdefinition">
                 <caption>Chart Definition</caption>
-                <thead>
-                    <tr><th></th></tr>
-                </thead>
-                <tr><th></th></tr>
-            </table>
-            <table id="source">
-                <caption>Chart Source</caption>
                 <thead>
                     <tr><th></th></tr>
                 </thead>

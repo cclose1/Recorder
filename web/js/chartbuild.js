@@ -7,19 +7,32 @@
 var chartDef;
 var lines;
 var chart;
+var menuaction;
 
 function dataSourceRowClick(row) {
     var tab  = new Table(row);
-    let flds = new ScreenFields('createchart');
+    let flds = new ScreenFields(menuaction + 'chart');
     
-    flds.setValue('XColumn', tab.columnValue('Name'));
+    switch (menuaction) {
+        case 'create':
+        case 'define':
+            let type = tab.columnValue('Type');
+            
+            if (type === 'datetime' || type === 'date')
+                flds.setValue('XColumn', tab.columnValue('Name'));
+            else
+                displayAlert('Error', 'X Column data type must be Datetime or Date');
+            
+            break;             
+    }
 }
 function setCharts() {
-    getList('Energy', {
+    let list = getList('Energy', {
         element: 'dscharts',
         table:   'Chart',
         field:   'Name',
-        async:   true});
+        async:   false}, true);
+    loadSelect('dfcharts', list);
 }
 function addCheckBox(parent, label, clear) {
     parent = getElement(parent);
@@ -45,6 +58,10 @@ function onHandler(element) {
     switch (element.name) {
         case 'ShowDef':
             setHidden('chartdefinition', !element.checked);
+            break;
+        case 'DefineDatabase':
+            let flds = new ScreenFields('definechart');
+            flds.setValue('Database', element.value);
             break;
         default:
             console.log('onHandler + id ' + element.id);
@@ -187,6 +204,7 @@ function displayChart(element) {
     chart.setType('line');
     chart.setMaxY(flds.getValue('MaxY'));
     chart.setTickSkip(flds.getValue('TickSkip'));
+    chart.setTickInterval(flds.getValue('TickInterval'));
     chart.setTitle(
                 chart.getDataType() + 
                 (grplab === ''? '' : ' by ' + grplab) +
@@ -225,10 +243,14 @@ function loadChart(element, fieldsId) {
         setHidden('chartdefinition', fieldsId === 'displaychart');
         chartDef = new Table('chartdefinition');
         
-        if (chartDef.getRowCount() < 2) return;
-        
-        setGroupBy();
-        setLines();
+        if (fieldsId === 'displaychart') {
+            if (chartDef.getRowCount() < 2) return;
+            
+            setGroupBy();
+            setLines();
+            return;
+        }
+        defineChart('LoadSource');
     }
     pars = addParameter(pars, 'Chart', element.value);
     ajaxLoggedInCall('Chart', processResponse, pars);
@@ -241,33 +263,120 @@ function menuChartBuild(element) {
     setHidden('source',          true);
     setHidden('displaychart',    option !== 'displaychart');
     setHidden('createchart',     option !== 'createchart');
-    setHidden('updatechart',     option !== 'updatechart');
+    setHidden('definechart',     option !== 'definechart');
     
     switch (option) {
-        case 'displaychart':
-            setHidden('chart', false);
-            break;
         case 'createchart' :
-            setHidden('chartdefinition', false);
+            menuaction = 'create';
             setHidden('source',          false);
+            break;
+        case 'definechart' :
+            menuaction = 'define';
+            setHidden('source',          false);
+            setDefineChartAction('update');
+            break;
+        case 'displaychart':
+            menuaction = 'display';
+            setHidden('chart', false);
             break;
     }
 }
-function createChart() {
-    let flds = new ScreenFields('createchart');
-    let pars = createParameters('CreateChart', {fields: flds.getFields()}); 
+function setDBFields(update) {    
+    setHiddenNew('dfdatabase', !update);
+    setHiddenNew('dfdbsel',     update);
+}
+function setDefineChartAction(action) {    
+    let flds   = new ScreenFields('definechart');
+    let update = action === 'update';
+    
+    setDBFields(update);
+    flds.setReadOnly('Title',    update);
+    flds.setReadOnly('Source',   update);
+    
+    switch (action) {
+        case 'update':
+            setHiddenNew('dfchhide', false);
+            setHiddenNew(flds.get('Name'), true);
+            setHidden('dfnew',          false);
+            getElement('dfaction').value = 'Update';
+            break;
+        case 'create':
+            flds.setValue('Database', getElement('dfdbsel').value);
+            setHiddenNew('dfchhide', true);
+            setHiddenNew(flds.get('Name'), false);
+            setHidden('dfnew',          true);
+            getElement('dfaction').value = 'Create';
+            break;
+        default:
+            throw new ErrorObject('Code Error', 'DefineChart action ' + action + ' is invalid');
+    }
+}
+function createChart(element) {
+    let action = element.name;
+    let flds   = new ScreenFields('createchart');
+    let pars   = createParameters(action, {fields: flds.getFields()}); 
     
     function processResponse(response) {
         if (!response.startsWith('{')) {
-            displayAlert('', 'Chart created');
+            displayAlert('', 'Chart ' + flds.getValue('Name') + ' created');  
+            flds.clear();
+            setCharts();
             return;
         }        
         loadJSONArray(response, 'source', 
             {setTableTitle: 'Data Source', maxSize: 19, onClick: "dataSourceRowClick(this)"});
     }
     if (!fieldHasValue(flds.get('Name')))     return;
+    if (!fieldHasValue(flds.get('Title')))    return;
     if (!fieldHasValue(flds.get('Database'))) return;
     if (!fieldHasValue(flds.get('Source')))   return;
+    
+    if (action === 'CreateChart' && !fieldHasValue(flds.get('XColumn'))) return;
+    
+    ajaxLoggedInCall('Chart', processResponse, pars);
+}
+/*
+ * createChart will be removed.
+ */
+function defineChart(actionpar) {
+    let action = typeof actionpar === 'string'? actionpar : actionpar.value;
+    let flds   = new ScreenFields('definechart');
+    
+    if (action === 'Update') {
+        flds.setValue('Name', flds.getValue('Chart'));
+    }
+    let pars = createParameters(action, {fields: flds.getFields()}); 
+    
+    function processResponse(response) {
+        if (!response.startsWith('{')) {
+            displayAlert('', 'Chart ' + flds.getValue('Name') + ' created');  
+            flds.clear();
+            setCharts();
+            return;
+        }        
+        loadJSONArray(response, 'source', 
+            {setTableTitle: 'Data Fields', maxSize: 19, onClick: "dataSourceRowClick(this)"});
+    }
+    if (action === 'New') {
+        flds.clear();
+        clearTable('srctab', true);
+        setDefineChartAction('create');
+        return;
+    }
+    if (action === 'LoadSource') {
+        if (flds.getValue('Source') === '')
+            clearTable('srctab', true);
+        else
+            ajaxLoggedInCall('Chart', processResponse, pars, false);
+        return;
+    }
+    if (!fieldHasValue(flds.get('Name')))     return;
+    if (!fieldHasValue(flds.get('Title')))    return;
+    if (!fieldHasValue(flds.get('Database'))) return;
+    if (!fieldHasValue(flds.get('Source')))   return;
+    
+    if (action === 'Create' && !fieldHasValue(flds.get('XColumn'))) return;
+    
     
     ajaxLoggedInCall('Chart', processResponse, pars);
 }
@@ -278,7 +387,7 @@ function chartAction(element) {
         case 'Create' :
             createChart();
             break;
-        case 'Update' :
+        case 'Define' :
             break;
         case 'Display' :
             break;
@@ -287,12 +396,34 @@ function chartAction(element) {
     }
     console.log('Manaintain action ' + element.value);
 }
+function testInterval(interval, start, time, expected) {
+    let stvals = [];
+    
+    stvals.push(start);
+    let th = new TickHandler(stvals, interval);
+    
+    let test = th.test(time);
+    
+    if (test !== expected) console.log('Test failed');
+}
+function test() {
+    testInterval('Year',  '01-Jun-2025 10:30', '03-Jun-2025 10:30', false);
+    testInterval('Year',  '01-Jun-2025 10:30', '01-Jan-2026 10:30', true);
+    testInterval('Month', '01-Jun-2025 10:30', '03-Jun-2025 10:30', false);
+    testInterval('Month', '01-Jun-2025 10:30', '03-Jul-2025 10:30', true);
+    testInterval('Week',  '02-Jun-2025 10:30', '08-Jun-2025 10:30', false);
+    testInterval('Week',  '02-Jun-2025 10:30', '09-Jun-2025 10:30', true);
+    testInterval('Day',   '02-Jun-2025 10:30', '02-Jun-2025 13:30', false);
+    testInterval('Day',   '02-Jun-2025 10:30', '03-Jun-2025 00:30', true);    
+}
 function initialize(loggedIn) {
     if (!loggedIn) return;
     
+    test();
     chart = new Charter('myChart');
-    getElement('mencrch').checked = true;
-    menuChartBuild(getElement('mencrch'));    
+    getElement('mendsch').checked = true;
+    menuChartBuild(getElement('mendsch')); 
+    setDefineChartAction('update');
     setCharts();
 }
 

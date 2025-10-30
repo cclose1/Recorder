@@ -93,7 +93,7 @@ public class ChartBuilder extends ApplicationServer {
         sel.addAnd("Name", "=", ctx.getParameter("Chart"));
         rs = ctx.getAppDb().executeQuery(sel.build());
         
-        if (!rs.next()) errorExit("Chart " + ctx.getParameter("Name") + " does not exists");
+        if (!rs.next()) errorExit("Chart " + ctx.getParameter("Chart") + " does not exists");
                 
         json.add("Title",    rs.getString("Title"));
         json.add("Database", rs.getString("Database"));        
@@ -169,7 +169,7 @@ public class ChartBuilder extends ApplicationServer {
         data.append(ctx.getReplyBuffer());
     }
     
-    private void createChart(Context ctx) throws SQLException, JSONException, ParseException { 
+    private void createChart(Context ctx, String action) throws SQLException, JSONException, ParseException { 
         JSONObject       data;
         ResultSet        rs;
         
@@ -177,10 +177,11 @@ public class ChartBuilder extends ApplicationServer {
         
         if (rs.next()) errorExit("Chart " + ctx.getParameter("Name") + " already exists");
         
-        if (ctx.getBoolean("Store", true)) {
+        if (action.equals("Create")) {
             SQLInsertBuilder ins = ctx.getInsertBuilder("Chart");
             
             ins.addField("Name",       ctx.getParameter("Name"));
+            ins.addField("Title",      ctx.getParameter("Title"));
             ins.addField("Database",   ctx.getParameter("Database"));
             ins.addField("DataSource", ctx.getParameter("Source"));
             ins.addField("XColumn",    ctx.getParameter("XColumn"));
@@ -220,11 +221,14 @@ public class ChartBuilder extends ApplicationServer {
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
         
         switch (action) {
-            case "CreateChart":
-                createChart(ctx);
+            case "Create":
+            case "LoadSource":
+                createChart(ctx, action);
                 break;
             case "LoadChart":
                 loadChart(ctx);
+                break;
+            case "Update":
                 break;
             case "ChartData":
                 getChartData(ctx);

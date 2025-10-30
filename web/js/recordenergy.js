@@ -222,6 +222,7 @@ function setCalValScreen(mode, setHistory) {
     let flds = new ScreenFields('calvals');
     
     switch (mode) {
+   
         case 'Create':
             setHidden('cvcreate', false);
             setHidden('cvmodify', true);
@@ -480,6 +481,7 @@ function displayChartOld(element) {
         chart.setType('line');
         chart.setMaxY(flds.getValue('MaxY'));
         chart.setTickSkip(flds.getValue('TickSkip'));
+        chart.setTickInterval('Ignore');
         chart.setTitle(
                 chart.getDataType() + ' Data' + 
                 (flds.getValue('GroupBy') === ''? '' : ' by ' + flds.getValue('GroupBy')) +
