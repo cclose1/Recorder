@@ -118,6 +118,9 @@ label, .label {
 .largelab {
     width: 120px;
 }
+.smalllab {
+    width: 50px;
+}
 .nogap {    
     display: inline-block;
     width: auto;

@@ -405,37 +405,41 @@ class DatabaseTable {
         return this._changesNotSaved;
     }
     _executeCommand() {
-        var btn       = event.target;
-        var action    = btn.value;
-        var tableName = this.name;
-        var cols      = this._columns;
-        var check;
-        var add;
-        var parameters = createParameters('updatetable');
+        let btn       = event.target;
+        let action    = btn.value;
+        let tableName = this.name;
+        let cols      = this._columns;
+        let ispk;
+        let check;
+        let add;
+        let parameters = createParameters('updatetable');
         
         parameters = addParameter(parameters, 'table', tableName + ',' + action);
         
         for (const col of this.getColumns()){
+            ispk  = col.isPrimeKey;
+            check = col.mandatoty;
+            add   = false;
+            
             switch (action) {
                 case 'Read':
-                    check = col.isPrimeKey;
-                    add   = true;
+                    add   = true;                    
+                    check = ispk;
                     break;
                 case 'Create':
-                    check = true;
-                    add   = true;
+                    add   = true;                    
+                    break
                 case 'Update':
-                    check = true;
-                    add   = true;
+                    add = true;
                     break;
                 case 'Delete':
-                    check = col.isPrimeKey;
-                    add   = check;
+                    if (ispk) add   = true;
             }
-            
-            if (check && !this._checkEnteredValue(col.name)) return false;
-            
-            if (add) parameters = col.addRequestParameter(parameters);
+            if (add) {
+                if (check && !this._checkEnteredValue(col.name)) return false;
+                
+                parameters = col.addRequestParameter(parameters);
+            }
         }
         function processResponse(response) {
             if (action === 'Read' && response.startsWith('{')) {

@@ -70,7 +70,7 @@ function restartSession() {
     if (hist.length === 1) return false;
     
     tab     = new Table(hist[1]);
-    session = tab.getColumnValue("Session");
+    session = tab.columnValue("Session");
     
     if (dateDiff(session, time, 'seconds') > timer.maxGap) return false;
     

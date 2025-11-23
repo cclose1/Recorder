@@ -400,6 +400,8 @@ public abstract class ApplicationServer extends HttpServlet {
                 delete = false;
                 sql = ctx.getUpdateBuilder(tableName);
                 break;
+            case "insertTableRow":      // insertTableRow is probably a better descriptor than createTableRow.
+                                        // For now accept both and phase out use of createTableRow
             case "createTableRow":
                 delete = false;
                 keyRequired = false;
@@ -1746,6 +1748,7 @@ public abstract class ApplicationServer extends HttpServlet {
                 case "getList":
                     getList(ctx);
                     break;
+                case "insertTableRow":
                 case "createTableRow":
                 case "updateTableRow":
                 case "deleteTableRow":

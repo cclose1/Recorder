@@ -345,10 +345,15 @@ function clearValues(elementMap, exclude) {
         /*
          * Probably need to allow other element types.
          */
-        if (element.type === 'checkbox')
-            element.checked = false;
-        else
-            element.value = '';
+        switch (element.type) {
+            case 'checkbox':
+                element.checked = false;
+                break;
+            case 'color':
+                element.value = '#FFFFFF';
+            default:
+                element.value = '';
+        }            
     }
 }
 /*
@@ -427,7 +432,9 @@ class ScreenFields {
         return this.#formatter === null? value : this.#formatter(get, name, value);
     }
     /*
-     * elementid The element id of the element providing, see getParameters.
+     * elementid The element id of the element providing the fields, see getParameters. If elememtid is an object
+     *           its id is used. No check is made to check that the object is an HTML element.
+     *           
      * formatter Function used to format the value passed to setValue and returned by getValue.
      *           The function must have the following parameters:
      *           - Get    True if getValue and false is setValue.
@@ -440,8 +447,8 @@ class ScreenFields {
      * @returns {ScreenFields}
      */
     constructor(elementid, formatter) {
-        this.#id        = elementid;
-        this.#fields    = getParameters(elementid);
+        this.#id        = typeof(elementid) === 'object'? elementid.id : elementid;
+        this.#fields    = getParameters(this.#id);
         this.#formatter = defaultNull(formatter, null);
 
         if (isNull(this.#fields))
@@ -537,6 +544,11 @@ class ScreenFields {
     }
     clear(exclude) {
         clearValues(this.#fields, exclude);
+    }
+    report(field, message, type, setfocus) {
+        let elm = this.#fields.get(field);
+        
+        displayAlert(type, getElementLabel(elm) + ' ' + message, {focus: elm});
     }
     /*
      * name     Screen field name to ba checked.
@@ -2250,12 +2262,25 @@ function loadTable(table, data) {
         }
     }
 }
-function getRadioValue(name)
-{
+function setRadioValue(name, option) {
+    var buttons = document.getElementsByName(name);
+    
+    if (buttons.length === 0) {
+        reporter.fatalError(name + ' is not a radio button');
+        
+    }
+    for (var i = 0; i < buttons.length; i++) {
+        if (buttons[i].value === option) {
+            buttons[i].checked = true;
+            return;
+        }
+    }
+    reporter.fatalError('For radio button ' + name + ' option ' +  option + ' is not valid' );
+}
+function getRadioValue(name) {
     var buttons = document.getElementsByName(name);
 
-    for (var i = 0; i < buttons.length; i++)
-    {
+    for (var i = 0; i < buttons.length; i++)     {
         if (buttons[i].checked)
             return buttons[i].value;
     }
@@ -2269,7 +2294,7 @@ function getRadioValue(name)
  *          is either the label or the explicitly defined value of the selected option. Usually the element
  *          value is the most appropriate from a code point of view.
  */
-function getSelectedOption(id) {
+function getDisplayedOption(id) {
     var options = getElement(id).options;
 
     return (options.selectedIndex < 0) ? "" : options[options.selectedIndex].text;
@@ -2807,7 +2832,7 @@ class Table {
     getColIndex(id, mustExist)  {
         if (typeof id === 'string') {
             for (let i = 0; i < this.#header.cells.length; i++) {
-                if (this.#header.cells[i].innerHTML === id) return i;
+                if (this.#header.cells[i].getAttribute('name') === id) return i;
             }
         } else if (id >= 0 && id < this.#header.cells.length) 
             return id;
@@ -2836,15 +2861,12 @@ class Table {
         ta.innerHTML = trim(this.#body.rows[this.#rowIndex].cells[index].innerHTML);
         return ta.value;
     }
-    /*
-     * The method above should be used instead 
-     * @param {type} name
-     * @returns {undefined}
-     */
-    getColumnValue(name) {
-        console.log('Use columnValue instead');
-        
-        this.columnValue(name);
+    setColumnValue(name, value) {
+        let index = isNull(name)? this.#colIndex : this.getColIndex(name);
+        /*
+         * See comment above about use textarea. Seems to work but may be not in all cases.
+         */
+        this.#body.rows[this.#rowIndex].cells[index].innerHTML = value;        
     }
     setRowIndex(index) {
         this.#checkRowIndex(index);        
@@ -2858,7 +2880,7 @@ class Table {
     }
     columnName(id) {
         let index = isNull(id)? this.#colIndex : this.getColIndex(id);
-        return this.#header.cells[index].innerHTML;
+        return this.#header.cells[index].getAttribute('name');
     }
     loadScreenFields(screen, options) {
         options = new screenFieldsOptions(options);
@@ -2868,6 +2890,57 @@ class Table {
             screen.setValue(this.columnName(), this.columnValue(), options.mustExist);    
             
             if (options.setKey) screen.setValue('Key!' + this.columnName(), this.columnValue(), false);
+        }
+    }
+    deleteRow(index) {
+        let row = defaultNull(index, this.#rowIndex);
+        
+        this.#body.deleteRow(row);
+    }
+    writeRowsToDB(server) {
+        let pars = createParameters('insertTableRow');
+        this.setRowFirst();
+        
+        function processResponse(response) {
+            console.log('Pars', pars);
+        }
+        while (this.nextRow()) { 
+            pars = createParameters('insertTableRow');
+            pars = addParameter(pars, 'table', this.tableName());
+            
+            this.setColFirst();
+            
+            while (this.nextColumn()) {
+                pars = addParameter(pars, this.columnName(), this.columnValue());
+                
+            }
+            ajaxLoggedInCall(server, processResponse, pars, false);
+        }
+    }
+    addRow(onclick) {
+        let row  = this.#body.insertRow(-1);
+        let hcell;
+        let rcell;
+        let atrnms;
+        
+        this.#rowIndex = row.sectionRowIndex;
+        
+        if (!isNull(onclick)) row.setAttribute('onclick', onclick);
+        
+        for (let i = 0; i < this.#header.cells.length; i++) {
+            hcell = this.#header.cells[i];
+            rcell = row.insertCell();
+            
+            atrnms = hcell.getAttributeNames();
+            
+            for (let an = 0; an < atrnms.length; an++) {
+                let name = atrnms[an];
+                /*
+                 * Copy the attributes from the header, but only copy style for the first row. Subsequent rows
+                 * inherit the first row style if one is not explicitly defined.
+                 */
+                if (this.#rowIndex === 0 || name !== 'style') rcell.setAttribute(name, hcell.getAttribute(name));
+            }
         }
     }
 }
@@ -2935,7 +3008,7 @@ function arrayToJSONTable(name) {
     };
     this.getJSON = function (data) {
         var i = 0;
-        var result = new JSONcbc();
+            var result = new JSONcbc();
         var arr = new JSONcbc('array');
         var row;
         var col;
@@ -3562,7 +3635,7 @@ function fieldHasValue(elm, required) {
 }
 /*
  * Executes a none blocking AJAX call.
- * 
+ * s
  * setParameters   is a function that returns the request parameters. If the function returns undefined the function exits.
  * processResponse is a function that actions the call responseText and is called if the call succeeds.
  * 
@@ -3775,7 +3848,7 @@ function getCookie(name) {
  */
 function setElementHidden(id, yes) {
     let element = getElement(id);
-    var show    = element.type === 'button' ? 'inline-block' : '';
+    let show    = element.type === 'button' ? 'inline-block' : '';
 
     if (element.hasAttribute("hidden"))
         element.removeAttribute("hidden");
@@ -3785,7 +3858,7 @@ function setElementHidden(id, yes) {
     element.style.display = yes ? 'none' : show;
     
 }
-function setHidden(name, yes) {
+function setHiddenOld(name, yes) {
     let element = getElement(name);
     var show = element.type === 'button' ? 'inline-block' : '';
 
@@ -3796,13 +3869,22 @@ function setHidden(name, yes) {
      */
     element.style.display = yes ? 'none' : show;
 }
-function setHiddenNew(name, yes) {
+/*
+ * Keep the original until the new version proves to be OK.
+ */
+function setHiddenNew(name, yes, hidelabel) {
     let element = getElement(name);
     let label   = getLabelFor(element);
     
     setElementHidden(element, yes);
     
-    if (!isNull(label)) setElementHidden(label, yes);
+    if (!isNull(label) && defaultNull(hidelabel, true)) setElementHidden(label, yes);
+}
+/*
+ * When sure new version is OK, delete this and change setHiddenNew to setHidden.
+ */
+function setHidden(name, yes, hidelabel) {
+    setHiddenNew(name, yes, hidelabel);
 }
 function setReadOnly(name, yes) {
     var element = getElement(name);

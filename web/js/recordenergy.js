@@ -368,7 +368,7 @@ function readingsRowClick(row) {
         displayAlert('Warning', 'Click on row only implemented when readings sourced from Meter');
         return;
     }
-    getElement("labunits").innerHTML = tab.getColumnValue('Type') === 'Gas' ? 'Ft3' : 'Kwh';
+    getElement("labunits").innerHTML = tab.columnValue('Type') === 'Gas' ? 'Ft3' : 'Kwh';
     
     tab.loadScreenFields(flds, {mustExist: false});
     setHidden('updatefields', false);
@@ -379,7 +379,7 @@ function screenFldsRowClick(row, fieldsId) {
     let tab  = new Table(row);
     let flds = new ScreenFields(fieldsId);
     
-    flds.setValue(flds.hasValue('From', false)? 'To' : 'From', tab.getColumnValue('Timestamp'));
+    flds.setValue(flds.hasValue('From', false)? 'To' : 'From', tab.columnValue('Timestamp'));
 }
 function calValuesRowClick(row) {
     let tab  = new Table(row);

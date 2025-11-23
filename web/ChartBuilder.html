@@ -31,18 +31,55 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                 <legend>Select Function</legend>
                 <div>
                     <div>
-                        <input type="radio" id="mendsch" name="menu" value="displaychart" onclick="menuChartBuild(this)" />
-                        <label for="mendsch" class="left largelab">Display Chart</label>
+                        <input type="radio" name="menu" value="displaychart" onclick="menuChrtBuild(this)" />
+                        <label class="left largelab">Display Chart</label>
                     </div>
                     <div>
-                        <input type="radio" id="mendefchr" name="menu" value="definechart" onclick="menuChartBuild(this)" />
-                        <label for="mendefchr" class="left largelab">Define Chart</label>
+                        <input type="radio" name="menu" value="definechart" onclick="menuChartBuild(this)" />
+                        <label class="left largelab">Define Chart</label>
                     </div>
                     <div id="mysqldiv" class='label' hidden>Using MySQL</div>
                     <div id="logoff" class='centredtext' hidden>
                         <input id="logoffbtn" name="logoffbtn" class='notparam' type="button" value="Logoff" onclick="logOff();">
                     </div>
                 </div>
+                <fieldset id = 'test' class='centreminwidth form'>
+                    <legend>Test</legend>
+                    <label for='testsel'>Test List</label>
+                    <select id='testsel' name='TestSelect'  tabindex="0" onchange='testselect(this)'>
+                        <option></option>
+                        <option value ='oval1'>val1</option>
+                        <option>val2</option>
+                        <option value ='oval3'>xxx</option>
+                    </select>  
+                    <div>
+                        <label for='testselval'>Set Value</label>
+                        <input type= "text" name='SetSelVal' id='testselval' size="12" onchange='testselect(this)'>
+                    </div>  
+                    <div>
+                        <label for='testrad'>Set Radio Name</label>
+                        <input type= "text" name='RadioName' id='testrad' size="2"> Option
+                        <input type= "text" name='RadioOption'  size="2" onchange='testselect(this)'>
+                    </div> 
+                    <div class='centreminwidth form'>
+                        <div>
+                            <label>Filter</label>
+                            <input type='radio' name='Set Typet' value='filter'/>
+                        </div>
+                        <div>
+                            <label>Line Filter</label>
+                            <input type='radio' name='Set Typet' value='linefilter'/>
+                        </div>
+                        <div>
+                            <label>Line Column</label>
+                            <input type='radio' name='Set Typet' value='linecolumn'/>
+                        </div>
+                        <div>
+                            <label>Group</label>
+                            <input type='radio' name='Set Typet' value='group'/>
+                        </div>
+                    </div>
+                </fieldset>>
             </fieldset>
             <div class="innerfields">
                 <fieldset id='displaychart' class='centreminwidth form'>
@@ -134,96 +171,207 @@ Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit thi
                         </fieldset>
                     </div> 
                 </fieldset>
-                <fieldset id='createchart' class='centreminwidth form'>
-                    <legend>Create Chart</legend>
-                    <div>
-                        <div>
-                            <label for='crname'>Name</label>
-                            <input type= "text" name='Name' id='crname' size="8">
-                        </div>  
-                        <div>
-                            <label for='crtitle'>Title</label>
-                            <input type= "text" name='Title' id='crtitle' size="12">
-                        </div> 
-                        <div>
-                            <label for='crdatabase'>Database</label>
-                            <select id='crdatabase' name='Database' class='optlist'>
-                                <option>Expenditure</option>
-                                <option>BloodPressure</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for='crsource'>Source</label>
-                            <input type= "text" name='Source' id='crsource' size="10">
-                        </div>
-                        <div>
-                            <label for='crxcol'>X Column</label>
-                            <input type= "text" name='XColumn' id='crxcol' size="8" readonly>
-                        </div>
-                        <div class='centredtext'>
-                            <input name='LoadSource'  class='notparam' type="button" value='Load Source' onclick='createChart(this);'>
-                            <input name='CreateChart' class='notparam' type="button" value='Create'      onclick='createChart(this);'> 
-                        </div>
-                    </div>
-                </fieldset>
                 <div class ='floatleft'>
-                <fieldset id='definechart' class='centreminwidth form'>
-                    <legend>Define Chart</legend>
-                    <div>
-                        <div id='dfchhide'>
-                            <label for="dfcharts" >Charts</label>
-                            <select id="dfcharts" name="Chart"  tabindex="0" onchange='loadChart(this, "definechart")'>
-                                <option></option>
-                            </select>
+                    <fieldset id='definechart' class='centreminwidth form'>
+                        <legend>Define Chart</legend>
+                        <div>
+                            <div id='dfchhide'>
+                                <label for="dfcharts" >Charts</label>
+                                <select id="dfcharts" name="Chart"  tabindex="0" onchange='loadChart(this, "definechart")'>
+                                    <option></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for='dfname'>Name</label>
+                                <input type= "text" name='Name' id='dfname' size="8">
+                            </div> 
+                            <div>
+                                <label for='dftitle'>Title</label>
+                                <input type= "text" name='Title' id='dftitle' size="12" readonly>
+                            </div> 
+                            <div>
+                                <label for='dfdbsel'>Database</label>
+                                <select id='dfdbsel' name='DefineDatabase' class='optlist notparam' onclick='onHandler(this)'>
+                                    <option>Expenditure</option>
+                                    <option>BloodPressure</option>
+                                </select>
+                            </div> 
+                            <div>
+                                <label for='dfdatabase'>Database</label>
+                                <input type= "text" name='Database' id='dfdatabase' size="8" readonly>
+                            </div>
+                            <div>
+                                <label for='dfsource'>Source</label>
+                                <input type= "text" name='Source' id='dfsource' size='10' onchange='defineChart("LoadSource")' readonly>
+                            </div>
+                            <div>
+                                <label for='dfxcol'>X Column</label>
+                                <input type= "text" name='XColumn' id='dfxcol' size="8" readonly>
+                            </div>
+                            <div class='centredtext'>
+                                <input id='dfaction' name='DefineAction' class='notparam' type="button" value='Update' onclick='defineChart(this);'>
+                                <input id='dfnew'    name='DefineNew'    class='notparam' type="button" value='New' onclick='defineChart(this);'>
+                            </div>
                         </div>
-                        <div>
-                            <label for='dfname'>Name</label>
-                            <input type= "text" name='Name' id='dfname' size="8">
-                        </div> 
-                        <div>
-                            <label for='dftitle'>Title</label>
-                            <input type= "text" name='Title' id='dftitle' size="12" readonly>
-                        </div> 
-                        <div>
-                            <label for='dfdbsel'>Database</label>
-                            <select id='dfdbsel' name='DefineDatabase' class='optlist notparam' onclick='onHandler(this)'>
-                                <option>Expenditure</option>
-                                <option>BloodPressure</option>
-                            </select>
-                        </div> 
-                        <div>
-                            <label for='dfdatabase'>Database</label>
-                            <input type= "text" name='Database' id='dfdatabase' size="8" readonly>
-                        </div>
-                        <div>
-                            <label for='dfsource'>Source</label>
-                            <input type= "text" name='Source' id='dfsource' size='10' onchange='defineChart("LoadSource")' readonly>
-                        </div>
-                        <div>
-                            <label for='dfxcol'>X Column</label>
-                            <input type= "text" name='XColumn' id='dfxcol' size="8" readonly>
-                        </div>
-                        <div class='centredtext'>
-                            <input id='dfaction' name='DefineAction' class='notparam' type="button" value='Update' onclick='defineChart(this);'>
-                            <input id='dfnew'    name='DefineNew'    class='notparam' type="button" value='New' onclick='defineChart(this);'>
-                        </div>
-                    </div>
-                </fieldset>
-                </div>
-                <div class ='floatleft'>
-                    <fieldset id='source' class='centreminwidth form'>
-                        <legend>Source</legend>
-                        <table id='srctab'>
-                            <caption>Data</caption>
-                            <thead>
-                                <tr><th></th></tr>
-                            </thead>
-                        </table>
                     </fieldset>
+                    <div id ='dvdfbody'>
+                        <fieldset class='centreminwidth form floatleft'>
+                            <legend>Definition Parts</legend>
+                            <fieldset id='dfbdflt' class='centreminwidth form'>
+                                <legend>Filter</legend>
+                                <div>
+                                    <label for='dfbdfltflds'>Fields</label>
+                                    <textarea id='dfbdfltflds' name='FilterFields' rows='2' readonly></textarea>
+                                </div>
+                                <div class='centredtext'>
+                                    <input name='FilterActionM' type="button" value='New'    onclick='defineCommand(this);'>
+                                    <input name='FilterActionD' type="button" value='Delete' onclick='defineCommand(this);'>
+                                    <input name='FilterActionR' type="button" value='Reset'  onclick='defineCommand(this);'>
+                                </div>
+                            </fieldset>
+                            <fieldset id='dfbdgrp' class='centreminwidth form'>
+                                <legend>Group</legend>
+                                <div>
+                                    <label for='dfbdgrpnm'>Name</label>
+                                    <input type= "text" name='GroupName' id='dfbdgrpnm' size='8'>
+                                </div> 
+                                <div>
+                                    <label for='dfbdgrpidx'>Index</label>
+                                    <input type= "text" name='GroupIndex' id='dfbdgrpidx' size='8'>
+                                </div>
+                                <div>
+                                    <label for='dfbdgrpflds'>Fields</label>
+                                    <textarea id='dfbdgrpflds' name='GroupFields' rows='2' readonly></textarea>
+                                </div>
+                                <div class='centredtext'>
+                                    <input name='GroupActionM' type="button" value='New'    onclick='defineCommand(this);'>
+                                    <input name='GroupActionD' type="button" value='Delete' onclick='defineCommand(this);'>
+                                    <input name='GroupActionR' type="button" value='Reset'  onclick='defineCommand(this);'>
+                                </div>
+                            </fieldset>
+                            <fieldset id='dfbdlines' class='centreminwidth form'>
+                                <legend>Line</legend>
+                                <div>
+                                    <label for='dfbdnm' class='largelab'>Name</label>
+                                    <input type= "text" name='LineName' id='dfbdnm' size="8">
+                                </div> 
+                                <div>
+                                    <label for='dfbdidx' class='largelab'>Index</label>
+                                    <input type= "text" name='LineIndex' id='dfbdidx' size="8">
+                                </div>
+                                <div>
+                                    <label for='dfbdclr' class='largelab'>Colour</label>
+                                    <select id='dfbdclr' name='Colour' class='optlist'>
+                                        <option></option>
+                                        <option>Red</option>
+                                        <option>Green</option>
+                                        <option>Blue</option>
+                                        <option>Yellow</option>
+                                    </select>                                
+                                    <input type= 'color' name='HexColour' id='dfbdclrh' size="4">                                    
+                                    <input name='SetHexColour' type='checkbox' onclick='onHandler(this)'>    
+                                    Use Hex                                </div>
+                                <div>
+                                    <label for='dfbdcol' class='largelab'>Source Column</label>
+                                    <input type= "text" name='SourceColumn' id='dfbdcol' size='8' readonly>
+                                </div>  
+                                <div>
+                                    <label for='dfbdaggr' class='largelab'>Aggregate</label>
+                                    <select id='dfbdaggr' name='Aggregate' class='optlist'>
+                                        <option></option>
+                                        <option>Min</option>
+                                        <option>Avg</option>
+                                        <option>Sum</option>
+                                        <option>Max</option>
+                                    </select>                                
+                                </div>
+                                <div>
+                                    <label for='dfbdali' class='largelab'>Data Name</label>
+                                    <input type= "text" name='DataName' id='dfbdali' size="8">
+                                </div>
+                                <div>
+                                    <label for='dfbdfltc' class='largelab'>Filter Column</label>
+                                    <input type= "text" name='FilterColumn' id='dfbdfltc' size='8' readonly>
+                                    <label for='dfbdfltv' class=nogap>Value</label>
+                                    <input type= "text" name='FilterValue' id='dfbdfltv' size="8">
+                                </div>
+                                <div class='centredtext'>
+                                    <input name='LineActionM' type="button" value='New'    onclick='defineCommand(this);'>
+                                    <input name='LineActionD' type="button" value='Delete' onclick='defineCommand(this);'>
+                                    <input name='LineActionR' type="button" value='Reset'  onclick='defineCommand(this);'>
+                                </div>
+                            </fieldset>
+                        </fieldset>
+                        <fieldset id='dfdbif' class='centreminwidth form'>
+                            <legend>Database Updater</legend>
+                            <div class ='floatleft'>
+                                <fieldset id='dfselfld' class='centreminwidth form'>
+                                    <legend>Selected Source Column</legend>
+                                    <div>
+                                        <label for='dfselfldnm'>Name</label>
+                                        <input type= 'text' name='Name' id='dfselfldnm' size='8' readonly>
+                                    </div> 
+                                    <div>
+                                        <label for='dfselfldidx'>Index</label>
+                                        <input type= 'text' name='Index' id='dfselfldidx' size='8' readonly>
+                                    </div>
+                                    <div>
+                                        <label for='dfselfldtp'>Type</label>
+                                        <input type= 'text' name='Type' id='dfselfldtp' size='8' readonly>
+                                    </div>
+                                    <fieldset class='centreminwidth form'>
+                                        <legend>Update Part Column</legend>
+                                        <div>
+                                            <label for=dfsltpflt>Filter</label>
+                                            <input type='radio' id='dfsltpflt' name='SetType' value='filter'/>
+                                        </div>
+                                        <div>
+                                            <label for=dfsltlnf>Line Filter</label>
+                                            <input type='radio' id='dfsltlnf' name='SetType' value='linefilter'/>
+                                        </div>
+                                        <div>
+                                            <label for=dfsltlnc>Line Column</label>
+                                            <input type='radio' id='dfsltlnc' name='SetType' value='linecolumn'/>
+                                        </div>
+                                        <div>
+                                            <label for=dfsltpgrp>Group</label>
+                                            <input type='radio' id='dfsltpgrp' name='SetType' value='group'/>
+                                        </div>
+                                        
+                                        <!--
+                                        The following has been added to overcome a problem with the final entry in a radio group in this particular case. The
+                                        final entry does not work properly in that for the final option in the group, the option value is returned as an empty
+                                        string. Move the above to a different place in the screen and it works correctly. Have not been able to find a
+                                        explanation as to why this happens.
+                                        -->
+                                        <div>
+                                            <input type='radio'  name='SetType' value='fix' hidden/>
+                                        </div>
+                                        <div class='centredtext'>
+                                            <input name='ClearColumn' class='notparam' style='width:55px' type='button' value='Clear' onclick='changePartColumn(this);'>
+                                            <input name='SetColumn'   class='notparam' style='width:55px' type='button' value='Set'   onclick='changePartColumn(this);'>
+                                        </div>
+                                    </fieldset>
+                                </fieldset>
+
+                                <div class='centredtext'>
+                                    <input name='SetComplete' id='dfselshcmp' type='checkbox'>    
+                                    <label>Set Complete</label>
+                                    <input name='WriteToDB' type="button" value='Write To Db'  onclick='writeToDB(this);'>
+                                </div>
+                            </div>
+                            <div class ='floatleft'>
+                                <fieldset id='source' class='centreminwidth form'>
+                                    <legend>Data Source</legend>
+                                    <table id='srctab'>
+                                    </table>
+                                </fieldset>
+                            </div>
+                        </fieldset>
+                    </div>
                 </div>
             </div>
-        
-            <table id="chartdefinition">
+            <table id='chartdefinition'>
                 <caption>Chart Definition</caption>
                 <thead>
                     <tr><th></th></tr>

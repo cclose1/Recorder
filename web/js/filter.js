@@ -437,7 +437,7 @@ function Filter(key, element, requestor, options) {
                             forceGap: this.options.forceGap,
                             class:    'notparam'});
     this.btnRequest = elm;
-    setHidden(elm, options.autoSelect);
+    setHidden(elm, options.autoSelect, false);
     this.setEventHandler(elm, 'onclick', 'addFilterField');
     addIdToLabelledElement(this, elm);
     elm = createElement(this.document, 'input', {append: btns, type: 'button', value: 'Clear', class: 'notparam'});
@@ -478,7 +478,7 @@ function changeAutoSelect(key, event) {
     
     filter.autoSelect = event.target.checked;
     
-    if (filter.btnRequest !== undefined) setHidden(filter.btnRequest, event.target.checked);
+    if (filter.btnRequest !== undefined) setHidden(filter.btnRequest, event.target.checked, false);
 }
 /*
  * The Filter fields consists of the of the div elements that hold the input elements for a filter field. The

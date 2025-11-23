@@ -192,7 +192,7 @@ function requestChargeSessions(filter) {
 
     function processResponse(response) {
         loadJSONArray(response, 'chargesessionstable', 
-            {scroll:  'table',
+            {setTableTitle: 'Charge Session', 
              onClick: 'btChargeSessionsRowClick(this)',
              columns: [{name: 'StartMiles',     wrapHeader: true,  splitName:   true},
                        {name: 'EndMiles',       wrapHeader: true,  splitName:   true},
@@ -611,7 +611,7 @@ function btChargeSessionsRowClick(row) {
     
     tab.loadScreenFields(snFlds, {mustExist:false});
     
-    sesClosed = tab.getColumnValue('Closed') === 'Y';
+    sesClosed = tab.columnValue('Closed') === 'Y';
     setSessionLog(false);
     setLogFilter();
     getElement("setstartchange").checked = false;
@@ -657,36 +657,6 @@ function setLogFilter() {
     logFilter.setValue('Device',  device);
     logFilter.setValue('Percent', '');
 }
-/*
- * Ad Hoc tests
- */
-function test(tab) {
-    let ts = eval(tab);
-    let x = listAllEventListeners();
-    reporter.setFatalAction('alert');
-    
-    let cols = csTab.getColumns();
-    let col = csTab.getColumn('CarReg');
-    let man = col.getAttribute('mdatory');
-  //  col.setAttribute('mandatory', false);
-    col = csTab.getColumn('CarRegX', false);
-    col = csTab.getColumn('CarRegX');
-    let fld = snFlds.get('Comment');
-    x = fld.getAttribute('onchange');
-    fld.setAttribute('onchange', 'checkTime()');
-    fld.setAttribute('onchange', tab + '.checkElement()');
-    let test = csTab.checkElement(fld);
-    test = csTab.checkElement(fld, true);
-    fld.value = 'Test';
-    test = csTab.checkElement(fld);
-    test = csTab.checkElement(fld, true);//
-    test = getElementParent('xx');
-    test = getElementParent(fld);    
-    test = getElementParent(fld, 'fieldset', 'tagname');
-    test = getElementParent(fld, 'detailfields');
-    test = getElementParent(fld, 'header');    
-    test = getElementParent(fld, 'header', 'id');    
-}
 function initialize(loggedIn) {
     if (!loggedIn) return;
      
@@ -704,7 +674,7 @@ function initialize(loggedIn) {
     
     snFlds  = new ScreenFields('chargesessionform', modifyScreenField);
     hdrFlds = new ScreenFields('header');
-//    test('csTab');
+   
     reporter.setFatalAction('throw');
     snFlds.syncWithTable('csTab', false);
     timer  = new Timer(document.getElementById("gap"), true);

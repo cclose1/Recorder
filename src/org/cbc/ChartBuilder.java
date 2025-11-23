@@ -17,6 +17,7 @@ import org.cbc.json.JSONArray;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.json.JSONValue;
+import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
 
@@ -83,6 +84,18 @@ public class ChartBuilder extends ApplicationServer {
         
         return ctx.getAppDb().executeQuery(sel.build());
     }
+    private void updateDefinition(Context ctx) throws SQLException {
+        SQLBuilder sql;
+        String     action = ctx.getParameter("action");
+        
+        switch (action) {
+            case "DeleteDefinition":
+                sql = ctx.getDeleteBuilder("ChartDefinition");
+                sql.addAnd("Chart", "=", ctx.getParameter("Chart"));
+                ctx.getAppDb().executeUpdate(sql.build());
+                break;
+        }
+    }
     private void loadChart(Context ctx) throws SQLException, JSONException, ParseException {  
         SQLSelectBuilder sel = ctx.getSelectBuilder("Chart");
         ResultSet        rs;
@@ -108,7 +121,7 @@ public class ChartBuilder extends ApplicationServer {
         sel.addOrderByField("PartIndex", false);
         sel.addOrderByField("PartName",  false);
         rs = ctx.getAppDb().executeQuery(sel.build());
-        json.add("Defs", new JSONObject()).add("Definition", rs);       
+        json.add("Defs", new JSONObject()).add("ChartDefinition", rs);       
         json.append(ctx.getReplyBuffer());
     }
     
@@ -232,6 +245,10 @@ public class ChartBuilder extends ApplicationServer {
                 break;
             case "ChartData":
                 getChartData(ctx);
+                break;
+            case "DeleteDefinition":
+            case "SetComplete":
+                updateDefinition(ctx);
                 break;
             default:
                 invalidAction();
