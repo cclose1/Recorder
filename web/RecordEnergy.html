@@ -164,13 +164,13 @@
                             <legend>Period</legend>
                             <div>
                                 <label for="cststdate">Start Date</label>
-                                <input type="text" name="Start~Date" id="cststdate" class='date' maxlength="11" onfocus="clearFields()" onchange="checkDate()">
+                                <input type="text" name="Start~Date" id="cststdate" class='date' maxlength="11" onfocus="clearFields()" onchange="ScreenFields.checkDate(this)">
                                 <label for="cststime" class="nogap">Time</label>
                                 <input type="text" name="Start~Time" size="8" id="cststime" class='time' maxlength="8" onchange="checkTime()">
                             </div>
                             <div>
                                 <label for="cstenddate">End Date</label>
-                                <input type="text" name="End~Date" id="cstenddate" class='date' maxlength="11" onchange="checkDate()">
+                                <input type="text" name="End~Date" id="cstenddate" class='date' maxlength="11" onchange="ScreenFields.checkDate(this)">
                                 <label for="cstendtime" class="nogap">Time</label>
                                 <input type="text" name="End~Time" size="8" id="cstendtime" class='time' maxlength="8" onchange="checkTime()">
                             </div>
@@ -212,7 +212,7 @@
                                 <label class = 'gap30ar' for='cstsopkcost'>Cost</label>
                                 <input class='right' type="text" name="PeakCost" id="cstspkcost" size="3" readonly>
                             </div>
-                            <div>
+                            <div id='cstopdiv'>
                                 <label class='largelab' for='cstsopkkwh'>Off Peak Kwh</label>
                                 <input class='right' type="text" name="OffPeakKwh" id="cstsopkkwh" size="3" readonly>
                                 <label class='gap57ar' for='cstsoprt'>Rate</label>
@@ -243,6 +243,16 @@
                             <div>
                                 <label class='largelab' for='cstscval'>Calorific Value</label>
                                 <input class='right' type="text" name="CalorificValue" id="cstscval" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for='cstsswpkval'>Switched Peak</label>
+                                <input class='right' type="text" name="SwitchedPeakKwh" id="cstsswpkval" size="3" readonly>
+                            </div>
+                            <div>
+                                <label class='largelab' for="cststeddat">Data End Date</label>
+                                <input type="text" name="DataEnd~Date" id="cststeddat" class='date' maxlength="11" readonly>
+                                <label for="cststedtim" class="nogap">Time</label>
+                                <input type="text" name="DataEnd~Time" size="8" id="cststedtim" class='time' maxlength="8" readonly>
                             </div>
                         </fieldset>
                     </fieldset>

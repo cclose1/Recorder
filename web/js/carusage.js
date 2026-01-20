@@ -318,28 +318,12 @@ function setNew(copy) {
         
         getElement("currenttime").checked  = false;
     } else {
-        var sessions = document.getElementById('chargesessionstable').children[1].tBodies[0];
-
-        if (sessions.rows.length > 0) {
-            /*
-             * Set carreg and charge source from the first table row.
-             */
-            let row   = sessions.rows[0];
-            let cells = row.cells;
-
-            for (let c = 0; c < cells.length; c++) {
-                let cell  = cells[c];
-                let value = cell.innerHTML;
-
-                switch (cell.attributes.name.value) {
-                    case 'Source':
-                        snFlds.setValue('Source', value);
-                        break;
-                    case 'CarReg':
-                        snFlds.setValue('CarReg', value);
-                        break;
-                }
-            }
+        var ses = new Table('chargesessionstable');
+        
+        if (ses.getRowCount() > 0) {
+            ses.setRowIndex(0);
+            snFlds.setValue('CarReg',  ses.columnValue('CarReg'));
+            snFlds.setValue('Charger', ses.columnValue('Charger'));
         }
     }
     setDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'));
@@ -546,38 +530,33 @@ function send(action) {
     /*
      * The start date time must be present for all actions that update the database.
      */
-    let dt = validateDateTime(snFlds.get('Start~Date'), snFlds.get('Start~Time'), {required: true});
-    
-    if (!dt.valid) return;
+    let sStart = snFlds.getValue('Start', true);
+    let sEnd   = snFlds.getValue('End',   true);
     
     if (valStart) {      
         if (!snFlds.isValid(csTab, 'header'))      return;
         if (!snFlds.isValid(csTab, 'startfields')) return;
     }
-    if (valEnd) {             
-        let tm = validateDateTime(snFlds.get('End~Date'), snFlds.get('End~Time'), {required: true});
-        
-        if (!tm.valid) return;
-        
+    if (valEnd) {
         if (!snFlds.hasValue("EndPerCent"))                             return;
         if (!snFlds.hasValue("EndMiles"))                               return;
         if (!checkGreaterOrEqual(snFlds, 'StartMiles',   'EndMiles'))   return;
         if (!checkGreaterOrEqual(snFlds, 'StartPerCent', 'EndPerCent')) return;
 
-        if (!dt.empty && !tm.empty && tm.value < dt.value) {
+        if (sEnd < sStart) {
             displayAlert('Validation Error', 'End timestamp is before start timestamp', {focus: snFlds.get('EndTime')});
             return;
         }
-        if (dt !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key!Start', getElement('keytimestamp').value);
+        if (sStart !== getElement('keytimestamp').value) pars = addParameter(pars, 'Key!Start', getElement('keytimestamp').value);
         
         let chrgdur = trim(snFlds.get('ChargeDuration').value);
         
         if (chrgdur !== '') {
             let cmpl = new Date();
             
-            cmpl.setTime(dt.value.getTime() + 3600000 * convertDuration(chrgdur, false));
+            cmpl.setTime(sStart.getTime() + 3600000 * convertDuration(chrgdur, false));
             
-            if (cmpl > tm.value) {
+            if (cmpl > sEnd) {
                 displayAlert('Validation Error', 'Charge duration after end', {focus: snFlds.get('ChargeDuration')});
                 return;
             }
@@ -657,6 +636,7 @@ function setLogFilter() {
     logFilter.setValue('Device',  device);
     logFilter.setValue('Percent', '');
 }
+
 function initialize(loggedIn) {
     if (!loggedIn) return;
      

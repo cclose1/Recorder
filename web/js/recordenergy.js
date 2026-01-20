@@ -169,19 +169,22 @@ function applyOffset(element) {
 function actionCalculate() {
     let flds = new ScreenFields('calculatestart');
     let pars = createParameters('calculateCosts', {fields: flds.getFields()}); 
+    let type = flds.getValue('Type');
     
     function processResponse(response) {
-        var json = stringToJSON(response);
+        let json = stringToJSON(response);
         flds = new ScreenFields('costs');
         flds.loadJSON(json, false);
+        let report = json.getMember('Report').value;
+        
+        if (report !== '') displayAlert('Warning', report);   
+        
+        setHidden(flds.get('CalorificValue'),  type === 'Electric');
+        setHidden(flds.get('SwitchedPeakKwh'), type === 'Gas');
+        setHidden('cstopdiv',                  type === 'Gas');
     }
-    let dt = validateDateTime(flds.get('Start~Date'), flds.get('Start~Time'), {required: true});
-    
-    if (!dt.valid) return;
-    
-    dt = validateDateTime(flds.get('End~Date'), flds.get('End~Time'), {required: false});
-    
-    if (!dt.valid) return;
+    if (!flds.checkValue('Start', true).valid)  return;
+    if (!flds.checkValue('End',   false).valid) return;
     
     ajaxLoggedInCall('Energy', processResponse, pars);
 }
@@ -637,8 +640,8 @@ function menuClick(option) {
             getElement('cstswvat').checked = false;
             getElement('cstvat').value = 'Remove';
             setVatMode(getElement('cstvat'));
-            getElement('cststime').value   = '00:00:00';
-            getElement('cstendtime').value = '00:00:00';
+            getElement('cststime').value   = '';
+            getElement('cstendtime').value = '';
             requestScreenReadings('calculatestart');
         case 'rates':
             requestTariffs();

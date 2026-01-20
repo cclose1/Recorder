@@ -238,20 +238,19 @@ class elementMover {
     }
     mouseStart(event) {
         this.#isDown = true;
-        this.#stScrX = event.screenY;
+        this.#stScrX = event.screenX;
         this.#stScrY = event.screenY;
         this.#crScrX = event.screenX;
         this.#crScrY = event.screenY;
         this.#offsetX = this.#elm.offsetLeft - event.clientX;
         this.#offsetY = this.#elm.offsetTop - event.clientY;
-    }
-    ;
-            mouseMove(event) {
+    };
+    mouseMove(event) {
         if (!this.#isDown)
             return false;
 
         this.#elm.style.left = (event.clientX + this.#offsetX) + 'px';
-        this.#elm.style.top = (event.clientY + this.#offsetY) + 'px';
+        this.#elm.style.top  = (event.clientY + this.#offsetY) + 'px';
         this.#crScrX = event.screenX;
         this.#crScrY = event.screenY;
         return true;
@@ -428,6 +427,32 @@ class ScreenFields {
             type: fields.length > 1? fields[1] : null       
         };
     }
+    /*
+     * 
+     * element  HTML input element for which this would typically be added as the onChange function.
+     * required Set to true if field must have a value. It defaults to false.
+     * 
+     * The element name must present and be of the form n~Date or n~Time.
+     */
+    static checkDate(element, required) {
+        let flds  = getElementScreenFields(element);
+        let dflds = element.name.split('~');
+
+        required = defaultNull(required, false);
+
+        if (dflds.length !== 2 || (dflds[1] !== 'Date' && dflds[1] !== 'Time'))
+            throw new ErrorObject('Code Error', 'Elements name ' + element.name + ' is not valid for timestamp');
+
+        let ts = flds.getFull(dflds[0]);
+
+        if (!checkDate(dflds.elm), required)
+            return;
+
+        if (ts.elm.value === '')
+            ts.telm.value = '';
+        else if (ts.telm.value === '')
+            ts.telm.value = '00:00:00';
+    }
     format(get, name, value) {
         return this.#formatter === null? value : this.#formatter(get, name, value);
     }
@@ -454,6 +479,27 @@ class ScreenFields {
         if (isNull(this.#fields))
             throw 'Element ' + elementid + ' passed to screenFields does not exist';
     }
+    getFull(field, mustExist) {  
+        let res  = {ts: false, elm: null, telm: null};
+        
+        res.elm = this.#fields.get(field);
+        
+        if (isNull(res.elm)) {
+            res.elm = this.#fields.get(field + '~Date');
+            
+            if (!isNull(res.elm)) {
+                res.ts   = true;
+                res.telm = this.#fields.get(field + '~Time');
+                
+                if (isNull(res.telm)) throw 'Field ' + (field + '~Time') + ' not found in screenFields ' + this.#id;
+            } else
+                res.elm = null;
+        }
+        if (!isNull(res.elm) && defaultNull(mustExist, false))
+            throw 'Field ' + field + ' not found in screenFields ' + this.#id;
+        
+        return res;        
+    }
     get(field, mustExist) {
         let elm = this.#fields.get(field);
         
@@ -465,6 +511,16 @@ class ScreenFields {
         return elm;
     }
     getValue(field) {
+        let elms = this.getFull(field);
+        
+        if (elms.elm === null) return undefined;
+        
+        if (!elms.ts) 
+            return this.format(true, field, elms.elm.value);
+        else
+            return elms.elm.value === '' && elms.telm.value === '' ? '' : toDate(elms.elm.value + ' ' + elms.telm.value);               
+    }
+    getValueOld(field) {
         let elm = this.#fields.get(field);
         
         if (elm !== undefined) return this.format(true, field, elm.value);
@@ -479,8 +535,12 @@ class ScreenFields {
         return undefined;
     }
     setReadOnly(field, on) {
-        let elm = this.#fields.get(field);
+        let fld = this.getFull(field);
+
+        fld.elm.readOnly = on;
         
+        if (fld.ts) fld.telm.readOnly = on;            
+        /*
         if (elm !== undefined) {
             elm.readOnly = on;
         } else {
@@ -494,9 +554,10 @@ class ScreenFields {
                 if (telm !== undefined) telm.readOnly = on;
             }
         }
-        if (elm === undefined) throw 'Field ' + field + ' passed to setReadOnly does not exist';;
+        if (elm === undefined) throw 'Field ' + field + ' passed to setReadOnly does not exist';
+        */
     }
-    setValue(field, value, mustExist) {
+    setValueOld(field, value, mustExist) {
         let found = false;
 
         function loadValue(obj, name, value) {
@@ -539,6 +600,26 @@ class ScreenFields {
 
         return found;
     }
+    setValue(field, value, mustExist) {
+        let fld = this.getFull(field, mustExist);
+        
+        if (isNull(fld.elm)) return false;
+        
+        if (fld.ts) {
+            let fields = (value instanceof Date? dateTimeString(value) : value).split(" ");
+            let dval   = fields[0];
+            let tval   = fields.length > 1? fields[1] : '00:00:00';
+            
+            if (fields.length > 2)
+                throw 'Timestamp is-' + value + '- but should have a date and hour. Loading ScreenFields ' + this.#id + ' field ' + field;
+            
+            fld.elm.value  = this.format(false, field + '~Date', dval);
+            fld.telm.value = this.format(false, field + '~Time', tval);
+        } else
+            fld.elm.value = this.format(false, field, value);
+            
+        return true;
+    }
     getFields() {
         return this.#fields;
     }
@@ -567,15 +648,16 @@ class ScreenFields {
      *      value is the field value.
      */
     checkValue(name, required) {
-        let elm   = this.get(name, true);
-        let valid = fieldHasValue(this.get(name), required) || !required;
-        let value = this.getValue(name);
+        let chk = this.getFull(name);
+        let res = {};
         
-        if (elm !== undefined) {            
-            if (this.#fields.get(name + '~Date') !== undefined)
-                valid = validateDateTime(this.get(name + '~Date'), this.get(name + '~Time'));
+        if (chk.ts) {
+            res = validateDateTime(chk.elm, chk.telm, {required: defaultNull(required, true)});
+        } else {            
+            res.valid = fieldHasValue(chk.elm, required) || !required;
+            res.value = this.getValue   (name);            
         }
-        return {valid: valid, value: value};
+        return res;
     }
     hasValue(name, required) {
         return fieldHasValue(this.get(name), required);
@@ -595,6 +677,23 @@ class ScreenFields {
         
         element.setAttribute('on' + event, handler);
     }
+    /*
+     * 
+     * tabStr              The variable name of a DatabaseTable class
+     * replaceEventHandler true if the current event handler is replaced
+     * 
+     * The screen fields event handlers are updated from the corresponding column
+     * 
+     * If replaceEventHandler is true or the screen field does not have the identified event it is 
+     * created or replaced according to the database column type as follows.
+     * 
+     * For types DATRTIME, DATE or TIME the onchange event is set to tabstr.checkElement(). This executes the checkElement
+     * method for the table object,
+     * 
+     * For types INT, FLOAT or DECIMAL the element type is text the onkeypress event is set to 'allowedInNumberField().
+     * 
+     * For all other types, no action is taken.
+     */
     syncWithTable(tabStr, replaceEventHandler) {
         let table = eval(tabStr);
         
@@ -621,16 +720,20 @@ class ScreenFields {
                 default:
                     console.log('Column ' + nt.name + ' type ' + nt.type);
             }
-        }
-        
-    }  
-    
+        }        
+    }    
     loadJSON(json, mustExist) {
         for (let i = 0; i < json.getMemberCount(); i++) {
             let value = json.getMember(i);
             this.setValue(value.name, value.value, mustExist);
         }
     }
+}
+
+function getElementScreenFields(element) {    
+    let par = getElementParent(element, 'FIELDSET', 'tagname');
+    
+    return new ScreenFields(par.id);
 }
 /*
  * object can be one of the following:
@@ -1115,15 +1218,16 @@ function validateDateTimeOptions(pOptions) {
 }
 function validateDateTime(did, tid, options) {
     let timestamp = '';
-    let tm = null;
-    let opts = new validateDateTimeOptions(options);
-    let result = {
+    let tm        = null;
+    let opts      = new validateDateTimeOptions(options);
+    let result    = {
         valid: false,
         value: undefined,
         empty: true
     };
     let dt = getElement(did, true);
-    tm = tid !== undefined && tid !== null ? getElement(tid, true) : {elm: null, value: '', empty: true};
+    
+    tm           = tid !== undefined && tid !== null ? getElement(tid, true) : {elm: null, value: '', empty: true};
     result.empty = dt.empty;
 
     if (!tm.empty && dt.empty && tm.elm !== null) {
@@ -1144,6 +1248,7 @@ function validateDateTime(did, tid, options) {
 
     if (timestamp === '') {
         result.valid = true;
+        result.value = '';
         return result;
     }
 
@@ -1487,8 +1592,10 @@ function valuesAllOrNone(...args) {
  *          If the value is valid, it is normalised to dd-mmm-yyyy.         
  */
 function checkDate(elm, required, setYear, weekdayId) {
+    elm = getElement(elm);
+    let value = elm.value;
+    
     if (defaultNull(setYear, true)) {
-        elm = getElement(elm);
         let flds = elm.value.split(new RegExp("[/\-]"));
         
         if (flds.length === 2) {
@@ -1501,6 +1608,10 @@ function checkDate(elm, required, setYear, weekdayId) {
         }
         return true;
     }
+    /*
+     * Restore original in case modified.
+     */
+    elm.value = value;
     return false;
 }
 function checkTime(elm, required) {
@@ -1744,6 +1855,9 @@ function BaseOptions(pAccessByGet) {
     };
     this.isLoaded = function (name) {
         return getSpec(this, name, true).loaded;
+    };
+    this.exists = function (name) {
+        return getSpec(this, name, false) !== null;
     };
     this.getUsed = function (name) {
         return (isNull(name) ? this.used : getSpec(this, name, true).used);
@@ -2051,12 +2165,74 @@ function getListOptions(pOptions) {
     this.load(pOptions, true);
 }
 
+function addLineField(line, field, sep) {
+    if (line !== '') line += defaultNull(sep, ' ');
+    
+    return line += field;
+}
+function addWindowScroll(rep) {
+    function addProperty(name) {
+        rep = addLineField(rep, name + ' ' + Math.round(window[name]));
+    }
+    addProperty('scrollX');
+    addProperty('scrollY');
+    
+    return rep;
+}
+function logPosition(message, element) {
+    let rep = addLineField('', defaultNull(message, ''));
+    let rec = element.getBoundingClientRect();
+    
+    function addProperty(name) {
+        rep = addLineField(rep, name + ' ' + Math.round(rec[name]));
+    }
+    if (element.id !== '')
+        rep = addLineField(rep, 'Id ' + element.id);
+    else if (element.name !== '')
+        rep = addLineField(rep, 'Name ' + element.name);
+    else
+        rep = addLineField(rep, 'Tag ' + element.tagName);
+ 
+    addProperty('x');
+    addProperty('y');
+    addProperty('left');
+    addProperty('top');   
+    addProperty('bottom');  
+    addProperty('right');  
+    addProperty('height'); 
+    addProperty('width');
+    rep = addWindowScroll(rep);
+    console.log(rep);
+}
+function logMouse(message, event) {
+    let rep = addLineField('', defaultNull(message, ''));    
+    
+    rep = addLineField(rep, event.type);
+    
+    function addProperty(name) {
+        rep = addLineField(rep, name + ' ' + event[name]);
+    }
+    addProperty('clientX');
+    addProperty('clientY');
+    addProperty('offsetX');
+    addProperty('offsetY');
+    addProperty('screenX');
+    addProperty('screenY');
+    addProperty('pageX');
+    addProperty('pageY');
+    addProperty('pageX');
+    rep = addWindowScroll(rep);
+    console.log(rep);
+}
+/*
+ * This does not appear to be used.
+ */
 function resizeFrame(id) {
-    var elm = getElement(id);
-    var width = elm.contentWindow.document.body.scrollWidth;
+    var elm    = getElement(id);
+    var width  = elm.contentWindow.document.body.scrollWidth;
     var height = elm.contentWindow.document.body.scrollHeight;
 
-    elm.width = width + "px";
+    elm.width  = width  + "px";
     elm.height = height + "px";
 }
 function popUp() {
@@ -2066,42 +2242,41 @@ function popUp() {
     var appId;
     var frameId;
 
-    this.initialise = initialise;
-    this.reset = reset;
-    this.display = display;
-    this.getElementById = getElementById;
-    this.getValueById = getValueById;
-    this.setValueById = setValueById;
-    this.getAppId = getAppId;
-    this.getContainerId = getContainerId;
-    this.getFrameId = getFrameId;
-    this.inDisplay = inDisplay;
+    this.initialise         = initialise;
+    this.reset              = reset;
+    this.display            = display;
+    this.getElementById     = getElementById;
+    this.getValueById       = getValueById;
+    this.setValueById       = setValueById;
+    this.getAppId           = getAppId;
+    this.getContainerId     = getContainerId;
+    this.getFrameId         = getFrameId;
+    this.inDisplay          = inDisplay;
+    this.setSizeAndPosition = setSizeAndPosition;
+    
     this.setDocumentOnClick = setDocumentOnClick;
-
-    function setSize(element, width, height) {
-        var style = element.style;
-
-        style.width = width + 'px';
-        style.height = height + 'px';
+    
+    function setSizeAndPosition(left, top, width, height) {
+        setElementSizeAndPosition(document.getElementById(this.frameId === ''? this.containerId : this.frameId), left, top, width, height);
     }
     function initialise(containerId, appId) {
         var home = document.getElementById(containerId);
-        var body;
 
         this.containerId = containerId;
-        this.popUpId = containerId;
-        this.appId = appId === undefined ? 'appframe' : appId;
-
+        this.popUpId     = containerId;
+        this.appId       = defaultNull(appId, 'appframe');
+        this.popUpDoc    = document;
+        this.frameId     = '';
+        
         if (home.tagName === 'IFRAME') {
-            this.popUpDoc = document.getElementById(containerId).contentWindow.document;
-            body = this.popUpDoc.body;
-            this.popUpId = body.id !== '' ? body.id : body.firstElementChild.id;
-            this.frameId = containerId;
+            /*
+             * If the container is a frame the popUp has its own document.
+             */
+            this.popUpDoc    = document.getElementById(containerId).contentWindow.document;
+            let body         = this.popUpDoc.body;
+            this.popUpId     = body.id !== '' ? body.id : body.firstElementChild.id;
+            this.frameId     = containerId;
             this.containerId = home.parentElement.id;
-        } else {
-            this.popUpId = this.containerId;
-            this.popUpDoc = document;
-            this.frameId = '';
         }
         document.getElementById(this.containerId).style.display = 'none';
     }
@@ -2113,18 +2288,21 @@ function popUp() {
      * the width and height for the popUpId element.
      */
     function reset() {
-        getElement(this.getContainerId()).style.left = "";
-        getElement(this.getContainerId()).style.top = "";
-
+        let style = getElement(this.getContainerId()).style;
+        
+        style['left'] = '';
+        style['top']  = '';
+        
         if (this.getFrameId() === '') {
-            this.getElementById(this.popUpId).style.width = "";
-            this.getElementById(this.popUpId).style.height = "";
+            style = getElement(this.popUpId).style;
+            style['width']  = '';
+            style['height'] = '';
         }
     }
     function getAppId() {
         return this.appId;
     }
-    function display(yes, switchApp, minWidth, minHeight) {
+    function display(yes, switchApp, minWidth, minHeight, left, top) {
         setHidden(this.containerId, !yes);
 
         if (switchApp)
@@ -2139,13 +2317,17 @@ function popUp() {
                 wd = minWidth;
             if (minHeight !== null && ht < minHeight)
                 ht = minHeight;
-
-            if (this.frameId !== '')
-                setSize(document.getElementById(this.frameId), wd, ht);
-            else
-                setSize(document.getElementById(this.containerId), wd, ht);
+            
+            this.setSizeAndPosition(left, top, wd, ht);
+            logPosition('alert l ' + left + ' t ' + top, document.getElementById(this.frameId === ''? this.containerId : this.frameId));
         }
     }
+    /*
+     * This gets the element by id for pop up content. An exception is made for the containerId and frameId which
+     * always belong to document.
+     * 
+     * Note: The popUpDoc will only different to document if container is a frame.
+     */
     function getElementById(id) {
         return (this.containerId === id || this.frameId === id ? document : this.popUpDoc).getElementById(id);
     }
@@ -2155,8 +2337,7 @@ function popUp() {
     function setValueById(id, value, ignoreIfNotFound) {
         var el = this / getElementById(id);
 
-        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound)
-            return;
+        if (el === null && ignoreIfNotFound !== undefined && ignoreIfNotFound)  return;
 
         el.value = value;
     }
@@ -2179,8 +2360,7 @@ function popUp() {
     function setDocumentOnClick(action) {
         document.onclick = action;
 
-        if (this.frameId !== '')
-            this.popUpDoc.onclick = action;
+        if (this.frameId !== '') this.popUpDoc.onclick = action;
     }
 }
 function deleteRows(object) {
@@ -2197,6 +2377,18 @@ function deleteRows(object) {
         }
     }
 }
+function setElementSizeAndPosition(element, left, top, width, height) {
+    let style = getElement(element).style;
+    
+    function set(attr, value) {
+        if (!isNull(value)) style[attr] = value + 'px';
+    }
+    set('left',   left);
+    set('top',    top);
+    set('width',  width);
+    set('height', height);
+}
+
 function getAllMethods(object) {
     return Object.getOwnPropertyNames(object).filter(function (property) {
         return typeof object[property] === 'function';
@@ -2321,7 +2513,7 @@ function isVisible(element) {
 }
 function setCookie(name, value, expiredays) {
     var exdate = new Date();
-
+    
     exdate.setDate(exdate.getDate() + expiredays);
     document.cookie = name + "=" + escape(value) + ((expiredays === null) ? "" : ";expires=" + exdate.toGMTString());
 }
@@ -3469,9 +3661,6 @@ function currentDateTime(date) {
 
     return currentDate(date) + ' ' + currentTime(date);
 }
-function hasValue(parameter) {
-    return parameter !== null && parameter !== undefined;
-}
 function indexOfOption(list, option) {
     if (typeof list === 'string')
         list = document.getElementById(list);
@@ -3525,27 +3714,30 @@ function validateIntegerField(low, high) {
     if (event.charCode !== 43 && event.charCode !== 45) {
         value = value + String.fromCharCode(event.charCode);
 
-        if (hasValue(low) && value < low || hasValue(high) && value > high) {
+        if (!isNull(low) && value < low || !isNull(high) && value > high) {
             event.preventDefault();
             return false;
         }
     }
 }
+/*
+ * Don't think this is used by anything.
+ */
 function checkIntegerField(id, low, high) {
     var field = document.getElementById(id);
     var value = trim(field.value);
-    var msg = "Enter a value for " + field.name;
+    var msg   = "Enter a value for " + field.name;
     var valid = true;
 
-    if (hasValue(low) && hasValue(high)) {
+    if (!isNull(low) && !isNull(high)) {
         valid = value >= low && value <= high;
-        msg = msg + " between " + low + " and " + high;
-    } else if (hasValue(low)) {
+        msg   = msg + " between " + low + " and " + high;
+    } else if (!isNull(low)) {
         valid = value >= low;
-        msg = msg + " greater than or equal to " + low;
-    } else if (hasValue(high)) {
+        msg   = msg + " greater than or equal to " + low;
+    } else if (!isNull(high)) {
         valid = value <= high;
-        msg = msg + " less than or equal to " + high;
+        msg   = msg + " less than or equal to " + high;
     }
     if (value === "" || !valid) {
         displayAlert('Field Validation', msg, {focus: field});

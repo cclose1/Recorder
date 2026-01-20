@@ -27,7 +27,7 @@ function ValidateItem() {
         /*
          * Probably just use this as I don't think appdata, the obj parameter, is ever used by nutrition.
          */
-        if (!hasValue(obj)) obj = this;
+        if (isNull(obj)) obj = this;
         
         applyItemUpdate(obj.oldTime);
         obj.oldTime = null;
@@ -651,7 +651,7 @@ function modifyItemData() {
     if (event.target.id === 'removeItem')
         action = 'remove';
     else {
-        if (isVisible('units')) {
+        if (getElement('units').checkVisibility()) {
             var quantity = getElement('quantity'); 
             var units    = getElement('units');            
             var dbUnit   = cnvUnits.getUnit(units.value).isVolume? 'ml' : 'gm'; //Units value stored in the database
@@ -886,7 +886,7 @@ function applyItemUpdate(previousVersionTime) {
     parameters = addParameterById(parameters, 'idefault',      'default');
     parameters = addParameterById(parameters, 'ipacksize',     'packsize');
     
-    if (hasValue(previousVersionTime)) parameters = addParameter(parameters, 'previousStart', getDateTime(previousVersionTime));
+    if (!isNull(previousVersionTime)) parameters = addParameter(parameters, 'previousStart', getDateTime(previousVersionTime));
     
     function processResponse(response) {
         loadJSONFields(response, false);

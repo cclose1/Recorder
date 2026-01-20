@@ -59,11 +59,18 @@ function checkCurrencyField(id) {
     setHidden('pcryptoaddress', !(isCryptoCurrency('pcurrency')));
     setHidden('scryptoaddress', !(isCryptoCurrency('scurrency')));
     
-    if (!(transfer || exchange))
-        return;
-
-    if (!hasValue(id))
-        id = event.srcElement.id;
+    if (!(transfer || exchange)) return;
+    
+    /*
+     * Should change HTML to pass the parameter as the use of event may not always work.
+     * 
+     * Could then change to
+     * 
+     * id = getElement(id).id
+     * 
+     * which will work if either this or id is passed by HTML as the parameter.
+     */
+    if (isNull(id)) id = event.srcElement.id;
 
     if (exchange) {
         switch (id) {
@@ -114,7 +121,7 @@ function setUpdateOption() {
     setHidden("updateaction", true);
 }
 function setAction(value) {    
-    if (hasValue(value))
+    if (!isNull(value))
         document.getElementById("action").value = value;
     else
         value = document.getElementById("action").value;

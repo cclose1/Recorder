@@ -20,8 +20,7 @@ class TickHandler {
     #xvals;
     #lastxmajor;
     #tickinterval;
-    #tickskip;
-
+    #tickskip
     #majorChanged(prev, time) {
         let last = unpackDate(prev);
         let cur  = unpackDate(time);
@@ -99,7 +98,7 @@ class TickHandler {
                 
                 label = unp.hours === 0 && unp.minutes === 0? formatDate(label, 'E dd-MMM-yy') : unp.hours;
             } else {
-                label = formatDate(value, 'dd-MMM-yy');
+                label = formatDate(value, 'E dd-MMM-yy');
             }
             this.#lastxmajor = value;
             this.#nullticks  = 0;
@@ -115,6 +114,7 @@ class Charter {
     __type     = 'line';
     __xvals    = [];
     __yvals    = [];
+    __yunits;
     __ymaxlim  = 0.5;
     __ymax;
     __chart    = null;
@@ -205,6 +205,9 @@ class Charter {
     }
     setTickInterval(interval) {
         this.__tickinterval = interval;
+    }
+    setYUnits(units) {
+        this.__yunits = units;
     }
     setMaxY(max) {
         if (trim(max) === "")
@@ -349,7 +352,7 @@ class Charter {
                     y: {
                         title: {
                             display: true,
-                            text:    'Kwh',
+                            text:    this.__yunits,
                             font: {
                                 family: 'Comic Sans MS',
                                 size: 20,

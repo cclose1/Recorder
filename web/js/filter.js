@@ -363,7 +363,7 @@ function Filter(key, element, requestor, options) {
              * and add an onchange event to append the value to the input field.
              */
             setAttribute(inpelm, 'style', 'margin-right: ' + this.options.forceGap);            
-            lstelm = createElement(this.document, 'select', {append: div, class: notparam});
+            lstelm = createElement(this.document, 'select', {append: div, class: 'notparam'});
             this.setEventHandler(lstelm, 'onchange', 'addFilterField');
         }
         this.fields.appendChild(div);

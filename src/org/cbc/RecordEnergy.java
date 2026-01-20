@@ -346,11 +346,14 @@ public class RecordEnergy extends ApplicationServer {
         }
     }
     private class EnergyCost {
-        private double                     stdCost = 0;
-        private int                        days    = 0;
-        private Date                       smStart = null;        
-        private Date                       smEnd   = null;
-        private long                       hours   = 0;
+        private double                     stdCost   = 0;      
+        private int                        days      = 1;
+        private Date                       newDay;
+        private Date                       smStart   = null;        
+        private Date                       smEnd     = null;
+        private Date                       smTimeLoc = null;
+        private long                       hours     = 0;
+        private String                     report    = "";     
         private Tariff                     tf;
         private Tariff.OffPeak.Accumulator tac;
         
@@ -424,8 +427,13 @@ public class RecordEnergy extends ApplicationServer {
             SQLSelectBuilder           sql        = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
             boolean                    logOpTimes = false; // This is for trouble shooting
 
-            smStart = from;
+            newDay  = from;
+            smStart =  timeWithDate.toGMT(from);
+            
+            if (to != null) to = timeWithDate.toGMT(to);
+            
             smEnd   = to;
+            
             tf      = new Tariff(session, type);
             tf.setRemoveVat(vatMode.equalsIgnoreCase("Remove"));
             
@@ -436,17 +444,23 @@ public class RecordEnergy extends ApplicationServer {
             
             sql.addField("*");
             sql.addAnd("Type",  "=",  type);
-            sql.addAnd("Start", ">=", from);
-            sql.addAnd("Start", "<",  to);
+            sql.addAnd("Start", ">=", smStart);
+            
+            if (to != null) sql.addAnd("Start", "<",  to);
 
             rs = session.executeQuery(sql.build(), ResultSet.TYPE_SCROLL_SENSITIVE);
 
             while (rs.next()) {
                 float  reading = rs.getFloat("Reading");
                 
-                smTime = rs.getTimestamp("Start");              
+                smTime    = rs.getTimestamp("Start");              
+                smTimeLoc = timeWithDate.toLocal(smTime);
                 
-                if (first && !Utils.compare(smTime, "=", from)) throw new ErrorExit("Missing Smart Meter data before " + from);
+                if (getElapsedDays(newDay, smTimeLoc) >= 1) {
+                    days  += getElapsedDays(newDay, smTimeLoc);
+                    newDay = smTimeLoc;
+                }
+                if (first && !Utils.compare(smTime, "=", smStart)) throw new ErrorExit("Missing Smart Meter data before " + smStart);
                                               
                 tf.load(smTime);
                 
@@ -463,10 +477,9 @@ public class RecordEnergy extends ApplicationServer {
                     fo.writeLine(); 
                 }   
             }
-            if (DateFormatter.dateDiff(smTime, to, DateFormatter.TimeUnits.Minutes) > 30) throw new ErrorExit("Missing Smart Meter data after " + smTime);
+            if (to != null && DateFormatter.dateDiff(smTime, to, DateFormatter.TimeUnits.Minutes) > 30) report = "Missing Smart Meter data after " + smTime;
             
             hours   = DateFormatter.dateDiff(smStart, smTime, DateFormatter.TimeUnits.Hours);
-            days    = getElapsedDays(smStart, smTime);
             updateDayLog(fo, dac, type, null, 0);
         }
         public float getMeterChange() {
@@ -477,6 +490,9 @@ public class RecordEnergy extends ApplicationServer {
         }
         public float getOpKwh() {
             return tac.getOpKwh();
+        }
+        public float getFOpKwh() {
+            return tac.getFOpKwh();
         }
         public float getPeakCost() {
             return tac.getPkCost();
@@ -495,12 +511,14 @@ public class RecordEnergy extends ApplicationServer {
         public int getDays() {
             return days;
         }
-
         public Date getSmStart() {
             return smStart;
         }
         public Date getSmEnd() {
             return smEnd;
+        }
+        public Date getDataEnd() {
+            return smTimeLoc;
         }
         public int getUsageCount() {
             return tac.getIncrements();
@@ -513,20 +531,19 @@ public class RecordEnergy extends ApplicationServer {
         public double getUnitRate() {
             return tf.getUnitRate();
         }
-
         public double getOpRate() {
             return tf.getOpRate();
         }
-
         public double getStandingCharge() {
             return tf.getStandingCharge();
         }
-
         public double getCalorificValue() {
             return tf.getCalValue();
         }
+        public String getReport() {
+            return report;
+        }
     }
-
     private class DeriveMeterReading {
         LocalErrorExit exit = new LocalErrorExit("CreateMeterReading", "");
         Date           from;
@@ -808,8 +825,8 @@ public class RecordEnergy extends ApplicationServer {
 
     @Override
     protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException {
-        String action = ctx.getParameter("action");
-        SQLUpdateBuilder sql = null;
+        String           action = ctx.getParameter("action");
+        SQLUpdateBuilder sql    = null;
 
         if (start) {
             return;
@@ -831,18 +848,16 @@ public class RecordEnergy extends ApplicationServer {
     }
 
     private boolean addTariff(Context ctx, String type) throws ParseException, SQLException {
-        SQLInsertBuilder sql = ctx.getInsertBuilder("Tariff");
-        EnclosingRecords er = new EnclosingRecords(ctx.getAppDb(), "Tariff");
-        Date start = ctx.getTimestamp("Date");
-        double rate = ctx.getDouble(type + " UnitRate", -1);
-        double standing = ctx.getDouble(type + " StandingCharge", -1);
-        double offpeak = ctx.getDouble(type + " OffPeakRate", -1);
-        ResultSet upper;
-        ResultSet lower;
+        SQLInsertBuilder sql      = ctx.getInsertBuilder("Tariff");
+        EnclosingRecords er       = new EnclosingRecords(ctx.getAppDb(), "Tariff");
+        Date             start    = ctx.getTimestamp("Date");
+        double           rate     = ctx.getDouble(type + " UnitRate", -1);
+        double           standing = ctx.getDouble(type + " StandingCharge", -1);
+        double           offpeak  = ctx.getDouble(type + " OffPeakRate", -1);
+        ResultSet        upper;
+        ResultSet        lower;
 
-        if (rate < 0) {
-            return false;
-        }
+        if (rate < 0) return false;
 
         er.addField("Code", ctx.getParameter("Code"), true);
         er.addField("Type", type, true);
@@ -897,37 +912,40 @@ public class RecordEnergy extends ApplicationServer {
         JSONObject data = new JSONObject();
 
         data.add("PriorTimestamp", ctx.getDbTimestamp(dmr.getPriorTimestamp()));
-        data.add("PriorReading", dmr.getPriorReading(), 3);
-        data.add("Timestamp", ctx.getDbTimestamp(dmr.getTimestamp()));
-        data.add("Reading", dmr.getReading(), 3);
-        data.add("Meter", dmr.getMeterId());
-        data.add("Comment", dmr.getError());
+        data.add("PriorReading",   dmr.getPriorReading(), 3);
+        data.add("Timestamp",      ctx.getDbTimestamp(dmr.getTimestamp()));
+        data.add("Reading",        dmr.getReading(), 3);
+        data.add("Meter",          dmr.getMeterId());
+        data.add("Comment",        dmr.getError());
         data.append(ctx.getReplyBuffer(), "");
     }
     private void calculateCosts(Context ctx) throws SQLException, ParseException, JSONException, IOException {
         EnergyCost ec = new EnergyCost(
                 ctx.getAppDb(), 
-                timeWithDate.toGMT(ctx.getTimestamp("Start")), 
-                timeWithDate.toGMT(ctx.getTimestamp("End")), 
+                ctx.getTimestamp("Start"), 
+                ctx.getTimestamp("End"), 
                 ctx.getParameter("Type"),
                 ctx.getParameter("VatMode"),
                 ctx.getBoolean("LogDaily", false));
         JSONObject data = new JSONObject();
 
-        data.add("MeterChange",    ec.getMeterChange(), 2);
-        data.add("OffPeakCost",    ec.getOpCost() / 100, 2);
-        data.add("OffPeakKwh",     ec.getOpKwh(), 2);
-        data.add("PeakCost",       ec.getPeakCost() / 100, 2);
-        data.add("PeakKwh",        ec.getPeakKwh(), 2);
-        data.add("StandingCost",   ec.getStdCost() / 100, 2);
-        data.add("StandingCharge", ec.getStandingCharge(), 2);
-        data.add("UnitRate",       ec.getUnitRate(), 2);
-        data.add("OffPeakRate",    ec.getOpRate(), 2);
-        data.add("CalorificValue", ec.getCalorificValue(), 2);
-        data.add("Days",           ec.getDays());        
-        data.add("TotalCost",      ec.getTotalCost(false) / 100, 2);
-        data.add("TotalWithVat",   ec.getTotalCost(true) / 100, 2);
-        data.add("ValuesUsed",     ec.getUsageCount());
+        data.add("MeterChange",     ec.getMeterChange(), 2);
+        data.add("OffPeakCost",     ec.getOpCost() / 100, 2);
+        data.add("OffPeakKwh",      ec.getOpKwh(), 2);
+        data.add("SwitchedPeakKwh", ec.getFOpKwh(), 2);
+        data.add("PeakCost",        ec.getPeakCost() / 100, 2);
+        data.add("PeakKwh",         ec.getPeakKwh(), 2);
+        data.add("StandingCost",    ec.getStdCost() / 100, 2);
+        data.add("StandingCharge",  ec.getStandingCharge(), 2);
+        data.add("UnitRate",        ec.getUnitRate(), 2);
+        data.add("OffPeakRate",     ec.getOpRate(), 2);
+        data.add("CalorificValue",  ec.getCalorificValue(), 2);
+        data.add("Days",            ec.getDays());        
+        data.add("TotalCost",       ec.getTotalCost(false) / 100, 2);
+        data.add("TotalWithVat",    ec.getTotalCost(true) / 100, 2);
+        data.add("ValuesUsed",      ec.getUsageCount());
+        data.add("DataEnd",         ctx.getDbTimestamp(ec.getDataEnd()));
+        data.add("Report",          ec.getReport());
         data.append(ctx.getReplyBuffer(), "");
     }
     private MeterReading fromRequest(Context ctx, boolean keyOnly) throws ParseException {

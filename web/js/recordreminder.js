@@ -138,5 +138,3 @@ function initialize(loggedIn) {
     hstFilter.addFilter('Description', {name: 'Description'});
     requestReminders();
 }
-
-

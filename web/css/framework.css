@@ -8,6 +8,11 @@ and open the template in the editor.
     Created on : 21-Nov-2014, 08:43:31
     Author     : Chris
 */
+
+.grid2 {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+}
 body {
     margin: auto;
     width: fit-content;

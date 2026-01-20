@@ -112,6 +112,7 @@ public class ChartBuilder extends ApplicationServer {
         json.add("Database", rs.getString("Database"));        
         json.add("Source",   rs.getString("DataSource"));
         json.add("XColumn",  rs.getString("XColumn"));
+        json.add("YUnits",   rs.getString("YUnits"));
 
         sel.clear();        
         sel = new SQLSelectBuilder("ChartDefinition", ctx.getAppDb().getProtocol());

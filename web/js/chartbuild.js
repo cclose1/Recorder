@@ -8,6 +8,7 @@ var chartDef;
 var lines;
 var chart;
 var appmode;
+var filter;
 /*
  * Removes entry and returns true if there is one, otherwise false is returned.
  */
@@ -103,6 +104,42 @@ function addCheckBox(parent, label, clear) {
         class:  'left'});
     lab.innerHTML = label;
 }
+function setupFilter(flds) { 
+    let def = getFilterDefinition();
+    
+    if (def.title === null)  {
+        setHidden('fltdv', true);
+        filter = null;
+        return;
+    }    
+    filter = getFilter('chartfilter', getElement('filter'), null, {
+        server:          flds.getValue('DefineEnergy') === 'BloodPressure'? 'Blood' : 'Energy',
+        allowAutoSelect: false,
+        autoSelect:      false,
+        title:           def.title,
+        forceGap:        '4px',
+        initialDisplay:  false,
+        trigger:         getElement('filter')});
+    
+    for (let i = 0; i < def.fields.length; i++) {
+        let fld = def.fields[i];
+        
+        switch (fld.source) {
+            case 'none':
+                filter.addFilter(fld.label, {name: fld.column});
+                break;
+            case 'DB':
+                filter.addFilter(fld.label, {
+                    name: fld.column, listTable: flds.getValue('Source'), listColumn: fld.column});                    
+                break;
+            case 'List':
+                filter.addFilter(fld.label, {
+                    name: fld.column, values: fld.values});
+                break;
+        }
+    }
+    setHidden('fltdv', false);
+}
 function onHandler(element) {
     let flds;
     
@@ -123,37 +160,57 @@ function onHandler(element) {
             console.log('onHandler + id ' + element.id);
     }
 }
+/*
+ * If index = -1 the index for the first row matching on
+ */
 function findDefinitionRow(chart, type, name, index) {
     chartDef.setRowFirst();
-    
+    /*
+     * Used == instead of === to ensure that comparison string comparison with integer return true if
+     * the string converted to a number equals the number. === returns false if the compared objects are
+     * a different type.
+     */
     while (chartDef.nextRow()) {
-        if (chartDef.columnValue('Chart')     === chart &&
-            chartDef.columnValue('PartType')  === type  &&
-            chartDef.columnValue('PartName')  === name  &&
-            chartDef.columnValue('PartIndex') === index)
+        if ((chartDef.columnValue('Chart')     === chart &&
+             chartDef.columnValue('PartType')  === type  &&
+             (chartDef.columnValue('PartName') === name   || name === '') && 
+             (chartDef.columnValue('PartIndex') == index) || index === -1))
         return chartDef.getRowIndex();        
     }
     return -1;    
 }
-function updateDefinitionRow(type, action, params) {  
-    let flds    = new ScreenFields('definechart');
-    let chart   = flds.getValue('Chart');
-    let name    = '';
-    let index   = '1';
+function updateDefinitionRow(fields, action) {  
+    let flds     = new ScreenFields('definechart');
+    let chart    = flds.getValue('Chart');
+    let flttlrow = -1;
     
-    flds        = new ScreenFields('dvdfbody');
+    flds = new ScreenFields('dvdfbody');
     
-    if (type !== 'Filter') {
-        if (!fieldHasValue(flds.get(type + 'Name'),  true)) return;
-        if (!fieldHasValue(flds.get(type + 'Index'), true)) return;
-        
-        name  = flds.getValue(type + 'Name');
-        index = flds.getValue(type + 'Index');
+    function createRow(name, index, params) {       
+        row = chartDef.addRow('definitionRowClick(this)');
+        chartDef.setColumnValue('Chart',     chart);
+        chartDef.setColumnValue('PartType',  fields.type);
+        chartDef.setColumnValue('PartName',  name);
+        chartDef.setColumnValue('PartIndex', index);
+        chartDef.setColumnValue('Params',    params);
     }
-    params   = defaultNull(params, flds.getValue(type + 'Fields'));
-    
-    let row  = findDefinitionRow(chart, type, name, index);
-    let key  = chart + ':' + type + ':' + name + ':' + index;
+    function updateFilterTitle() {
+        if (fields.type !== 'Filter') return;
+        
+        if (action === 'Delete') {
+            if (findDefinitionRow(chart, fields.type, '', -1) === -1 && flttlrow !== -1) chartDef.deleteRow(flttlrow);
+        } else {
+            if (flttlrow === -1) flttlrow = createRow(fields.title, 1, '');
+            
+            chartDef.setRowIndex(flttlrow);
+            chartDef.setColumnValue('PartName',  fields.title);
+        }
+    }    
+    if (fields.type === 'Filter') {
+        flttlrow = findDefinitionRow(chart, 'Filter', '', 1);
+    }    
+    let row  = findDefinitionRow(chart, fields.type, fields.name, fields.index);
+    let key  = chart + ':' + fields.type + ':' + fields.name + ':' + fields.index;
    
     console.log('Action ' + action + ' Key ' + key + ' Row ' + row);
     
@@ -163,19 +220,16 @@ function updateDefinitionRow(type, action, params) {
                 displayAlert('Error', key + ' already exists');
                 return;
             }
-            row = chartDef.addRow('definitionRowClick(this)');
-            chartDef.setColumnValue('Chart',     chart);
-            chartDef.setColumnValue('PartType',  type);
-            chartDef.setColumnValue('PartName',  name);
-            chartDef.setColumnValue('PartIndex', index);
-            chartDef.setColumnValue('Params',    params);
+            row = createRow(fields.name, fields.index, fields.params);
+            updateFilterTitle();
             break;
         case 'Update':
             if (row === -1) {
                 displayAlert('Error', key + ' does not exists');
                 return;
             }
-            chartDef.setColumnValue('Params', params);
+            chartDef.setColumnValue('Params', fields.params);
+            updateFilterTitle();
             break;
         case 'Delete':
             if (row === -1) {
@@ -183,6 +237,7 @@ function updateDefinitionRow(type, action, params) {
                 return;
             }
             chartDef.deleteRow(row);
+            updateFilterTitle();
             break;
         default:
     }
@@ -208,11 +263,37 @@ function getDefinitionRow(index) {
             line.filter = lpars.length === 3 ? lpars[2] : '';
             break;
         case 'Filter':
+            if (line.index === '1')
+                line.title = line.name;
+            else {
+                let fpars = params.split(',');
+                
+                line.column       = line.name;
+                line.valuessource = 'none';
+                line.label        = '';
+                line.values       = '';
+                
+                switch (fpars.length) {
+                    case 1:
+                        line.label  = fpars[0];
+                        break;
+                    case 2:
+                        line.label        = fpars[0];
+                        line.valuessource = fpars[1];
+                        break;
+                    case 3:
+                        line.label        = fpars[0];
+                        line.valuessource = fpars[1];
+                        line.values       = fpars[2];
+                    default:
+                }
+            }
+            break;
         case 'Group':
             line.fields = params;
             break;
         default:
-            console.log('Line type ' + line.type + ' not supported');
+            throw new ErrorObject('Code Error', 'Filter params ' + params + ' are invalid');
     }
     return line;
 }
@@ -224,7 +305,15 @@ function definitionRowClick(row) {
     if (appmode === 'update') {
         switch (line.type) {
             case 'Filter':
-                flds.setValue('FilterFields', line.fields);
+                if (line.index === '1')
+                    flds.setValue('FilterTitle', line.title);
+                else {
+                    flds.setValue('FilterIndex',  line.index);
+                    flds.setValue('FilterName',   line.column);
+                    flds.setValue('FilterLabel',  line.label);
+                    flds.setValue('FilterValues', line.values);
+                    setValuesSource(line.valuessource);
+                }
                 break;
             case 'Group':
                 flds.setValue('GroupName',   line.name);
@@ -252,6 +341,33 @@ function definitionRowClick(row) {
         }
         setPartMode(line.type, true);
     }
+}
+function getFilterDefinition() {
+    let filter = {
+        title: null,
+        fields: []};
+    
+    chartDef.setRowFirst();
+    
+    while (chartDef.nextRow()) {
+        let line = getDefinitionRow();
+        
+        if (line.type === 'Filter') {
+            if (line.index == 1)
+                filter.title = line.name;
+            else {
+                filter.fields.push(
+                        {
+                            column: line.column,
+                            index:  line.index,
+                            label:  line.label === ''? line.column : line.label,
+                            source: line.valuessource,
+                            values: line.values.replaceAll('|', ',')}
+                );
+            }
+        }
+    }
+    return filter;
 }
 function setLines() {
     let flds  = new ScreenFields('dsparams');
@@ -309,12 +425,14 @@ function clearLoaded() {
         line.loaded = false;
     }
 }
-function getSelected(xCol) {   
+function getSelected(flds) {   
     let sPars    = null;
     let selected = {
         lines: [],
+        error: false,
         fields: null,
-        filter: null};
+        filter: null
+    };
     let col = 1;
 
     for (let line of lines) {        
@@ -325,13 +443,20 @@ function getSelected(xCol) {
             
             line.loaded = true;
             sPars = line.source.split(':');
+            
+            if (sPars.length > 1 && sPars[1] === '' && flds.getValue('GroupBy') !== '') {
+                displayAlert('Error', 'Line ' + line.name + ' does not support aggregate');
+                selected.lines = [];
+                selected.error = true;
+                return selected;
+            }            
             selected.lines.push({
                 title:  line.name,
                 colour: line.colour,
                 source: sPars.length === 3? sPars[2] : sPars[0],
                 column: col++},);
             
-            if (selected.fields === null) selected.fields = xCol + ':Min';
+            if (selected.fields === null) selected.fields = flds.getValue('XColumn') + ':Min';
             
             selected.fields += ',' + line.source;
         }
@@ -349,6 +474,7 @@ function displayChart(element) {
     let selected = null;
     let data     = false;
     let step     = 0;
+    let dataflt  = null;
     
     if (!fieldHasValue(flds.get('Start'))) return;
     if (!fieldHasValue(flds.get('End')))   return;    
@@ -384,6 +510,7 @@ function displayChart(element) {
     chart.setDataType(flds.get('Title').value === ''? 'Data' : flds.get('Title').value);
     chart.setType('line');
     chart.setMaxY(flds.getValue('MaxY'));
+    chart.setYUnits(flds.getValue('YUnits'));
     chart.setTickSkip(flds.getValue('TickSkip'));
     chart.setTickInterval(flds.getValue('TickInterval'));
     chart.setTitle(
@@ -391,16 +518,22 @@ function displayChart(element) {
                 (grplab === ''? '' : ' by ' + grplab) +
                 ' starting ' + formatDate(flds.getValue('Start'), 'dd-MMM-yy'));
     
-    while ((selected = getSelected(flds.get('XColumn').value)).lines.length !== 0) {
-        pars = createParameters('ChartData', {fields: flds.getFields()});
-        pars = addParameter(pars, 'Fields', selected.fields);
-        data = true;
+    while ((selected = getSelected(flds)).lines.length !== 0) {
+        pars    = createParameters('ChartData', {fields: flds.getFields()});
+        pars    = addParameter(pars, 'Fields', selected.fields);
+        data    = true;
+        dataflt = null;
         
-        if (selected.filter !== '') pars = addParameter(pars, 'filter', selected.filter);
+        if (filter !== null) dataflt = filter.getWhere();
+              
+        if (selected.filter !== '') dataflt = appendField(dataflt, ',', selected.filter);
+            
+        if (dataflt !== null) pars = addParameter(pars, 'filter', dataflt);
         
         ajaxLoggedInCall('Chart', processResponse, pars, false);
     }
-    if (!data) displayAlert('Error', 'Must select at least one data line');
+    if (selected.error) return;
+    if (!data) displayAlert('Error', 'Must select at least one data line', {position:  getElement('dvdfbody')});
     
     chart.draw();
 }
@@ -415,7 +548,8 @@ function loadChart(element, fieldsId) {
         flds.setValue("Title",    json.getMember('Title').value);
         flds.setValue("Database", json.getMember('Database').value);
         flds.setValue("Source",   json.getMember('Source').value);
-        flds.setValue("XColumn",  json.getMember('XColumn').value);
+        flds.setValue("XColumn",  json.getMember('XColumn').value);;
+        flds.setValue("YUnits",   json.getMember('YUnits').value);
         
         loadJSONArray(definition, 'chartdefinition', {
             setTableName:  true,
@@ -424,7 +558,7 @@ function loadChart(element, fieldsId) {
             ignoreColumns: 'Modified,Comment', 
             onClick:       'definitionRowClick(this)'});
         chartDef = new Table('chartdefinition');
-        
+        setupFilter(flds);
         setHidden('chartdefinition', fieldsId === 'displaychart');
         
         if (fieldsId === 'displaychart') {
@@ -529,14 +663,14 @@ function changePartColumn(element) {
     }
     if (action === 'Set') {
         if (col === '') {
-            displayAlert('', 'Set requires a data column to be selected');
+            displayAlert('Validation Failure', 'Set requires a data column to be selected', {position: getElement('dvdfbody')});
             return;
         }
     } else if (action === 'Clear') {
-        if (part.startsWith('line'))
+        if (part.startsWith('line') || part.startsWith('filter'))
             col = '';
         else if (col === '') {
-            displayAlert('', 'Clear for Group and Filter requires a data column to be selected');
+            displayAlert('Validation Failure', 'Clear for Group and Filter requires a data column to be selected');
             return;            
         }
     } else
@@ -544,7 +678,7 @@ function changePartColumn(element) {
     
     switch (part) {
         case 'filter':
-            updateArray(flds, 'FilterFields', col, action === 'Clear');
+            flds.setValue('FilterName', col);
             break;
         case 'linecolumn':
             flds.setValue('SourceColumn', col);
@@ -570,6 +704,16 @@ function changePartColumn(element) {
     }
     console.log('Action ' + action + ' part ' + part + ' value ' + col);
 }
+function screenCheckDate(element, required) {
+    let flds = getElementScreenFields(element);
+    let time = flds.get(element.split('~') + '~Time');
+    
+    let chk = flds.checkValue(element.name, required);
+    
+    if (!chk.valid) return;
+    
+    if (chk.value !== '' && time.value === '') time.value = '00:00:00';
+}
 function setPartMode(type, update) {    
     let flds   = new ScreenFields('dvdfbody');
     
@@ -585,9 +729,7 @@ function setPartMode(type, update) {
      * Get the first parent element that is a fieldset. Get the screen fields for the parent, so only
      * the fields for it are cleared.
      */
-    let par = getElementParent(flds.get(type + 'Name'), 'FIELDSET', 'tagname');
-    
-    flds = new ScreenFields(par.id);
+    flds = getElementScreenFields(flds.get(type + 'Name'));
     /*
      * Exclude the command buttons from deing cleared.
      */
@@ -605,12 +747,17 @@ function appendField(pars, separator, field) {
     
     return pars;        
 }
-
 function setColourType(tohex) {
     let sethc = (new ScreenFields('dvdfbody')).get('SetHexColour');
     
     sethc.checked = tohex;
     onHandler(sethc);
+}
+function setValuesSource(source) {
+    let flds = new ScreenFields('dvdfbody');
+    
+    setRadioValue('ValuesSource', source);
+    setHidden(flds.get('FilterValues'), source !== 'List');
 }
 function getColour(flds, required) {
     return flds.getValue(flds.get('SetHexColour').checked? 'HexColour' : 'Colour', required);
@@ -618,11 +765,121 @@ function getColour(flds, required) {
 function validateLine(flds) {
     let colour = getColour(flds, true);
     
-    if (!flds.hasValue('LineName',     true)) return null;
-    if (!flds.hasValue('LineIndex',    true)) return null;
-    if (!flds.hasValue('SourceColumn', true)) return null;
-    if (!flds.hasValue('DataName',     true)) return null;    
-    if (colour === '')                        return null; 
+    if (!flds.checkValue('LineName', true).valid)     return null;
+    if (!flds.checkValue('LineIndex', true).valid)    return null;
+    if (!flds.checkValue('SourceColumn', true).valid) return null;
+    if (!flds.checkValue('DataName', true).valid)     return null;
+    if (colour === '')                                return null; 
+    
+    let fltcol = flds.getValue('FilterColumn');
+    let fltval = flds.getValue('FilterValue');
+    
+    if (fltcol !== '' && fltval === '') {
+        flds.report('FilterColumn', 'requires a filter value');
+        return null;
+    }
+    if (fltcol === '' && fltval !== '') {
+        flds.report('FilterValue', 'requires a filter column');
+        return null;
+    }
+    let pars   = colour;
+    pars = appendField(pars, ',', flds.getValue('SourceColumn'));
+    pars = appendField(pars, ':', flds.getValue('Aggregate'));
+    pars = appendField(pars, ':', flds.getValue('DataName'));
+    
+    if (fltcol !== '') {
+        pars = appendField(pars, ',', fltcol);
+        pars = appendField(pars, '=', fltval);
+        
+    }
+    return pars;
+} 
+function validatePart(flds, part, action) {
+    let fields = {type: part};
+    let params = '';
+    
+    if (!flds.checkValue(part + 'Name',  true).valid)    return null;
+    if (!flds.checkValue(part + 'Index', true).valid)    return null;
+    
+    fields.index = flds.getValue(part + 'Index');   
+    fields.name  = flds.getValue(part + 'Name');
+   
+    switch (part) {
+        case 'Filter':
+            let source = getRadioValue('ValuesSource');
+            
+            if (!flds.checkValue('FilterTitle', true).valid) return null;
+            
+            fields.title = flds.getValue('FilterTitle');
+            
+            if (!flds.checkValue('FilterName', true).valid) return null;
+            
+            fields.name = flds.getValue('FilterName');
+            params      = flds.getValue('FilterLabel');
+            
+            switch(source) {
+                case 'none':
+                    break;
+                case 'DB':
+                    params += ',' + source;
+                    break;
+                case 'List':
+                    if (!flds.checkValue('FilterValues', true).valid) return null;
+                    
+                    params += ',' + source + ',' + flds.getValue('FilterValues');
+                    break;                    
+            }
+            fields.params = params;
+            break;
+        case 'Group':
+            if (!flds.checkValue('GroupFields', true).valid) return null;
+            
+            fields.params = flds.getValue('GroupFields');
+            break;
+        case 'Line':
+            let colour = getColour(flds, true);
+            
+            if (!flds.checkValue('SourceColumn', true).valid) return null;
+            if (!flds.checkValue('DataName', true).valid)     return null;
+            if (colour === '')                                return null; 
+            
+            let fltcol = flds.getValue('FilterColumn');
+            let fltval = flds.getValue('FilterValue');
+            
+            if (!flds.checkValue('SourceColumn', true).valid) return null;
+            if (!flds.checkValue('DataName', true).valid)     return null;
+            if (colour === '')                                return null; 
+                
+            if (fltcol !== '' && fltval === '') {
+                flds.report('FilterColumn', 'requires a filter value');
+                return null;
+            }
+            if (fltcol === '' && fltval !== '') {
+                flds.report('FilterValue', 'requires a filter column');
+                return null;
+            }
+            let pars   = colour;
+            pars = appendField(pars, ',', flds.getValue('SourceColumn'));
+            pars = appendField(pars, ':', flds.getValue('Aggregate'));
+            pars = appendField(pars, ':', flds.getValue('DataName'));
+            
+            if (fltcol !== '') {
+                pars = appendField(pars, ',', fltcol);
+                pars = appendField(pars, '=', fltval);
+            }
+            fields.params = pars;
+            break;            
+    };
+    return fields;
+} 
+function validateLine(flds) {
+    let colour = getColour(flds, true);
+    
+    if (!flds.checkValue('LineName', true).valid)     return null;
+    if (!flds.checkValue('LineIndex', true).valid)    return null;
+    if (!flds.checkValue('SourceColumn', true).valid) return null;
+    if (!flds.checkValue('DataName', true).valid)     return null;
+    if (colour === '')                                return null; 
     
     let fltcol = flds.getValue('FilterColumn');
     let fltval = flds.getValue('FilterValue');
@@ -675,21 +932,19 @@ function defineCommand(element) {
     let flds   = new ScreenFields(par.id);
     let action = element.value;
     let params = null;
+    let fields = validatePart(flds, type);
+    
+    if (fields === null) return;
     
     if (element.value === 'Reset') {
         setPartMode(type, false);
         return;
     }
-    if (type === 'Line' && action !== 'Delete') {
-        params = validateLine(flds);
-        
-        if (params === null) return;
-    }
     switch (action) {
         case 'Delete':
         case 'New':
         case 'Update':
-            updateDefinitionRow(type, action, params);
+            updateDefinitionRow(fields, action, params);
             break; 
         default:
             console.log('defineCommand action ' + action + ' not implemented');
@@ -736,7 +991,6 @@ function defineChart(actionpar) {
     
     if (action === 'Create' && !fieldHasValue(flds.get('XColumn'))) return;
     
-    
     ajaxLoggedInCall('Chart', processResponse, pars);
 }
 function chartAction(element) {
@@ -770,13 +1024,18 @@ function testselect(element) {
             displayAlert('Error', 'Test action ' + element.name + ' not implemented');
     }
 }
+function logMouseEvent(event) {
+    logMouse('charter', event);
+}
 function initialize(loggedIn) {
     if (!loggedIn) return;
     
     chart = new Charter('myChart');
     setRadioValue('menu',    'displaychart');
     setRadioValue('SetType', 'linecolumn');
+    setValuesSource('none');
     menuChartBuild('displaychart'); 
     setCharts();
+    setHidden('test', true);
+    document.addEventListener('mousedown', logMouseEvent);
 }
-

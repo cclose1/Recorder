@@ -5,6 +5,7 @@
 var alertTime;
 var useBrowserAlert = true;
 var alertOptions    = new AlertOptions();
+var globalOptions;
 var alertOnDisplay  = false;
 var alertMover      = new elementMover();
 var al;
@@ -33,27 +34,30 @@ class ConfirmAction {
 function AlertOptions() {   
     BaseOptions.call(this, false);
     
-    this.addSpec({name: 'confirm',       type: 'object',  default: null,  mandatory: false});
-    this.addSpec({name: 'focus',         type: 'object',  default: null,  mandatory: false});
-    this.addSpec({name: 'clearValue',    type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'alertData',     type: 'object',  default: null,  mandatory: false});
-    this.addSpec({name: 'autoDismiss',   type: 'boolean', default: true,  mandatory: false});
-    this.addSpec({name: 'blockApp',      type: 'boolean', default: false, mandatory: false});
-    this.addSpec({name: 'minWidth',      type: 'number',  default: null,  mandatory: false});
-    this.addSpec({name: 'minHeight',     type: 'number',  default: null,  mandatory: false});
-    this.addSpec({name: 'blockElements', type: undefined, default: null,  mandatory: false});
+    this.addSpec({name: 'confirm',         type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'focus',           type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'position',        type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'clearValue',      type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'alertData',       type: 'object',  default: null,  mandatory: false});
+    this.addSpec({name: 'autoDismiss',     type: 'boolean', default: true,  mandatory: false});
+    this.addSpec({name: 'moveToMouseDown', type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'blockApp',        type: 'boolean', default: false, mandatory: false});
+    this.addSpec({name: 'minWidth',        type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'minHeight',       type: 'number',  default: null,  mandatory: false});
+    this.addSpec({name: 'blockElements',   type: undefined, default: null,  mandatory: false});
        
     this.clear();
 }
 function ConfigureAlertOptions(pOptions) {   
     BaseOptions.call(this, false);
     
-    this.addSpec({name: 'useBrowser',  type: 'boolean',  default: false,       mandatory: false});
-    this.addSpec({name: 'appId',       type: 'string',   default: 'appframe',  mandatory: false});
-    this.addSpec({name: 'rootId',      type: 'string',   default: 'alertid',   mandatory: false});
-    this.addSpec({name: 'build',       type: 'boolean',  default: true,        mandatory: false});
-    this.addSpec({name: 'enableMove',  type: 'boolean',  default: true,        mandatory: false});
-    this.addSpec({name: 'autoDismiss', type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'useBrowser',      type: 'boolean',  default: false,       mandatory: false});
+    this.addSpec({name: 'appId',           type: 'string',   default: 'appframe',  mandatory: false});
+    this.addSpec({name: 'rootId',          type: 'string',   default: 'alertid',   mandatory: false});
+    this.addSpec({name: 'build',           type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'enableMove',      type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'autoDismiss',     type: 'boolean',  default: true,        mandatory: false});
+    this.addSpec({name: 'moveToMouseDown', type: 'boolean',  default: false,       mandatory: false});
        
     this.clear();
     this.load(pOptions, false);
@@ -115,7 +119,7 @@ function trace(ev, initial) {
         if (el !== null) el.value = initial? 0 : parseInt(el.value, 10) + 1;
     }
 }
-function alertMouseMove() {
+function alertMouseMove(event) {
     event.preventDefault();
     traceTarget(event.currentTarget);
     return alertMover.move(event);
@@ -180,6 +184,18 @@ function setBlock(on) {
     }
 }
 /*
+ * name  An option that is defined in alertOptions and also may also be in the global options.
+ * 
+ * If the option has been explicitly loaded in alertOptions or it does not exist in
+ * globalOptions its alertOptions value is returned, otherwise its globalOptions value is returned
+ * irrespective of whether is has been explicitly loaded. 
+ */
+function getOption(name) {
+    if (alertOptions.isLoaded(name) || !globalOptions.exists(name)) return alertOptions[name];
+    
+    return globalOptions[name];
+}
+/*
  * If alertOptions.autoDismiss is false, autoDismiss overridden and this function returns.
  * 
  * Will cancel the message alert if the there is a click outside of it. The delay is required because the
@@ -187,12 +203,18 @@ function setBlock(on) {
  * used to call displayMessage, the onclick event fires after the function call.
  */
 function checkAlert(e) {
-    if (!alertOptions.autoDismiss) return;
-    
-    var aDiv   = document.getElementById(al.getContainerId());
-    var target = (e && e.target) || (event && event.srcElement);
+    let aDiv   = document.getElementById(al.getContainerId());
+    let target = (e && e.target) || (event && event.srcElement);
 
-    if (new Date().getTime() - alertTime < 1000 || !isVisible(aDiv)) return;
+    if (new Date().getTime() - alertTime < 1000 || !aDiv.checkVisibility()) return;
+    
+    if (getOption('moveToMouseDown')) {
+        console.log('Element ' + e.pointerType + ' screenX ' + e.screenX  + ' screenY ' + e.screenY);
+        al.setSizeAndPosition(e.pageX, e.pageY);
+        
+        return;
+    }
+    if (!alertOptions.autoDismiss) return;
 
     var inDisplay = al.inDisplay(target);
     
@@ -229,6 +251,7 @@ function invokeConfirmAction() {
  *                  actionClick and actionCancel methods having a single parameter. The parameter is used to
  *                  pass the object passed in alertData. See below
  *  - focus         If present the screen element to which focus is set in the event of cancel.
+ *  - position      If present the screen element where the alert will be centred.
  *  - clearValue    If true, on cancel the focus element value is cleared. Ignored if focus element is null.
  *  - alertData     Passed as a parameter to the actionClick and actionCancel methods of the confirm object.
  *                  If confirm is null, this is never used.
@@ -245,6 +268,9 @@ function invokeConfirmAction() {
  *                  a fatal error if any of the elements do not implement the disabled attribute.
  */
 function displayAlert(title, text, options) {
+    let top  = null;
+    let left = null;
+    
     if (alertOnDisplay) dismissAlert();
     
     alertOptions.clear();
@@ -253,6 +279,12 @@ function displayAlert(title, text, options) {
     
     if (title === null || title === undefined) title = '';
     
+    if (alertOptions.position !== null) {
+        let rect = alertOptions.position.getBoundingClientRect();
+        logPosition('alertopt', alertOptions.position);
+        top  = rect.y + window.scrollY + rect.height / 2;
+        left = rect.x + window.scrollX + rect.width  / 2;
+    }
     if (useBrowserAlert) {
         if (alertOptions.confirm === null)
             alert(text);
@@ -263,7 +295,7 @@ function displayAlert(title, text, options) {
                 dismissAlert();
         }
     }
-    else {
+    else { 
         setBlock(true);
         
         al.reset();
@@ -279,20 +311,20 @@ function displayAlert(title, text, options) {
             alOK.onclick = invokeConfirmAction;
             setHidden(alOK, alertOptions.confirm === null);
         }
-        al.display(true, false, alertOptions.minWidth, alertOptions.minHeight);
+        al.display(true, false, alertOptions.minWidth, alertOptions.minHeight, left, top);
     }
 }
 function configureAlert(options) {    
-    var opts = new ConfigureAlertOptions(options);
-    var root = document.getElementById(opts.rootId);
+    globalOptions = new ConfigureAlertOptions(options);
     
-    useBrowserAlert = opts.useBrowser;    
+    let root = document.getElementById(globalOptions.rootId);
+    useBrowserAlert = globalOptions.useBrowser;    
     
     if (useBrowserAlert) return;
     
-    if (root === null) root = createElement(document, 'div', {id: opts.rootId, append: document.body, class: 'centered-abs-xy alertcontainer'});
+    if (root === null) root = createElement(document, 'div', {id: globalOptions.rootId, append: document.body, class: 'centered-abs-xy alertcontainer'});
     
-    if (opts.enableMove) {
+    if (globalOptions.enableMove) {
         root.addEventListener('mousedown', alertMouseMove);
         root.addEventListener('mousemove', alertMouseMove);
         root.addEventListener('mouseup',   alertMouseMove);
@@ -304,7 +336,7 @@ function configureAlert(options) {
         return;
     }
         
-    if (opts.build) {
+    if (globalOptions.build) {
         var flds;
         var div;
         
@@ -318,7 +350,7 @@ function configureAlert(options) {
         createElement(document, 'input', {append: div, id: 'alertOK',     type: 'button', value: 'Yes',    onclick: "dismissAlert()"});
         createElement(document, 'input', {append: div, id: 'alertCancel', type: 'button', value: 'Cancel', onclick: "dismissAlert()"});
     }
-    al.initialise(opts.rootId, opts.appId);
+    al.initialise(globalOptions.rootId, globalOptions.appId);
     
-    if (opts.autoDismiss) al.setDocumentOnClick(checkAlert);
+    if (globalOptions.autoDismiss) al.setDocumentOnClick(checkAlert);
 }
