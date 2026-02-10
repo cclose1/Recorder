@@ -154,8 +154,9 @@ public abstract class ApplicationServer extends HttpServlet {
         if (test) {
             throw new ErrorExit(message);
         }
-    }       
-    public class FileOutput {
+    }    
+    
+    public class FileOutputz {
         private class Column {
             private String id;
             private String title;
@@ -224,13 +225,13 @@ public abstract class ApplicationServer extends HttpServlet {
          * Setting separator to the empty strung is allowed, but possibly not useful. It can be more than one
          * character, but again probably not useful.
          */
-        public FileOutput(String separator) {
+        public FileOutputz(String separator) {
             sf = new StringFormatter(separator);
         }
         /*
          * Defaults StringFormatter separator to ,
          */
-        public FileOutput() {
+        public FileOutputz() {
             this(",");
         }
         /*

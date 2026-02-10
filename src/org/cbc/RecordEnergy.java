@@ -13,6 +13,7 @@ import java.util.Date;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
+import org.cbc.filehandler.FileOutput;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
 import org.cbc.sql.SQLBuilder;
@@ -357,11 +358,43 @@ public class RecordEnergy extends ApplicationServer {
         private Tariff                     tf;
         private Tariff.OffPeak.Accumulator tac;
         
-        public boolean testOp(Date timestamp) throws 
-                ParseException {
-            int mins = getMinutes(timestamp);
-
-            return mins >= 60 * 22 + 30 || mins < 60 * 4 + 30;
+        private class LogValues implements FileOutput.FieldValue {
+            private Tariff.OffPeak.Accumulator source;
+            private FileOutput                 file;
+            
+            @Override
+            public FileOutput.Value getValue(String id) {
+                FileOutput.Value value = null;
+                
+                switch (id) {
+                    case "Day":
+                        value = file.new Value(source.getDate());
+                        break;
+                    case "Total":
+                        value = file.new Value(source.getKwh(), 3);
+                        break;
+                    case "OpKwh":
+                        value = file.new Value(source.getOpKwh(), 3);
+                        break;
+                    case "PkKwh":
+                        value = file.new Value(source.getPkKwh(), 3);
+                        break;
+                    case "FOpKwh":
+                        value = file.new Value(source.getFOpKwh(), 3);
+                        break;
+                    case "PkKwhCost":
+                        value = file.new Value(source.getPkCost(), 2);
+                        break;
+                    case "OpKwhCost":
+                        value = file.new Value(source.getOpCost(), 2);
+                        break;
+                }
+                return value;
+            }
+            public LogValues(FileOutput file, Tariff.OffPeak.Accumulator source) {
+                this.file   = file;
+                this.source = source;
+            }
         }
         /*
          * Writes the totals to the log if dac is not null.
@@ -374,34 +407,16 @@ public class RecordEnergy extends ApplicationServer {
          * A timestamp of null is used to indicate completion. In this case, the current data is written to
          * the log and the files is closed.
          */
-        private void updateDayLog(
+        private void updateDayLog (
                 FileOutput                 fo,
                 Tariff.OffPeak.Accumulator dac,
-                String                     type,
                 Date                       timestamp,
                 float                      reading) throws IOException, SQLException, ParseException {
-            if (dac == null) return;
             
-            if (!fo.isFileOpen()) {
-                fo.addColumn("Day", 18);
-                fo.addColumn("Total",     10);
-                fo.addColumn("OpKwh",     8);
-                fo.addColumn("PkKwh",     8);
-                fo.addColumn("FOpKwh",    8);
-                fo.addColumn("PkKwhCost", 10);
-                fo.addColumn("OpKwhCost", 10);
-                fo.openFile("RecEnergy\\DayCosts" + type + "!Date.log");
-                fo.writeLine();
-            }
+            if (dac == null) return;
+           
             if (timestamp == null || dac.hasDateChanged(timestamp)) {
-                fo.add(dac.getDate());
-                fo.add(dac.getKwh(),    3);
-                fo.add(dac.getOpKwh(),  3);
-                fo.add(dac.getPkKwh(),  3);
-                fo.add(dac.getFOpKwh(), 3);
-                fo.add(dac.getPkCost(), 2);
-                fo.add(dac.getOpCost(), 2);
-                fo.writeLine();
+                fo.addFields();
                 dac.reset();
                 
                 if (timestamp == null) {
@@ -421,7 +436,7 @@ public class RecordEnergy extends ApplicationServer {
             Tariff.OffPeak             op;
             Tariff.OffPeak.Accumulator dac = null;
             ResultSet                  rs;
-            FileOutput                 fo         = new FileOutput(",");
+            FileOutput                 fo         = null;
             boolean                    first      = true;
             Date                       smTime     = new Date();
             SQLSelectBuilder           sql        = new SQLSelectBuilder("SmartMeterUsageData", session.getProtocol());
@@ -440,8 +455,18 @@ public class RecordEnergy extends ApplicationServer {
             op  = tf.new OffPeak(new Date());
             tac = op.new Accumulator();
             
-            if (logDay) dac = op.new Accumulator();
-            
+            if (logDay) {
+                fo = new FileOutput("RecEnergy\\DayCosts" + type + "!Date.log", ",");
+                fo.addColumn("Day", 18);
+                fo.addColumn("Total",     10);
+                fo.addColumn("OpKwh",     8);
+                fo.addColumn("PkKwh",     8);
+                fo.addColumn("FOpKwh",    8);
+                fo.addColumn("PkKwhCost", 10);
+                fo.addColumn("OpKwhCost", 10);
+                dac = op.new Accumulator();
+                fo.setValueProvider(new LogValues(fo, dac));
+            }            
             sql.addField("*");
             sql.addAnd("Type",  "=",  type);
             sql.addAnd("Start", ">=", smStart);
@@ -469,7 +494,7 @@ public class RecordEnergy extends ApplicationServer {
                 } 
                 first  = false;
                 tac.add(smTime, reading);
-                updateDayLog(fo, dac, type, smTime, reading);
+                updateDayLog(fo, dac, smTime, reading);
                 
                 if (dac != null && op.isOffPeak(smTime) && logOpTimes) {
                     fo.add(getLocalDate(smTime, "dd-MMM-yy HH:mm"));
@@ -480,7 +505,7 @@ public class RecordEnergy extends ApplicationServer {
             if (to != null && DateFormatter.dateDiff(smTime, to, DateFormatter.TimeUnits.Minutes) > 30) report = "Missing Smart Meter data after " + smTime;
             
             hours   = DateFormatter.dateDiff(smStart, smTime, DateFormatter.TimeUnits.Hours);
-            updateDayLog(fo, dac, type, null, 0);
+            updateDayLog(fo, dac, null, 0);
         }
         public float getMeterChange() {
             return tac.getReadingChange();
@@ -623,7 +648,7 @@ public class RecordEnergy extends ApplicationServer {
 
             return new MeterReading(session, rs);
         }
-        public DeriveMeterReading(
+        public DeriveMeterReading (
                 DatabaseSession session,
                 String type,
                 Date from,
@@ -643,14 +668,12 @@ public class RecordEnergy extends ApplicationServer {
             this.reading   = offset;
 
             if (logMeter) {
-                fo = new FileOutput(",");
+                fo = new FileOutput("RecEnergy\\Der" + type + "!Date.log", ",");
                 fo.addColumn("Meter Time", 18);
                 fo.addColumn("Reading",    10);
                 fo.addColumn("Source",     -9);
                 fo.addColumn("Derived",    10);
                 fo.addColumn("Difference", 10);
-                fo.openFile("RecEnergy\\Der" + type + "!Date.log");
-                fo.writeLine();
             }
             start = getNearestMeterReading(session, from, this.type, useVerified ? "Verified" : "");
 
