@@ -16,6 +16,7 @@ import javax.servlet.annotation.WebServlet;
 import org.cbc.filehandler.FileOutput;
 import org.cbc.json.JSONException;
 import org.cbc.json.JSONObject;
+import org.cbc.json.JSONTable;
 import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLDeleteBuilder;
 import org.cbc.sql.SQLInsertBuilder;
@@ -358,7 +359,7 @@ public class RecordEnergy extends ApplicationServer {
         private Tariff                     tf;
         private Tariff.OffPeak.Accumulator tac;
         
-        private class LogValues implements FileOutput.FieldValue {
+        private class LogValues implements FileOutput.TableSource {
             private Tariff.OffPeak.Accumulator source;
             private FileOutput                 file;
             
@@ -382,6 +383,9 @@ public class RecordEnergy extends ApplicationServer {
                     case "FOpKwh":
                         value = file.new Value(source.getFOpKwh(), 3);
                         break;
+                    case "FOpCount":
+                        value = file.new Value(source.getFOpCount());
+                        break;
                     case "PkKwhCost":
                         value = file.new Value(source.getPkCost(), 2);
                         break;
@@ -394,6 +398,18 @@ public class RecordEnergy extends ApplicationServer {
             public LogValues(FileOutput file, Tariff.OffPeak.Accumulator source) {
                 this.file   = file;
                 this.source = source;
+            }
+
+            @Override
+            public void setColumns(FileOutput log) {
+                log.addColumn("Day", 18);
+                log.addColumn("Total",     10);
+                log.addColumn("OpKwh",     8);
+                log.addColumn("PkKwh",     8);
+                log.addColumn("FOpKwh",    8);
+                log.addColumn("FOpCount",  8);
+                log.addColumn("PkKwhCost", 10);
+                log.addColumn("OpKwhCost", 10);
             }
         }
         /*
@@ -416,7 +432,7 @@ public class RecordEnergy extends ApplicationServer {
             if (dac == null) return;
            
             if (timestamp == null || dac.hasDateChanged(timestamp)) {
-                fo.addFields();
+                fo.addTableRow();
                 dac.reset();
                 
                 if (timestamp == null) {
@@ -457,15 +473,8 @@ public class RecordEnergy extends ApplicationServer {
             
             if (logDay) {
                 fo = new FileOutput("RecEnergy\\DayCosts" + type + "!Date.log", ",");
-                fo.addColumn("Day", 18);
-                fo.addColumn("Total",     10);
-                fo.addColumn("OpKwh",     8);
-                fo.addColumn("PkKwh",     8);
-                fo.addColumn("FOpKwh",    8);
-                fo.addColumn("PkKwhCost", 10);
-                fo.addColumn("OpKwhCost", 10);
                 dac = op.new Accumulator();
-                fo.setValueProvider(new LogValues(fo, dac));
+                fo.setTableSource(new LogValues(fo, dac));
             }            
             sql.addField("*");
             sql.addAnd("Type",  "=",  type);
@@ -519,6 +528,9 @@ public class RecordEnergy extends ApplicationServer {
         public float getFOpKwh() {
             return tac.getFOpKwh();
         }
+        public int getFOpCount() {
+            return tac.getFOpCount();
+        }
         public float getPeakCost() {
             return tac.getPkCost();
         }
@@ -569,7 +581,7 @@ public class RecordEnergy extends ApplicationServer {
             return report;
         }
     }
-    private class DeriveMeterReading {
+    private class DeriveMeterReading  {
         LocalErrorExit exit = new LocalErrorExit("CreateMeterReading", "");
         Date           from;
         Date           to;
@@ -584,7 +596,50 @@ public class RecordEnergy extends ApplicationServer {
         boolean        complete = false;
         String         error = "";
         FileOutput     fo;
+        Logger         logger;
+        
+        private class Logger implements FileOutput.TableSource {
+            private MeterReading   mr;
+            private double         derived;
+            
+            public void setData(MeterReading reading, double derivedReading) {
+                mr      = reading;
+                derived = derivedReading;
+            }            
+            @Override
+            public FileOutput.Value getValue(String id) {
+                double diff = mr.getReading() - derived;
+                FileOutput.Value value = null;
+                switch (id) {
+                    case "Meter Time":
+                        value = fo.new Value(mr.getTimestamp());
+                        break;
+                    case "Reading":
+                        value = fo.new Value(mr.getReading(), 3);
+                        break;
+                    case "Source":
+                        value = fo.new Value(mr.getSource());
+                        break;
+                    case "Derived":
+                        value = fo.new Value(derived, 3);
+                        break;
+                    case "Difference":
+                        value = fo.new Value(diff, 3);
+                        break;
+                }
+                return value;
+            }
 
+            @Override
+            public void setColumns(FileOutput log) {
+                log.addColumn("Meter Time", 18);
+                log.addColumn("Reading",    10);
+                log.addColumn("Source",     -9);
+                log.addColumn("Derived",    10);
+                log.addColumn("Difference", 10);
+            }
+            
+        }
         private void log(DatabaseSession session, Date timestamp, double derivedReading) throws SQLException, IOException {
             if (this.fo == null) return;
             
@@ -592,14 +647,8 @@ public class RecordEnergy extends ApplicationServer {
 
             if (!mr.load()) return;
             
-            double diff = mr.getReading() - derivedReading;
-            
-            fo.add(mr.timestamp);
-            fo.add(mr.getReading(), 3);
-            fo.add(mr.getSource());
-            fo.add(derivedReading, 3);
-            fo.add(diff, 3);
-            fo.writeLine();
+            logger.setData(mr, derivedReading);
+            fo.addTableRow();
         }
         private void error(String message) {
             StringBuilder report = new StringBuilder("For ");
@@ -668,12 +717,9 @@ public class RecordEnergy extends ApplicationServer {
             this.reading   = offset;
 
             if (logMeter) {
-                fo = new FileOutput("RecEnergy\\Der" + type + "!Date.log", ",");
-                fo.addColumn("Meter Time", 18);
-                fo.addColumn("Reading",    10);
-                fo.addColumn("Source",     -9);
-                fo.addColumn("Derived",    10);
-                fo.addColumn("Difference", 10);
+                fo     = new FileOutput("RecEnergy\\Der" + type + "!Date.log", ",");
+                logger = new Logger();
+                fo.setTableSource(logger);
             }
             start = getNearestMeterReading(session, from, this.type, useVerified ? "Verified" : "");
 
@@ -952,23 +998,24 @@ public class RecordEnergy extends ApplicationServer {
                 ctx.getBoolean("LogDaily", false));
         JSONObject data = new JSONObject();
 
-        data.add("MeterChange",     ec.getMeterChange(), 2);
-        data.add("OffPeakCost",     ec.getOpCost() / 100, 2);
-        data.add("OffPeakKwh",      ec.getOpKwh(), 2);
-        data.add("SwitchedPeakKwh", ec.getFOpKwh(), 2);
-        data.add("PeakCost",        ec.getPeakCost() / 100, 2);
-        data.add("PeakKwh",         ec.getPeakKwh(), 2);
-        data.add("StandingCost",    ec.getStdCost() / 100, 2);
-        data.add("StandingCharge",  ec.getStandingCharge(), 2);
-        data.add("UnitRate",        ec.getUnitRate(), 2);
-        data.add("OffPeakRate",     ec.getOpRate(), 2);
-        data.add("CalorificValue",  ec.getCalorificValue(), 2);
-        data.add("Days",            ec.getDays());        
-        data.add("TotalCost",       ec.getTotalCost(false) / 100, 2);
-        data.add("TotalWithVat",    ec.getTotalCost(true) / 100, 2);
-        data.add("ValuesUsed",      ec.getUsageCount());
-        data.add("DataEnd",         ctx.getDbTimestamp(ec.getDataEnd()));
-        data.add("Report",          ec.getReport());
+        data.add("MeterChange",       ec.getMeterChange(), 2);
+        data.add("OffPeakCost",       ec.getOpCost() / 100, 2);
+        data.add("OffPeakKwh",        ec.getOpKwh(), 2);
+        data.add("SwitchedPeakKwh",   ec.getFOpKwh(), 2);
+        data.add("SwitchedPeakCount", ec.getFOpCount());
+        data.add("PeakCost",          ec.getPeakCost() / 100, 2);
+        data.add("PeakKwh",           ec.getPeakKwh(), 2);
+        data.add("StandingCost",      ec.getStdCost() / 100, 2);
+        data.add("StandingCharge",    ec.getStandingCharge(), 2);
+        data.add("UnitRate",          ec.getUnitRate(), 2);
+        data.add("OffPeakRate",       ec.getOpRate(), 2);
+        data.add("CalorificValue",    ec.getCalorificValue(), 2);
+        data.add("Days",              ec.getDays());        
+        data.add("TotalCost",         ec.getTotalCost(false) / 100, 2);
+        data.add("TotalWithVat",      ec.getTotalCost(true) / 100, 2);
+        data.add("ValuesUsed",        ec.getUsageCount());
+        data.add("DataEnd",           ctx.getDbTimestamp(ec.getDataEnd()));
+        data.add("Report",            ec.getReport());
         data.append(ctx.getReplyBuffer(), "");
     }
     private MeterReading fromRequest(Context ctx, boolean keyOnly) throws ParseException {
@@ -987,7 +1034,7 @@ public class RecordEnergy extends ApplicationServer {
         Date       start     = ctx.getTimestamp("Start");  
         Date       end       = ctx.getTimestamp("End");
         String     table     = ctx.getParameter("Table");
-        JSONObject data      = new JSONObject();
+        JSONTable  data      = new JSONTable("ChartData");
         String     group     = ctx.getParameter("GroupByN", "");
         boolean    isGroup   = !group.equals("");
         boolean    timeLocal = ctx.getBoolean("TimeLocal", false);
@@ -1042,7 +1089,7 @@ public class RecordEnergy extends ApplicationServer {
             sql.addField(alias, name);
         }
         rs = ctx.getAppDb().executeQuery(sql.build());
-        data.add("ChartData", rs, timeLocal);
+        data.load(rs, timeLocal);
         data.append(ctx.getReplyBuffer());
     }
     private void getSMData(Context ctx) throws SQLException, ParseException, JSONException, IOException {

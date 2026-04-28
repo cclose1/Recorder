@@ -54,13 +54,23 @@
                                             <input readonly type='text' name='Unit' size='15' id="chargeunit"  tabindex="0">
                                         </div>
                                         <div>
-                                            <label for="estduration" class = 'largelab'>Est Full Charge</label>
+                                            <label for="targetpc" class = 'largelab'>Target %</label>
+                                            <input type="text" name='TargetPerCent' size ="7" id="targetpc" tabindex="0" onchange="updateEstimates(this);">
+                                        </div>
+                                        <div>
+                                            <label for="estduration" class = 'largelab'>Est Duration</label>
                                             <input type="text" name='EstDuration' size ="7" id="estduration" tabindex="0">
                                             <label class="nogap">Hours</label>                       
                                         </div>
                                         <div>
-                                            <label for="maxduration" class = 'largelab'>Max Duration</label>
-                                            <input type="text" name='MaxDuration' size ="7" id="maxduration" tabindex="0">
+                                            <label for="estkwh" class = 'largelab'>Est Kwh</label>
+                                            <input type="text" name='EstKwh' size ="7" id="estkwh" tabindex="0">
+                                        </div>
+                                        <div>
+                                            <label for="estderive" class = 'largelab'>Derivation</label>
+                                            <input type="text" class='notparam' name='EstDerivation' size ="7" id="estderive" tabindex="0">
+                                            <input id='estdet' type='checkbox' class='notparam' onclick='onHandler(this)' name='EstDetails'>
+                                            <label for='estdet' class='nogap'>Details</label> 
                                         </div>
                                         <div>
                                             <label for="sessioncomment" class = 'largelab'>Comment</label>
@@ -81,7 +91,7 @@
                                         </div>
                                         <div>
                                             <label for="schargepc">Charge %</label>
-                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onchange="startPercentChange();">
+                                            <input type="text" name="StartPerCent" size ="7" id="schargepc" tabindex="0" onchange="updateEstimates(this);">
                                         </div>
                                         <div>
                                             <label for="smiles">Miles</label>
@@ -192,6 +202,39 @@
                                 <div class='left'>
                                     <label for='prgcomplete' class='prglabwidth'>Estimated Completion</label>
                                     <input type="text" readonly size ="15" id='prgcomplete' tabindex="0">                          
+                                </div>
+                            </fieldset>
+                            <fieldset id="Estimate" class='centreminwidth form'>
+                                <legend>Estimate Details</legend>
+                                <div>
+                                    <label for="eststpc">Start %</label>
+                                    <input type="text" name="StartPerCent" id="eststpc" size='1' tabindex='0' readonly> 
+                                    <label for="pctar">Target %</label>
+                                    <input id="pctar" type='text' name='TargetPerCent' size ='7' tabindex='0' readonly>
+                                </div> 
+                                <div>
+                                    <label for="estses">Sessions</label>
+                                    <input type="text" name="Sessions" id="estses" size='1' tabindex='0' readonly> 
+                                    <label for="estder">Derivation</label>
+                                    <input id="estder" type='text' name='Derivation' size ='7' tabindex='0' readonly>
+                                </div> 
+                                <div class='floatleft'>
+                                    <table id="estparams" style='background-color: inherit'>
+                                        <caption>Parameters</caption>
+                                        <thead>
+                                            <tr>
+                                                <th style='width:60px'>Name</th>
+                                                <th style='width:60px' class='number'>Min</th>
+                                                <th style='width:60px' class='number'>Avg</th>
+                                                <th style='width:60px' class='number'>Max</th>                                            
+                                                <th style='width:60px' class='number'>Std</th>  
+                                            </tr>
+                                        </thead>
+                                        <tbody class='xx'></tbody>
+                                    </table>
+                                    <table id = 'dervparams'>     
+                                        <caption>Params Derivation</caption>
+                                    </table>
                                 </div>
                             </fieldset>
                             <fieldset id="updatelog" hidden class='form centreminwidth'>

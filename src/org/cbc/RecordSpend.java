@@ -180,12 +180,15 @@ public class RecordSpend extends ApplicationServer {
         }
         t.exit();
     }
+    @Override
     public String getVersion() {        
         return "V2.2 Released 05-Dec-18";    
     }
+    @Override
     public void initApplication (ServletConfig config, ApplicationServer.Configuration.Databases databases) throws ServletException, IOException {
         this.config.load(config, databases);        
     }
+    @Override
     public void processAction(
             Context ctx,
             String  action) throws ServletException, IOException, SQLException, JSONException, ParseException {
@@ -276,13 +279,13 @@ public class RecordSpend extends ApplicationServer {
                 rs = executeQuery(ctx, sel.build());
                 
                 if (rs.next() && !seqNo.equals(rs.getString("SeqNo"))) {
-                    ctx.getReplyBuffer().append("Change time as details already recorded for " + timestamp);
+                    ctx.getReplyBuffer().append("Change time as details already recorded for ").append(timestamp);
                 }
                 ctx.setStatus(200);
                 break;
             default:
                 ctx.dumpRequest("Action " + action + " is invalid");
-                ctx.getReplyBuffer().append("Action " + action + " is invalid");
+                ctx.getReplyBuffer().append("Action ").append(action).append(" is invalid");
                 break;
         }
     }

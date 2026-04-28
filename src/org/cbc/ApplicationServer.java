@@ -384,6 +384,32 @@ public abstract class ApplicationServer extends HttpServlet {
 
         getList(ctx, table, field);
     }
+    /*
+     * This method handles the conversion of a parameter from local time to GMT. FOr this to happen 
+     * the following conditions have to be satisfied:
+     *   - Parameter name has to exist.
+     *   - The parameter TimeOffset must have the value Local. This indicates the name parameter represents local
+     *     time and has to be converted to GMT
+     *   - dbType must either be DATETIME or DATE.
+     *
+     * If the parameter name value is converted to GMT. Otherewise the parameter value is returned.
+     *
+     * Note: An exception may occur if the value being converted is not a valid date string.     
+     */
+    private String getParameter(Context ctx, String name, String dbType) throws ParseException {
+        String offset = ctx.getParameter("TimeOffset", "");
+        
+        if (ctx.existsParameter(name) && offset.equalsIgnoreCase("local") && (dbType.equalsIgnoreCase("datetime") || (dbType.equalsIgnoreCase("date"))))  
+        {
+            Date timestamp  = timeWithDate.toGMT(ctx.getTimestamp(name));
+            
+            if (dbType.equalsIgnoreCase("datetime"))
+                return ctx.getDbTimestamp(timestamp);
+            else
+                return ctx.getDbDate(timestamp);
+        } else
+            return ctx.getParameter(name);
+    }
     protected void changeTableRow(Context ctx, String tableName, String action) throws SQLException, ParseException {
         SQLBuilder sql;
 
@@ -415,16 +441,16 @@ public abstract class ApplicationServer extends HttpServlet {
         for (DatabaseSession.Column col : columns) {
             if (col.isPrimeKeyColumn() && keyRequired) {
                 String keyParam = col.getName();
-
+                
                 if (ctx.existsParameter("Key!" + col.getName())) {
                     keyParam = "Key!" + col.getName();
                 } else if (!ctx.existsParameter(keyParam)) {
                     throw new ErrorExit("Key column " + keyParam + " is not a parameter", Severity.ApplicationError);
                 }
-                sql.addAnd(col.getName(), "=", ctx.getParameter(keyParam), col.getTypeName());
+                sql.addAnd(col.getName(), "=", getParameter(ctx, keyParam, col.getTypeName()), col.getTypeName());
             }
             if (!delete && col.isModifiable()) {
-                sql.addField(col.getName(), ctx.getParameter(col.getName()), col.getTypeName());
+                sql.addField(col.getName(), getParameter(ctx, col.getName(), col.getTypeName()), col.getTypeName());
             }
         }
         executeUpdate(ctx, sql.build());
@@ -835,6 +861,19 @@ public abstract class ApplicationServer extends HttpServlet {
 
             try {
                 return Double.parseDouble(value);
+            } catch (NumberFormatException e) {
+                throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
+            }
+        }
+        public float getFloat(String name, int nullDefault) {
+            String value = getParameter(name);
+
+            if (value.length() == 0) {
+                return nullDefault;
+            }
+
+            try {
+                return Float.parseFloat(value);
             } catch (NumberFormatException e) {
                 throw new ErrorExit("Parameter " + name + "-error converting '" + value + "' to double");
             }
@@ -1366,7 +1405,6 @@ public abstract class ApplicationServer extends HttpServlet {
         measureSQL.end(sql);
         return rs;
     }
-
     protected ResultSet executeQuery(Context ctx, SQLBuilder sql) throws SQLException {
         return executeQuery(ctx, sql.build());
     }
@@ -1697,7 +1735,7 @@ public abstract class ApplicationServer extends HttpServlet {
      * Implementations should ignore actions that are not relevant to them, i.e. it should not generate
      * an error for them.
      */
-    protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException {
+    protected void completeAction(Context ctx, boolean start) throws SQLException, ErrorExit, ParseException, JSONException {
 
     }
 
@@ -2184,16 +2222,18 @@ public abstract class ApplicationServer extends HttpServlet {
                 private float  pkKwh;
                 private float  opKwh;
                 private float  fOpKwh;
+                private int    fOpCount;
                 private float  pkCost;
                 private float  opCost;
                 private int    increments;
                 private String date;
 
-                public void reset() {
+                public final void reset() {
                     kwh        = 0;
                     pkKwh      = 0;
                     opKwh      = 0;
                     fOpKwh     = 0;
+                    fOpCount   = 0;
                     pkCost     = 0;
                     opCost     = 0;
                     increments = 0;
@@ -2214,6 +2254,9 @@ public abstract class ApplicationServer extends HttpServlet {
                 }
                 public float getFOpKwh() {
                     return fOpKwh;
+                }
+                public int getFOpCount() {
+                    return fOpCount;
                 }
                 public float getPkCost() {
                     return pkCost;
@@ -2239,7 +2282,10 @@ public abstract class ApplicationServer extends HttpServlet {
                         opKwh  += kwhl;
                         opCost += kwhl * getOpRate();
                         
-                        if (isForceOffPeak()) fOpKwh += kwhl;
+                        if (isForceOffPeak()) {
+                            fOpKwh   += kwhl;
+                            fOpCount += 1;
+                        }
                     } else {
                         pkKwh  += kwhl;
                         pkCost += kwhl * getUnitRate();

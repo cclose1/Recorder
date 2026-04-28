@@ -495,7 +495,7 @@ class ScreenFields {
             } else
                 res.elm = null;
         }
-        if (!isNull(res.elm) && defaultNull(mustExist, false))
+        if (isNull(res.elm) && defaultNull(mustExist, false))
             throw 'Field ' + field + ' not found in screenFields ' + this.#id;
         
         return res;        
@@ -2071,7 +2071,7 @@ function JSONArrayOptions(pOptions) {
 
     setObjectName(this, 'JSONArrayOptions');
 
-    if (!isNull(pOptions.scroll) && pOptions.scroll !== 'table' && pOptions.scroll !== 'body')
+    if (!isNull(pOptions) && !isNull(pOptions.scroll) && pOptions.scroll !== 'table' && pOptions.scroll !== 'body')
         this.error('scroll option is ' + pOptions.scroll + ' and must be table or body');
 
     this.addSpec({name: 'onClick',       type: 'string',  default: null,   mandatory: false});
@@ -2557,7 +2557,7 @@ function normaliseValue(value, type, scale, nullToSpace) {
     }
     if (type === 'decimal' && scale !== 0 && value !== '') {
         try {
-            value = value.toFixed(scale);
+            value = tidyNumber(value, false, scale);
         } catch (e) {
             reporter.logThrow(e, true);
         }
@@ -3024,7 +3024,8 @@ class Table {
     getColIndex(id, mustExist)  {
         if (typeof id === 'string') {
             for (let i = 0; i < this.#header.cells.length; i++) {
-                if (this.#header.cells[i].getAttribute('name') === id) return i;
+                let col = this.#header.cells[i];
+                if (col.getAttribute('name') === id || col.innerHTML === id) return i;
             }
         } else if (id >= 0 && id < this.#header.cells.length) 
             return id;

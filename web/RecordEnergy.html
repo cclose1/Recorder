@@ -176,7 +176,7 @@
                             </div>
                             <div>
                                 <label for="cststype">Type</label>
-                                <select id="cststype" name='Type' class='optlist' onchange="clearFields(); requestScreenReadings('calculatestart')">
+                                <select id="cststype" name='Type' class='optlist' onchange="setDisplayedCostFields(this); requestScreenReadings('calculatestart')">
                                     <option>Electric</option>
                                     <option>Gas</option>
                                 </select>
@@ -247,11 +247,13 @@
                             <div>
                                 <label class='largelab' for='cstsswpkval'>Switched Peak</label>
                                 <input class='right' type="text" name="SwitchedPeakKwh" id="cstsswpkval" size="3" readonly>
+                                <label for='cstsswpkcnt' class='gap57ar'>Count</label>
+                                <input class='right' type="text" name="SwitchedPeakCount" id="cstsswpkcnt" size="3" readonly>
                             </div>
                             <div>
                                 <label class='largelab' for="cststeddat">Data End Date</label>
                                 <input type="text" name="DataEnd~Date" id="cststeddat" class='date' maxlength="11" readonly>
-                                <label for="cststedtim" class="nogap">Time</label>
+                                <label for="cststedtim" class='gap57ar'>Time</label>
                                 <input type="text" name="DataEnd~Time" size="8" id="cststedtim" class='time' maxlength="8" readonly>
                             </div>
                         </fieldset>
@@ -302,8 +304,6 @@
                             <div>
                                 <label for="tmoffset">Time Offset</label>
                                 <select id="tmoffset" Name="TimeOffset" class='optlist'>
-                                    <option>Local</option>
-                                    <option>GMT</option>
                                 </select>
                             </div>
                             <div>
@@ -534,6 +534,8 @@
                     <fieldset id="pkovrrride" class='centreminwidth form'>                        
                         <legend>Peak Override</legend>
                         <div>
+                            <input type="text" name='Key!Start~Date' id='ovrsdatecp' hidden>
+                            <input type="text" name='Key!Start~Time' id='ovrstimecp' hidden>
                             <div>
                                 <label for="ovrsdate">From Date</label>
                                 <input type="text" name="Start~Date" id="ovrsdate" class='date' maxlength="11" onchange="checkPeakOverride(this)">
@@ -545,6 +547,11 @@
                                 <input type="text" name="End~Date" id="ovredate" class='date' maxlength="11" onFocus="checkPeakOverride(this)" onchange="checkPeakOverride(this)">
                                 <label for="ovretime" class="nogap">Time</label>
                                 <input type="text" name="End~Time" size="8" id="ovretime" class='time' maxlength="8" onchange="checkPeakOverride(this)">
+                            </div>
+                            <div>
+                                <label for="pkotmo">Time Offset</label>
+                                <select id="pkotmo" Name="TimeOffset" class='optlist'>
+                                </select>
                             </div> 
                             <div>
                                 <label for="pkostatus">Status</label>
@@ -552,14 +559,20 @@
                                     <option>Initial</option>
                                     <option>Used</option>
                                     <option>Ignore</option>
+                                    <option>Changed</option>
+                                    <option>Replaced</option>
+                                    <option>Test</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label for="pkoreplace">Replace</label>
+                                <input type= "checkbox" name="Replace" id='pkoreplace' onclick='pkoReplace(this)'>
                             </div>
                             <div>
                                 <label for="pkovrcomment">Comment</label>
                                 <textarea id='pkovrcomment' name='Comment' rows='2'></textarea>
                             </div>  
-                            <div>
-                                <label for="ovrcreate"></label>
+                            <div class="centredtext">
                                 <input id="ovrcreate" name="ovrcreate" class='notparam' type="button" value="Create" onclick="actionPeakOverride(this);">
                                 <input id="ovrmodify" name="ovrmodify" class='notparam' type="button" value="Modify" onclick="actionPeakOverride(this);">
                                 <input id="ovrdelete" name="ovrdelete" class='notparam' type="button" value="Delete" onclick="actionPeakOverride(this);">

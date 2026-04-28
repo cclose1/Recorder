@@ -12,8 +12,8 @@ var snFlds    = null;
 var hdrFlds   = null;
 let sesClosed = false;
 var csTab     = null;
-let capacity  = -1;
-let rate      = -1;
+let capacityx  = -1;
+let ratex      = -1;
 
 class TableChangeAlerter {
     tableChange(table, action, listenerKey) {
@@ -30,6 +30,15 @@ class TableChangeAlerter {
 let ts          = new TableChangeAlerter();
 let confirmSend = new ConfirmAction(send);
 
+function onHandler(element) {
+    switch (element.name) {
+        case 'EstDetails':
+            setHidden('Estimate', !element.checked);
+            break;
+        default:
+            console.log('onHandler + id ' + element.id + ' not handled');
+    }
+}
 function lockKey(yes) {
     if (yes === undefined) yes = !event.target.checked;
     
@@ -197,8 +206,9 @@ function requestChargeSessions(filter) {
              columns: [{name: 'StartMiles',     wrapHeader: true,  splitName:   true},
                        {name: 'EndMiles',       wrapHeader: true,  splitName:   true},
                        {name: 'EstDuration',    wrapHeader: true,  splitName:   true},
-                       {name: 'MaxDuration',    wrapHeader: true,  splitName:   true},
+                       {name: 'EstKwh',         wrapHeader: true,  splitName:   true},
                        {name: 'ChargeDuration', wrapHeader: true,  splitName:   true},
+                       {name: 'TargetPerCent',  wrapHeader: false, columnTitle: 'Target %'},
                        {name: 'StartPerCent',   wrapHeader: false, columnTitle: 'Start %'},
                        {name: 'EndPerCent',     wrapHeader: false, columnTitle: 'End %'}]});
         document.getElementById('chargesessionstable').removeAttribute('hidden');
@@ -273,7 +283,7 @@ function clearData() {
  * Note: The calculation does not take account of the rate dropping when nearing 100%.
  * 
  */
-function startPercentChange() {
+function startPercentChangeX() {
     if (snFlds.getValue('StartPerCent') !== '' &&
        (snFlds.getValue('EstDuration') === '' || snFlds.getValue('EstDuration') === 0))
     {
@@ -291,12 +301,81 @@ function startPercentChange() {
         /*
          * If either rate or capacity are negative, the data is not available, so return.
          */
-        if (rate < 0 || capacity < 0) return;
+        if (ratex < 0 || capacityx < 0) return;
         
         let chPerHr = 100 * rate / capacity;
         let duration = convertDuration((100 - snFlds.getValue('StartPerCent')) / chPerHr, true);
         snFlds.setValue('EstDuration', duration);
     }
+}
+function expandEstimates(details) {
+    
+}
+function updateEstimates(element) {    
+    let pars    = createParameters('getEstimates', {fields:  snFlds.getFields()});
+    let params  = new Table('estparams');
+    let parFlds = new ScreenFields('Estimate');
+    
+    parFlds.setValue('StartPerCent',   snFlds.getValue('StartPerCent'));
+    parFlds.setValue('TargetPerCent',  snFlds.getValue('TargetPerCent'));
+     
+    function processResponse(response) {
+        let json = stringToJSON(response);
+        
+        json.setFirst();
+        
+        while (json.isNext()) {
+            let mem   = json.next();
+            let value = json.getMember(mem.name).value;
+            
+            function loadParam(row, colName) {
+                params.setRowIndex(row);
+                params.setColumnValue(colName, row === 0? value : convertDuration(value, true));                
+            }
+           
+            switch (mem.name) {
+                case 'Params':
+                    loadJSONArray(value, 'dervparams');
+                    break;                                    
+                case 'EstSessions':
+                    parFlds.setValue('Sessions', value);
+                    break;
+                case 'EstMinKwh': 
+                    loadParam(0, 'Min');                    
+                    break;
+                case 'EstAvgKwh':
+                    snFlds.setValue('EstKwh', value); 
+                    loadParam(0, 'Avg');                    
+                    break;
+                case 'EstMaxKwh': 
+                    loadParam(0, 'Max');                    
+                    break;
+                case 'EstStdKwh': 
+                    loadParam(0, 'Std');                    
+                    break;
+                case 'EstMinDuration': 
+                    loadParam(1, 'Min');
+                    break;
+                case 'EstAvgDuration':
+                    snFlds.setValue('EstDuration', value);  
+                    loadParam(1, 'Avg');
+                    break;
+                case 'EstMaxDuration': 
+                    loadParam(1, 'Max');
+                    break;
+                case 'EstStdDuration': 
+                    loadParam(1, 'Std');
+                    break;
+                case 'EstDerivation':
+                    getElement('estderive').value = value; 
+                    parFlds.setValue('Derivation', value);
+                    break;
+            }
+        } 
+        expandEstimates(json);
+    }
+    ajaxLoggedInCall("CarUsage", processResponse, pars);
+    return true;
 }
 function resetSessions() {
     reset();
@@ -530,14 +609,18 @@ function send(action) {
     /*
      * The start date time must be present for all actions that update the database.
      */
-    let sStart = snFlds.getValue('Start', true);
-    let sEnd   = snFlds.getValue('End',   true);
+    let sStart = null;
+    let sEnd   = null;
     
-    if (valStart) {      
+    if (valStart) {
+        sStart = snFlds.getValue('Start', true);
+        
         if (!snFlds.isValid(csTab, 'header'))      return;
         if (!snFlds.isValid(csTab, 'startfields')) return;
     }
     if (valEnd) {
+        sEnd   = snFlds.getValue('End', true);
+        
         if (!snFlds.hasValue("EndPerCent"))                             return;
         if (!snFlds.hasValue("EndMiles"))                               return;
         if (!checkGreaterOrEqual(snFlds, 'StartMiles',   'EndMiles'))   return;
@@ -695,4 +778,7 @@ function initialize(loggedIn) {
     addTableListener('Test2', ts);
     invokeTableListeners('Test1', 'Update');
     invokeTableListeners('Test2', 'Create');
+    
+    getElement('estdet').checked = false;
+    onHandler(getElement('estdet'));
 }

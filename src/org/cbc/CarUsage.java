@@ -10,16 +10,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.TimeZone;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.cbc.json.JSONException;
-import org.cbc.json.JSONObject;
+import org.cbc.json.JSONTable;
 import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLSelectBuilder;
 import org.cbc.sql.SQLUpdateBuilder;
+import org.cbc.sql.SQLValue;
 import org.cbc.utils.data.DatabaseSession;
+import org.cbc.utils.data.EnhancedResultSet;
 import org.cbc.utils.system.DateFormatter;
 /**
  *
@@ -27,20 +28,164 @@ import org.cbc.utils.system.DateFormatter;
  */
 
 public class CarUsage extends ApplicationServer {
-    private class ChargeParameters {  
-        private String location;
-        private String unit;
-        private String reg;
-        private float  capacity = -1;
-        private float  rate     = -1;
-    
-        public ChargeParameters(Context ctx, String reg, String location, String unit) throws SQLException, ParseException {
-            SQLSelectBuilder sql = ctx.getSelectBuilder("Car");
-            ResultSet        rs;
+    public  static enum ValueAgg{MIN, AVG, MAX, STD};
+       
+    private class ChargeEstimates {
+        private String    charger = "";
+        private String    unit    = "";
+        private String    reg     = "";
+        private Context   ctx     = null;
+        private JSONTable params  = null;
+        
+        private class GainParams {
+            private Context   ctx;
+            private ResultSet rs; 
+            private float     gain         = 0;
+            private float     minCharge    = 0;
+            private float     avgCharge    = 0;
+            private float     maxCharge    = 0;
+            private float     stdCharge    = 0;
+            private float     minDuration  = 0;
+            private float     avgDuration  = 0;
+            private float     stdDuration  = 0;
+            private float     maxDuration  = 0;
+            private String    derivation   = "Linear";
+            private boolean   estimated    = false;
+            private int       sessions     = 0;
             
-            this.location = location;
-            this.unit     = unit;
-            this.reg      = reg;
+            public void loadResultSet (String source, ResultSet rs) throws SQLException, JSONException, ParseException {
+                EnhancedResultSet ers = new EnhancedResultSet(rs);
+                params.addRow(ers);
+                params.set("Source", source);
+                
+                minCharge    = rs.getFloat("MinCharge");
+                avgCharge    = rs.getFloat("AvgCharge");
+                maxCharge    = rs.getFloat("MaxCharge");
+                stdCharge    = rs.getFloat("StdCharge");
+                minDuration  = rs.getFloat("MinDuration");
+                avgDuration  = rs.getFloat("AvgDuration");
+                maxDuration  = rs.getFloat("MaxDuration");
+                stdDuration  = rs.getFloat("StdDuration");
+                sessions     = rs.getInt("Sessions");
+            }
+            public GainParams(Context ctx) {
+                this.ctx = ctx;
+            }
+            
+            public void loadGainParams(SQLSelectBuilder sql, String source) throws SQLException, JSONException, ParseException {
+                sql.addField("*");
+                sql.addAnd("CarReg",  "=", reg);
+                sql.addAnd("Charger", "=", charger);
+                rs = executeQuery(ctx, sql);
+                
+                if (rs.next()) {
+                    loadResultSet(source, rs);
+                } else {
+                    params.addRow();
+                    avgCharge    = capacity * gain / 100;
+                    avgDuration  = gain / 13;
+                    derivation   = "LinearApprox";
+                    estimated    = true;
+                    params.set("AvgCharge",   avgCharge);
+                    params.set("AvgDuration", avgDuration);
+                    params.set("Source",      source);
+                    params.set("Gain",        gain);
+                    params.set("Sessions",    0);
+                }
+            }            
+            public void loadGainParams(String source, float gain) throws SQLException, JSONException, ParseException {
+                SQLSelectBuilder sql = ctx.getSelectBuilder("ChargeParamsLinear");
+                this.gain = gain;
+                sql.addAnd("Gain", "=", "" + gain);
+                
+                loadGainParams(sql, source);
+            }
+            
+            public void loadGainParams(String source, float startPC, float endPC, String comp) throws SQLException, JSONException, ParseException {
+                SQLSelectBuilder sql = ctx.getSelectBuilder("ChargeParamsNonLinear");
+                
+                sql.addAnd("EndPerCent",    "=",  new SQLValue(endPC));
+                sql.addAnd("StartPerCent",  comp, new SQLValue(startPC));
+                sql.addOrderByField("Sessions", true);
+                gain = endPC - startPC;
+                loadGainParams(sql, source);
+                derivation = "NonLinear";
+                
+                if (estimated) {
+                    params.set("StartPerCent", startPC);
+                    params.set("EndPerCent",   endPC);
+                }
+            }
+            
+            public void loadGainParams(String source, float startPC, float endPC) throws SQLException, JSONException, ParseException {
+                loadGainParams(source, endPC - startPC);
+                params.set("StartPerCent", startPC);
+                params.set("EndPerCent",   endPC);
+            }
+            public int getInt(String name) throws SQLException {
+                return rs.getInt(name);
+            }
+            public float getFloat(String name) throws SQLException {
+                return rs.getFloat(name);
+            }
+        }
+        private float capacity     = -1;
+        private float rate         = -1;
+        private float targPerCent  = 0;
+        private float startPerCent = 0;
+        
+        private GainParams gainParams;
+       
+        private void loadEstimateParams(Context ctx) throws SQLException, ParseException, JSONException { 
+            GainParams gainNonLinIni;
+            GainParams gainNonLin;
+            
+            gainParams    = new GainParams(ctx);  
+            gainNonLinIni = new GainParams(ctx);           
+            gainNonLin    = new GainParams(ctx);
+                        
+            gainNonLinIni.loadGainParams("NL", startPerCent, targPerCent, "=");
+                        
+            if (startPerCent <= 90) {
+                gainParams.loadGainParams("LN90", startPerCent, targPerCent > 90? 90 : targPerCent);
+                
+                if (targPerCent <= 90) return;
+            }             
+            gainNonLin.loadGainParams("NLToTrg", startPerCent, targPerCent, startPerCent > 90? "=" : "<=");
+            
+            if (!gainNonLin.estimated) {                
+                if (startPerCent <= 90) {
+                    GainParams adj = new GainParams(ctx);
+                    /*
+                     * Need to adjust the estKwh and estDuration of gainParams
+                     */
+                    adj.loadGainParams("Adj", gainNonLin.getInt("StartPerCent"), 90);
+                    
+                    gainParams.minCharge    = 0;
+                    gainParams.avgCharge   += gainNonLin.getFloat("AvgCharge")   - adj.avgCharge;
+                    gainParams.maxCharge    = 0;
+                    gainParams.stdCharge    = 0;
+                    gainParams.minDuration  = 0;
+                    gainParams.avgDuration += gainNonLin.getFloat("AvgDuration") - adj.avgDuration;
+                    gainParams.maxDuration  = 0;
+                    gainParams.stdDuration  = 0;
+                    gainParams.derivation   = "LinearPlus";
+                } else {
+                    gainParams.derivation = "NonLinear";
+                }
+            } else {
+                /*
+                 * This will be the case if there is no match on targPerCent. Could attempt tp approximate
+                 * from existing data, but probably worth the effort
+                 */
+                gainParams.derivation = "Incomplete";
+            }
+            if (gainParams.derivation.equals("Incomplete") && !gainNonLin.estimated)
+                gainParams = gainNonLin;
+        }
+        private void loadCarParams(Context ctx) throws SQLException {
+            SQLSelectBuilder sql = ctx.getSelectBuilder("Car");
+            ResultSet        rs;            
             
             sql.addField("Capacity");
             sql.addAnd("Registration", "=", reg);
@@ -51,7 +196,7 @@ public class CarUsage extends ApplicationServer {
             sql.clear();
             
             sql.setTable("ChargerLocation");
-            sql.addAnd("Name", "=", location);
+            sql.addAnd("Name", "=", this.charger);
             sql.addField("Rate");
             rs = executeQuery(ctx, sql);
             
@@ -61,24 +206,80 @@ public class CarUsage extends ApplicationServer {
                 sql.clear();
                 sql.setTable("ChargerUnit");
                 sql.addField("Rate");
-                sql.addAnd("Location", "=", location);
+                sql.addAnd("Location", "=", this.charger);
                 sql.addAnd("Name",     "=", unit);
                 sql.addAndClause("Rate IS NOT NULL");
             }
-            if (rs.next()) capacity = rs.getFloat("Rate");
+            if (rs.next()) rate = rs.getFloat("Rate");       
         }
-        public ChargeParameters(Context ctx) throws SQLException, ParseException {
-            this(ctx, ctx.getParameter("CarReg"), ctx.getParameter("Charger"), ctx.getParameter("Unit"));
-        }
-
-        public float getCapacity() {
-            return capacity;
-        }
-        public float getRate() {
-            return rate;
+        public ChargeEstimates(Context context) throws SQLException, ParseException, JSONException {
+            ctx          = context;
+            charger      = ctx.getParameter("Charger");
+            reg          = ctx.getParameter("CarReg");
+            unit         = ctx.getParameter("Unit");
+            targPerCent  = ctx.getFloat("TargetPerCent", 100);
+            startPerCent = ctx.getFloat("StartPerCent", 0);
+            params       = new JSONTable("Params");
+            
+            loadCarParams(ctx);
+            params.addColumn("Source",       JSONTable.ColumnType.Text,    15, 0);
+            params.addColumn("StartPerCent", JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("EndPerCent",   JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("Gain",         JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("Sessions",     JSONTable.ColumnType.Int,     4, 0);
+            params.addColumn("MinCharge",    JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("AvgCharge",    JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("MaxCharge",    JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("StdCharge",    JSONTable.ColumnType.Decimal, 6, 2);
+            params.addColumn("MinDuration",  JSONTable.ColumnType.Time,    6, 2);
+            params.addColumn("AvgDuration",  JSONTable.ColumnType.Time,    6, 3);
+            params.addColumn("MaxDuration",  JSONTable.ColumnType.Time,    6, 3);
+            params.addColumn("StdDuration",  JSONTable.ColumnType.Time,    6, 3);
+            loadEstimateParams(ctx);
         }
         public float getKwh(Date from, Date to) {
             return rate * (to.getTime() - from.getTime()) / 3600000;
+        }
+        public float getEstDuration(ValueAgg agg) {
+            switch (agg) {
+                case MIN:
+                    return gainParams.minDuration;
+                case AVG:
+                    return gainParams.avgDuration;
+                case MAX:
+                    return gainParams.maxDuration;
+                case STD:
+                    return gainParams.stdDuration;
+            }
+            return gainParams.avgDuration;
+        }
+        public float getEstKwh(ValueAgg agg) {
+            switch (agg) {
+                case MIN:
+                    return gainParams.minCharge;
+                case AVG:
+                    return gainParams.avgCharge;
+                case MAX:
+                    return gainParams.maxCharge;
+                case STD:
+                    return gainParams.stdCharge;
+            }
+            return gainParams.avgDuration;
+        }
+        public int getSessions() {
+            return gainParams.sessions;
+        }
+        public String getDerivation() {
+            return gainParams.derivation;
+        }
+        public float getEstDuration() {
+            return getEstDuration(ValueAgg.AVG);
+        }
+        public float getEstKwh() {
+            return getEstKwh(ValueAgg.AVG);
+        }
+        public JSONTable getParams() {
+            return params;
         }
     }
     public class OffPeakUsage {
@@ -99,10 +300,8 @@ public class CarUsage extends ApplicationServer {
         private double         opKwh           = -1;
         private String         opKwhDerivation = "";
         private double         cost            = -1;
-        private double         credit          = -1;
         private boolean        supportsCredit  = false;
         private Context        ctx;
-        private boolean        closed          = false;
       
         private void setOpKwh(double kwh, String derivation) {
             opKwh           = Utils.round(kwh, 2);
@@ -111,7 +310,7 @@ public class CarUsage extends ApplicationServer {
         /*
          * Sets the appropriate variable for the different options for calculating the offpeak kwh.
          */
-        private void setOpKwhOptions() throws SQLException, ParseException {
+        private void setOpKwhOptions() throws SQLException, ParseException, JSONException {
             if (cost > 0 && tf.getUnitRate() > 0) {
                 /*
                  * We can break down the session kwh into the part that takes in the off peak and the
@@ -133,7 +332,7 @@ public class CarUsage extends ApplicationServer {
             /*
              * Session overlaps off peak and end % > 95. 
              */
-            ChargeParameters cp = new ChargeParameters(ctx);
+            ChargeEstimates    cp = new ChargeEstimates(ctx);
             /*
              * Get opKwh assuming charge rate is constant.
              */
@@ -221,7 +420,7 @@ public class CarUsage extends ApplicationServer {
             sql.addAnd("Start",  "=", ctx.getTimestamp("Start"));
             executeUpdate(ctx, sql);
         }
-        public OffPeakUsage(Context ctx) throws SQLException, ParseException {            
+        public OffPeakUsage(Context ctx) throws SQLException, ParseException, JSONException {            
             SQLSelectBuilder sql     = ctx.getSelectBuilder("ChargerLocation"); 
             EnclosingRecords er      = new EnclosingRecords(ctx, "MeterReading");
             ResultSet        rs;
@@ -253,7 +452,7 @@ public class CarUsage extends ApplicationServer {
                 rs = executeQuery(ctx, sql);
                 rs.next();
                 
-                credit         = rs.getDouble("Credit");
+                rs.getDouble("Credit");
                 supportsCredit = !rs.wasNull();
                 return;
             }
@@ -269,7 +468,6 @@ public class CarUsage extends ApplicationServer {
             
             Date opTime = new Date(ssEnd.getTime());
             
-            Utils.zeroTime(opTime);
             op = tf.new OffPeak(opTime);
             
             if (tf.getStart() == null) errorExit("Tariff not found for " + ctx.getParameter("Start"));
@@ -367,25 +565,6 @@ public class CarUsage extends ApplicationServer {
             
             executeUpdate(ctx, sql);
         }
-    }
-    private void test(Context ctx) throws SQLException, JSONException {
-        DatabaseSession.TableDefinition table = ctx.getAppDb().new TableDefinition("Car");
-        DatabaseSession.Column          col;
-        String                          name;
-        JSONObject                      json;
-        
-        name = Utils.splitToWords("CarSession");
-        name = Utils.splitToWords("aCarSession");
-        Iterator<DatabaseSession.Column> it = table.iterator();
-        
-        while (it.hasNext()) {
-            col = it.next();
-            name = col.getName();
-        }
-        table.getColumn("Modified").setDisplayName("Modified x");
-        name = table.getName();
-        json = table.toJson(true);
-        json = table.toJson();
     }
     private void validateChangeSession(Context ctx,  String action) throws ParseException, SQLException {
         Date             start   = ctx.getTimestamp("Start");
@@ -486,7 +665,7 @@ public class CarUsage extends ApplicationServer {
                 super.config.getProperty("btpassword"));
     }
     @Override
-    public void completeAction(Context ctx, boolean start) throws SQLException, ParseException {        
+    public void completeAction(Context ctx, boolean start) throws SQLException, ParseException, JSONException {        
         if (ctx.getParameter("action").equals("updateTableRow") && !start) {
             OffPeakUsage upc = new OffPeakUsage(ctx);
             
@@ -506,42 +685,47 @@ public class CarUsage extends ApplicationServer {
     @Override
     public void processAction(Context ctx, String action) throws ServletException, IOException, SQLException, JSONException, ParseException {
         String schema  = ctx.getAppDb().getProtocol().equals("sqlserver")? "dbo" : "BloodPressure";
-        String endName = ctx.getAppDb().delimitName("End");
 
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+        
         switch (action) {
-            case "getchargeparameters": {
-                    JSONObject       data = new JSONObject();
-                    ChargeParameters cps  = new ChargeParameters(
-                            ctx, 
-                            ctx.getParameter("CarReg"),
-                            ctx.getParameter("Charger"),
-                            ctx.getParameter("Unit"));
-                    data.add("Capacity", cps.getCapacity());
-                    data.add("Rate",     cps.getRate());
-                    data.append(ctx.getReplyBuffer(), "");
+            case "getEstimates": {
+                JSONTable       data = new JSONTable("Estimates");
+                ChargeEstimates est  = new ChargeEstimates(ctx);
+                
+                data.add("EstMinKwh",      est.getEstKwh(ValueAgg.MIN), 2);
+                data.add("EstAvgKwh",      est.getEstKwh(ValueAgg.AVG), 2);
+                data.add("EstMaxKwh",      est.getEstKwh(ValueAgg.MAX), 2);
+                data.add("EstStdKwh",      est.getEstKwh(ValueAgg.STD), 4);
+                data.add("EstMinDuration", est.getEstDuration(ValueAgg.MIN), 4);
+                data.add("EstAvgDuration", est.getEstDuration(ValueAgg.AVG), 4);
+                data.add("EstMaxDuration", est.getEstDuration(ValueAgg.MAX), 4);
+                data.add("EstStdDuration", est.getEstDuration(ValueAgg.STD), 4);
+                data.add("EstSessions",    est.getSessions());
+                data.add("EstDerivation",  est.getDerivation());
+                data.add("Params",         est.getParams());
+
+                data.append(ctx.getReplyBuffer(), "");
                 break;
             }
             case "chargesessions":
                 {
-                    JSONObject       data     = new JSONObject();
+                    JSONTable        data = new JSONTable("ChargeSessions");
                     ResultSet        rs;
-                    SQLSelectBuilder sql      = ctx.getSelectBuilder("ChargeSession");                   
-                    Object           rateCast = sql.setCast("DECIMAL", 8, 2);
+                    SQLSelectBuilder sql  = ctx.getSelectBuilder("ChargeSession");       
                     
                     sql.setProtocol(ctx.getAppDb().getProtocol());
-                    sql.setMaxRows(config.getIntProperty("banktransactionrows", 100));
+                    sql.setMaxRows(config.getIntProperty("chargesessionrows", 100));
                     sql.addField("CarReg");
                     sql.addField("Start");
                     sql.addField("End");  
                     sql.addField("Weekday", sql.setExpressionSource(schema + ".WeekDayName(Start)"));
+                    sql.addField("TargetPerCent");
                     sql.addField("EstDuration");
-                    sql.addField("MaxDuration");
+                    sql.addField("EstKwh");
                     sql.addField("Charger");
                     sql.addField("Unit");
                     sql.addField("Mileage");
-                    sql.addField("Rate",     sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 "), rateCast);
-                    sql.addField("Duration", sql.setExpressionSource(schema + ".GetTimeDiffPerUnit(Start, " + endName + ", EndPerCent - StartPerCent) / 60 * (100 - EndPercent)"), rateCast);       
                     sql.addField("StartMiles");
                     sql.addField("EndMiles");
                     sql.addField("StartPerCent");
@@ -555,14 +739,14 @@ public class CarUsage extends ApplicationServer {
                     sql.addOrderByField("CarReg", true);
                     sql.addOrderByField("Start", true);
                     rs = executeQuery(ctx, sql);
-                    data.add("ChargeSessions", rs);
+                    data.load(rs);
                     data.append(ctx.getReplyBuffer(), "");
                     break;
                 }
             case "chargers":
                 {
-                    JSONObject       data   = new JSONObject();
-                    ResultSet        rs;
+                    JSONTable data = new JSONTable("Chargers");
+                    ResultSet rs;
 
                     SQLSelectBuilder sql    =  ctx.getSelectBuilder("Chargers");
                     sql.setProtocol(ctx.getAppDb().getProtocol());
@@ -575,12 +759,12 @@ public class CarUsage extends ApplicationServer {
                     sql.addField("Location");
                     sql.addField("Comment");
                     rs = executeQuery(ctx, sql);
-                    data.add("ChargeSessions", rs);
+                    data.load(rs);
                     data.append(ctx.getReplyBuffer(), "");
                     break;
                 }
             case "sessionlog": {
-                JSONObject       data = new JSONObject();
+                JSONTable        data = new JSONTable("SessionLog");
                 ResultSet        rs;
                 SQLSelectBuilder sql  = ctx.getSelectBuilder("SessionLog");
                 sql.setProtocol(ctx.getAppDb().getProtocol());

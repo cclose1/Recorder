@@ -29,3 +29,7 @@ and open the template in the editor.
 #sessionlogtable {
     border-spacing: 3px;
 }
+
+tbody.xx {
+    display: block;
+}

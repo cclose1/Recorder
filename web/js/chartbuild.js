@@ -740,7 +740,7 @@ function setPartMode(type, update) {
 function appendField(pars, separator, field) {
     field = defaultNull(field, '');
     
-    if (pars === null)
+    if (pars === null || pars === '')
         pars = field;
     else
         pars += separator + field;

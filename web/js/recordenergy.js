@@ -166,6 +166,16 @@ function applyOffset(element) {
         ajaxLoggedInCall('Energy', processResponse, pars);
     }
 }
+function setDisplayedCostFields(element) {      
+    let flds = new ScreenFields('costs');
+    let type = element.value;
+    
+    flds.clear();
+    setHidden(flds.get('CalorificValue'),    type === 'Electric');
+    setHidden(flds.get('SwitchedPeakKwh'),   type === 'Gas');
+    setHidden(flds.get('SwitchedPeakCount'), type === 'Gas');
+    setHidden('cstopdiv',                    type === 'Gas');    
+}
 function actionCalculate() {
     let flds = new ScreenFields('calculatestart');
     let pars = createParameters('calculateCosts', {fields: flds.getFields()}); 
@@ -177,11 +187,7 @@ function actionCalculate() {
         flds.loadJSON(json, false);
         let report = json.getMember('Report').value;
         
-        if (report !== '') displayAlert('Warning', report);   
-        
-        setHidden(flds.get('CalorificValue'),  type === 'Electric');
-        setHidden(flds.get('SwitchedPeakKwh'), type === 'Gas');
-        setHidden('cstopdiv',                  type === 'Gas');
+        if (report !== '') displayAlert('Warning', report);           
     }
     if (!flds.checkValue('Start', true).valid)  return;
     if (!flds.checkValue('End',   false).valid) return;
@@ -247,21 +253,30 @@ function setCalValScreen(mode, setHistory) {
 function setPeakOverridesScreen(mode) {
     let flds = new ScreenFields('pkovrrride');
     
+    flds.setValue('Key!Start', '', true);
+    
     switch (mode) {
         case 'Create':
-            setHidden('ovrcreate', false);
-            setHidden('ovrmodify', true);
-            setHidden('ovrdelete', true);              
-            setHidden('ovrcancel', true);  
-            flds.clear();
+            setHidden('ovrcreate',  false);
+            setHidden('ovrmodify',  true);
+            setHidden('ovrdelete',  true);              
+            setHidden('ovrcancel',  true);             
+            setHidden('pkoreplace', true, true);    
+            flds.clear('TimeOffset');
             flds.setReadOnly('Start', false);
+            flds.setValue('Status',     'Initial');            
+            flds.setValue('TimeOffset', 'Local');
+
             break;
         case 'Update':
-            setHidden('ovrcreate', true);
-            setHidden('ovrmodify', false);
-            setHidden('ovrdelete', false);              
-            setHidden('ovrcancel', false);
+            setHidden('ovrcreate',  true);
+            setHidden('ovrmodify',  false);
+            setHidden('ovrdelete',  false);              
+            setHidden('ovrcancel',  false);     
+            setHidden('pkoreplace', false);  
             flds.setReadOnly('Start', true);  
+            flds.setValue('Status',     'Changed');        
+            flds.setValue('TimeOffset', 'GMT');
             break;
     }
     requestPeakOverrides();
@@ -300,21 +315,22 @@ function actionCalValue(element) {
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function actionPeakOverride(element) {
-    let action = element.value;
-    let flds   = new ScreenFields('pkovrrride');
+    let action   = element.value;
+    let flds     = new ScreenFields('pkovrrride');
+    let checkEnd = true;
+    
+    if (!flds.checkValue('Start', true).valid) return;
 
     switch (action) {
-        case "Create":
-            if (!fieldHasValue(flds.get('Date'))) return;
-            
-            action = 'create';
-            
+        case "Create":            
+            action = 'create';            
             break;
         case "Modify":
             action = 'update';
             break;
         case "Delete":
-            action = 'delete';
+            action   = 'delete';
+            checkEnd = false;
             break;
         case "Cancel":
             setPeakOverridesScreen('Create');
@@ -323,6 +339,23 @@ function actionPeakOverride(element) {
         default:
             throw new ErrorObject('Code Error', 'Action ' + action + ' is invalid');
     }
+    if (checkEnd) {
+        let start = flds.getValue('Start');
+        let end   = flds.getValue('End');
+        
+        if (!flds.checkValue('End', true).valid) return;
+        
+        if (end < start) {
+            flds.report('End', 'To date must be after From date', 'Error', true);
+            return;
+        }
+        if (dateDiff(start, end, 'Hours') >= 8) {
+            flds.report('Start', 'To date must be less than 8 after From date', 'Error', true);
+            return;
+        }
+    }
+    if (!flds.get('Replace').checked) flds.setValue('Key!Start', flds.getValue('Start'));
+    
     let parameters = createParameters(
                 action + 'TableRow',
                 {fields:        getParameters('pkovrrride'),                    
@@ -630,7 +663,8 @@ function menuClick(option) {
     setHidden('chartdv',      option !== 'chartdv');
 
     switch (option) {
-        case 'meter':
+        case 'meter':       
+            getElement('tmoffset').value = 'Local';
             requestReadings();
             break;
         case 'derive' :
@@ -640,8 +674,8 @@ function menuClick(option) {
             getElement('cstswvat').checked = false;
             getElement('cstvat').value = 'Remove';
             setVatMode(getElement('cstvat'));
-            getElement('cststime').value   = '';
-            getElement('cstendtime').value = '';
+            getElement('cststype').value = 'Electric';
+            setDisplayedCostFields(getElement('cststype'));
             requestScreenReadings('calculatestart');
         case 'rates':
             requestTariffs();
@@ -655,7 +689,6 @@ function menuClick(option) {
         case 'chartdv':
             setHidden('chart',        false);
             setHidden('meterhistory', true);
-        //    drawChart();
             break;
     }
 }
@@ -719,13 +752,31 @@ function setVatMode(element) {
     clearFields();
     setHidden(getElement('cstswvat'), mode === 'Included');
 }
+function pkoReplace(element) {
+    let flds = new ScreenFields('pkovrrride');
+    
+    if (element.checked) {
+        flds.setReadOnly('Start', false);
+        setHidden('ovrdelete',  true);
+        flds.setValue('Key!Start', flds.getValue('Start'));
+        flds.setValue('Status', 'Replaced');
+        
+        if (flds.getValue('Comment') === '') flds.setValue('Comment', 'Was ' + formatDate(flds.getValue('Key!Start'), 'dd-MMM-yy HH:mm'));
+    } else {
+        flds.setReadOnly('Start', true); 
+        setHidden('ovrdelete',  false);
+        flds.setValue('Start', flds.getValue('Key!Start'), true);
+        flds.setValue('Key!Start', '', true);
+        flds.setValue('Status', 'Changed');
+    }
+}
 function checkPeakOverride(element) {
     let name  = element.getAttribute('name').split('~');
     let flds  = new ScreenFields('pkovrrride');
     
-    if (name[0] === 'Start') return checkMeterIncrementTimestamp(flds, name[0], true);
+    if (name[0] === 'Start' && !checkMeterIncrementTimestamp(flds, name[0], true)) return false;
     
-    if(!flds.hasValue('End~Date')) flds.setValue('End', incrementDateTime(flds.getValue('Start'), 'Minutes', 30)); 
+    if(!flds.hasValue('End~Date', false)) flds.setValue('End', incrementDateTime(flds.getValue('Start'), 'Minutes', 30)); 
     
     return checkMeterIncrementTimestamp(flds, name[0], false);
 }
@@ -782,17 +833,10 @@ function requestPeakOverrides() {
     ajaxLoggedInCall('Energy', processResponse, parameters);
 }
 function initialize(loggedIn) {
-    let unpdt = unpackDate('2025-07-02');
-    let tdate = '2025-06-01 9:1:2';
-    let fdate = '';
     let filter;
     
     filter = addDBFilterField(filter, 'Solar', 'Type');
     filter = addDBFilterField(filter, '123',  'Number1', 'numeric');
-    fdate = formatDate(tdate, 'yy-M-d H:m:s');
-    fdate = formatDate(tdate, 'yyyy-MM-dd H:mm:ss E');
-    fdate = formatDate(tdate, 'yyyyMMMddHmmss');
-    fdate = formatDate(tdate, 'H');
     
     if (!loggedIn)
         return;
@@ -800,11 +844,13 @@ function initialize(loggedIn) {
     reporter.setFatalAction('error');
     chart = new Charter('myChart');
 
-    loadSelect('source',  'Bill,Reading,Estimated,Derived,Corrected', {allowBlank: true});
-    loadSelect('usource', getElement('source'),                       {allowBlank: true});
-    loadSelect('status',  'Verified, Ignore',                         {allowBlank: true});
-    loadSelect('ustatus', getElement('status'),                       {allowBlank: true});
-    loadSelect('chrtgrp', 'Hour,Day,Week,Month',                      {allowBlank: true});
+    loadSelect('source',   'Bill,Reading,Estimated,Derived,Corrected', {allowBlank: true});
+    loadSelect('pkotmo',   'Local,GMT',                                {allowBlank: false});    
+    loadSelect('tmoffset', getElement('pkotmo'),                       {allowBlank: false});
+    loadSelect('usource',  getElement('source'),                       {allowBlank: true});
+    loadSelect('status',   'Verified, Ignore',                         {allowBlank: true});
+    loadSelect('ustatus',  getElement('status'),                       {allowBlank: true});
+    loadSelect('chrtgrp',  'Hour,Day,Week,Month',                      {allowBlank: true});
     
     getList('Energy', {
         element: 'tariffcode',
@@ -853,7 +899,7 @@ function initialize(loggedIn) {
                 name: 'Type',
                 values: 'Gas,Electric'});
     getElement('tariffcode').value = 'SSEStd';
-    getElement('menu1').checked = true;
+    getElement('menu1').checked    = true;
     menuClick('meter');
     setHidden('updatefields', true);
 }

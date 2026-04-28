@@ -20,6 +20,7 @@ import org.cbc.json.JSONValue;
 import org.cbc.sql.SQLBuilder;
 import org.cbc.sql.SQLInsertBuilder;
 import org.cbc.sql.SQLSelectBuilder;
+import org.cbc.utils.data.EnhancedResultSet;
 
 /**
  *
@@ -35,7 +36,7 @@ public class ChartBuilder extends ApplicationServer {
     }
     private JSONObject getSourceFields(Context ctx, String exclude) throws SQLException, JSONException {  
         ResultSet         rs;
-        JSONObject.DBRow  md;
+        EnhancedResultSet md;
         JSONObject        source = new JSONObject();
         JSONArray         hdr    = new JSONArray();
         JSONArray         rows   = new JSONArray();
@@ -49,7 +50,7 @@ public class ChartBuilder extends ApplicationServer {
         sel.addField("*");
         sel.setMaxRows(1);
         rs = ctx.getAppDb().executeQuery(sel.build());
-        md = new JSONObject.DBRow(rs);
+        md = new EnhancedResultSet(rs);
         md.nextRow();
         source.add("Table",  new JSONValue(md.getTableName()));
         source.add("Header", hdr);
@@ -136,7 +137,7 @@ public class ChartBuilder extends ApplicationServer {
         JSONObject       data      = new JSONObject();
         String           group     = ctx.getParameter("GroupBy", "");
         String[]         fields    = ctx.getParameter("Fields",  "").split(",");
-        String           xField    = null;
+        String           timeCol   = null;
         boolean          useGMT    = ctx.getBoolean("UseGMT", false);
         ResultSet        rs;
         
@@ -155,7 +156,7 @@ public class ChartBuilder extends ApplicationServer {
              *  - agg    The aggregate function to be used in the case of group by. Defaults to sum.
              *  - alias  The field
              */
-            if (xField == null) xField = pars[0];
+            if (timeCol == null) timeCol = pars[0];
             
             if (group.length() == 0) {
                 if (pars.length == 3)
@@ -164,16 +165,16 @@ public class ChartBuilder extends ApplicationServer {
                     sql.addField(pars[0]);
             } else {
                 String name  = pars[0];
-                String aggr  = pars.length >= 2? pars[1] : xField.equals(pars[0])? "Min" : "Sum";
+                String aggr  = pars.length >= 2? pars[1] : timeCol.equals(pars[0])? "Min" : "Sum";
                 String alias = pars.length == 3? pars[2] : name;
                 
                 sql.addField(alias, aggr + "(" + name + ")");
             }
         }
-        sql.addAnd("!" + xField, ">=", start);
-        sql.addAnd("!" + xField,  "<", end);
+        sql.addAnd("!" + timeCol, ">=", start);
+        sql.addAnd("!" + timeCol,  "<", end);
         sql.addAnd(ctx.getParameter("filter"));
-        sql.addOrderByField(xField, false);
+        sql.addOrderByField(timeCol, false);
         
         for (String field : group.split("\\|")) {
             if (!field.equals("")) sql.addGroupByField(field);
